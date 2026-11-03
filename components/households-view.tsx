@@ -51,6 +51,10 @@ import { cn } from "@/lib/utils";
 
 const control = "h-9 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
 
+// Removed visits are already left out of contactVisits, so they never count.
+const VISITED_ANY = "__any_visit";
+const VISITED_NONE = "__not_visited";
+
 const emptyFilters = {
   state: "",
   visited: "",
@@ -143,7 +147,11 @@ export function HouseholdsView({
         if (!matchesTagFilter(household.tags, filters.tag)) return false;
       } else if (!showInContactList(household.tags, q, filters.list)) return false;
       if (filters.state && !matchesStateFilter(household.state, filters.state)) return false;
-      if (filters.visited) {
+      if (filters.visited === VISITED_ANY) {
+        if (!(household.contactVisits ?? []).length) return false;
+      } else if (filters.visited === VISITED_NONE) {
+        if ((household.contactVisits ?? []).length) return false;
+      } else if (filters.visited) {
         const key = filters.visited.toLowerCase();
         const visits = household.contactVisits ?? [];
         const hit = visits.some((visit) => visit.visited.toLowerCase() === key) || household.latestVisited.toLowerCase() === key;
@@ -289,7 +297,9 @@ export function HouseholdsView({
           value={filters.visited}
           onChange={(event) => { setFilters({ ...filters, visited: event.target.value }); setPage(1); }}
         >
-          <option value="">All visits</option>
+          <option value="">All contacts</option>
+          <option value={VISITED_ANY}>All visits</option>
+          <option value={VISITED_NONE}>Not yet visited</option>
           {visitedChoices.map((name) => <option key={name} value={name}>{name}</option>)}
         </select>
         <button

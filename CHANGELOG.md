@@ -4,6 +4,7 @@
 
 - Tapping an address opens a small menu to open it in Google Maps, Apple Maps, or Waze. It works on the contact page, the contact cards and table rows, route stops, and the map's contact card. When a contact has map coordinates, those are used. Otherwise the full address is used.
 - In the contacts table, the Visited column shows every visit, newest first, as small chips colored by reaction. The two newest fit on one line, and a +N chip opens the full list, so rows stay short.
+- The visit filter on the contacts page starts on All contacts, which shows everyone. All visits shows contacts with at least one visit, and Not yet visited shows contacts with none. Removed visits don't count. The season choices work as before.
 
 ## 1.5.5
 
