@@ -61,6 +61,7 @@ export interface Invite {
   canViewContact: boolean;
   canEdit: boolean;
   assignedRouteIds: string[];
+  territory: Territory[];
   acceptedAt: string | null;
   createdAt: string;
 }
@@ -501,6 +502,8 @@ export interface MemberInput {
   canViewContact: boolean;
   canEdit: boolean;
   assignedRouteIds: string[];
+  territoryStates: string;
+  territoryAreas: string;
 }
 
 export interface OrgInput {

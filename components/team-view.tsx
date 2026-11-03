@@ -12,26 +12,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { deleteMemberAction, saveMemberAction } from "@/lib/actions";
-import { ACCOUNT_STATUS_LABEL, ROLE_LABEL } from "@/lib/constants";
+import { ACCOUNT_STATUS_LABEL, FOCUS_STATES, ROLE_LABEL, sameState } from "@/lib/constants";
 import { formatMedium } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { AppData, MemberInput, Role, TeamMember } from "@/lib/types";
 
 const field = "h-10 w-full rounded-lg border border-input bg-card px-3 text-sm";
+
+function splitList(value: string) {
+  return [...new Set(value.split(/[,\n]/).map((part) => part.trim()).filter(Boolean))];
+}
+
+function territoryText(member: TeamMember) {
+  return {
+    states: [...new Set(member.territory.map((row) => row.state))].join(", "),
+    areas: [...new Set(member.territory.map((row) => row.area).filter(Boolean))].join(", "),
+  };
+}
 
 function blankMember(): MemberInput {
   return {
     name: "",
     email: "",
-    role: "visitor",
+    role: "shliach",
     expiresAt: "",
     canViewHistory: true,
     canViewContact: true,
     canEdit: false,
     assignedRouteIds: [],
+    territoryStates: "",
+    territoryAreas: "",
   };
 }
 
 function fromMember(member: TeamMember): MemberInput {
+  const territory = territoryText(member);
   return {
     id: member.id,
     kind: member.kind,
@@ -43,6 +58,8 @@ function fromMember(member: TeamMember): MemberInput {
     canViewContact: member.canViewContact,
     canEdit: member.canEdit,
     assignedRouteIds: member.assignedRouteIds,
+    territoryStates: territory.states,
+    territoryAreas: territory.areas,
   };
 }
 
@@ -62,6 +79,7 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
   const [open, setOpen] = useState(startInvite);
   const [form, setForm] = useState<MemberInput>(blankMember);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [pending, start] = useTransition();
   const rows = useMemo(
     () => data.members.filter((member) => `${member.name} ${member.email}`.toLowerCase().includes(query.trim().toLowerCase())),
@@ -71,21 +89,25 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
   const safe = Math.min(page, pages);
   const slice = rows.slice((safe - 1) * pageSize, safe * pageSize);
   const volunteers = data.members.filter((member) => member.role !== "admin");
+  const stateParts = splitList(form.territoryStates);
 
   function edit(member: TeamMember) {
     setForm(fromMember(member));
     setError("");
+    setInfo("");
     setOpen(true);
   }
 
   function save() {
     setError("");
+    setInfo("");
     start(async () => {
       const result = await saveMemberAction(form);
       if (!result.ok) {
         setError(result.error);
         return;
       }
+      if (result.warning) setInfo(result.warning);
       setOpen(false);
       setForm(blankMember());
       router.refresh();
@@ -102,6 +124,16 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
     });
   }
 
+  function setRole(role: Role) {
+    setForm({
+      ...form,
+      role,
+      canViewHistory: role === "admin" || role === "shliach" ? true : form.canViewHistory,
+      canViewContact: role === "admin" || role === "shliach" ? true : form.canViewContact,
+      canEdit: role === "admin" || role === "shliach" ? true : form.canEdit,
+    });
+  }
+
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
@@ -114,21 +146,23 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
               onClick={() => {
                 setForm(blankMember());
                 setError("");
+                setInfo("");
                 setOpen(true);
               }}
             >
-              Share access to this account
+              Invite by email
             </Button>
           ) : null
         }
       />
       {error && !open ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
+      {info && !open ? <div className="mb-3"><Notice tone="ok">{info}</Notice></div> : null}
       <section className="mb-4 panel rounded-3xl p-4">
-        <h2 className="font-heading text-lg font-semibold text-foreground">Volunteers</h2>
+        <h2 className="font-heading text-lg font-semibold text-foreground">People on this account</h2>
         {volunteers.length ? (
-          <p className="text-sm text-mutedink">{volunteers.length} volunteer{volunteers.length === 1 ? "" : "s"} can visit households on this account.</p>
+          <p className="text-sm text-mutedink">{volunteers.length} teammate{volunteers.length === 1 ? "" : "s"} besides Cora Connect admins.</p>
         ) : (
-          <p className="text-sm text-mutedink">No one has offered to help yet. Share access to invite a visitor.</p>
+          <p className="text-sm text-mutedink">Invite a Cora Connect admin or a shliach by email. They are approved automatically when they create their account.</p>
         )}
       </section>
       <div className="panel overflow-hidden rounded-3xl">
@@ -149,7 +183,7 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
           <table className="w-full min-w-[720px] text-left text-[13px]">
             <thead className="text-[11px] tracking-wide text-mutedink uppercase">
               <tr className="border-b">
-                {["Visitor name", "Email", "Role", "Status", "Permission status", ""].map((label) => (
+                {["Name", "Email", "Role", "Status", "Permission status", ""].map((label) => (
                   <th key={label} className="px-3 py-2 font-medium">{label}</th>
                 ))}
               </tr>
@@ -161,7 +195,14 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
                   <tr key={member.id} className="border-b last:border-0">
                     <td className="px-3 py-2 font-semibold text-foreground">{member.name}</td>
                     <td className="px-3 py-2 text-mutedink">{member.email}</td>
-                    <td className="px-3 py-2">{ROLE_LABEL[member.role] ?? member.role}</td>
+                    <td className="px-3 py-2">
+                      <div>{ROLE_LABEL[member.role] ?? member.role}</div>
+                      {member.role === "shliach" ? (
+                        <div className="mt-1 text-[11px] text-mutedink">
+                          {[...new Set(member.territory.map((row) => row.area ? `${row.state} · ${row.area}` : row.state))].join(", ") || "No territory yet"}
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-2">
                       <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] text-orange-700 ring-1 ring-orange-200">
                         {ACCOUNT_STATUS_LABEL[member.status]}
@@ -207,7 +248,7 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{form.id ? "Edit access" : "Share access"}</DialogTitle>
+            <DialogTitle>{form.id ? "Edit access" : "Invite by email"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
             <label className="grid gap-1 text-sm">
@@ -218,22 +259,86 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
               <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Email</span>
               <Input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
             </label>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Role</span>
+              <div className="inline-flex rounded-full bg-muted p-1" role="radiogroup" aria-label="Invite role">
+                {([
+                  ["admin", "Cora Connect admin"],
+                  ["shliach", "Shliach"],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.role === value}
+                    className={cn(
+                      "h-8 flex-1 whitespace-nowrap rounded-full px-3 text-xs font-medium",
+                      form.role === value ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-background",
+                    )}
+                    onClick={() => setRole(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <label className="grid gap-1 text-sm">
-                <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Role</span>
-                <select className={field} value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Role })}>
-                  <option value="admin">Admin</option>
+                <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Or visitor access</span>
+                <select
+                  className={field}
+                  value={form.role === "admin" || form.role === "shliach" ? "" : form.role}
+                  onChange={(event) => {
+                    const value = event.target.value as Role | "";
+                    if (value) setRole(value);
+                  }}
+                >
+                  <option value="">Keep Cora Connect admin / Shliach above</option>
                   <option value="visitor">Visitor</option>
                   <option value="limited">Limited</option>
                 </select>
               </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Access expires</span>
-                <Input type="date" value={form.expiresAt} onChange={(event) => setForm({ ...form, expiresAt: event.target.value })} />
-              </label>
             </div>
+            {form.role === "shliach" ? (
+              <div className="grid gap-2 rounded-xl bg-background p-3">
+                <p className="text-xs text-mutedink">Pick the states this shliach covers. Areas are optional.</p>
+                <div className="flex flex-wrap gap-1">
+                  {FOCUS_STATES.map((state) => {
+                    const on = stateParts.some((part) => sameState(part, state.name));
+                    return (
+                      <button
+                        key={state.code}
+                        type="button"
+                        aria-pressed={on}
+                        className={on ? "h-8 rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground" : "h-8 rounded-full bg-muted px-3 text-xs font-medium text-foreground"}
+                        onClick={() => {
+                          const next = on ? stateParts.filter((part) => !sameState(part, state.name)) : [...stateParts, state.name];
+                          setForm({ ...form, territoryStates: next.join(", ") });
+                        }}
+                      >
+                        {state.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Input
+                  value={form.territoryStates}
+                  placeholder="States, e.g. Maine, Unsorted"
+                  aria-label="States for this shliach"
+                  onChange={(event) => setForm({ ...form, territoryStates: event.target.value })}
+                />
+                <Input
+                  value={form.territoryAreas}
+                  placeholder="Areas, optional"
+                  aria-label="Areas for this shliach"
+                  onChange={(event) => setForm({ ...form, territoryAreas: event.target.value })}
+                />
+              </div>
+            ) : null}
+            <label className="grid gap-1 text-sm">
+              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Access expires</span>
+              <Input type="date" value={form.expiresAt} onChange={(event) => setForm({ ...form, expiresAt: event.target.value })} />
+            </label>
             <p className="text-xs text-mutedink">Leave the date empty for access that does not expire. Limited visitors only see households on the routes you assign.</p>
-            {form.role !== "admin" ? (
+            {form.role === "visitor" || form.role === "limited" ? (
               <div className="grid gap-2 rounded-xl bg-background p-3">
                 <Toggle label="View visit history and notes" checked={form.canViewHistory} onChange={(checked) => setForm({ ...form, canViewHistory: checked })} />
                 <Toggle label="View phone, email, and WhatsApp" checked={form.canViewContact} onChange={(checked) => setForm({ ...form, canViewContact: checked })} />
@@ -259,7 +364,11 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
                 )) : <p className="text-sm text-mutedink">Save a route on the map first, then assign it here.</p>}
               </div>
             ) : null}
-            {form.id ? null : <p className="text-xs text-mutedink">They create an account with this email and a password, then wait on the approval screen. Approve them from Users. An admin can also grant the admin role here after they are approved.</p>}
+            {form.id ? null : (
+              <p className="text-xs text-mutedink">
+                They create an account with this email and a password. The invite approves them automatically as the role you pick here. No extra step on Users.
+              </p>
+            )}
             {error ? <Notice>{error}</Notice> : null}
             <div className="flex justify-end">
               <Button className="rounded-full" disabled={pending || !data.viewer.canManage} onClick={save}>

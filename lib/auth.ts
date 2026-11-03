@@ -106,7 +106,7 @@ export async function signUpWithPassword(name: string, email: string, password: 
   if (!data.session) {
     return {
       ok: true,
-      warning: "Check your email and confirm the address. After you sign in, an admin still has to approve the account.",
+      warning: "Check your email and confirm the address. After you confirm and sign in, an invite opens the account with the role your admin chose. Allowlisted signups without an invite still wait for approval.",
     };
   }
   return { ok: true };

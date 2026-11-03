@@ -100,7 +100,7 @@ export function LoginForm({ google, errorCode }: { google: boolean; errorCode: s
         </form>
       ) : null}
       <p className="mt-4 text-xs text-mutedink">
-        Creating an account does not open the database. An admin approves you after you sign up.
+        Use the email from your invite. An invite opens the account when you sign up. Allowlisted emails without an invite still wait for a Cora Connect admin.
       </p>
     </AuthCard>
   );

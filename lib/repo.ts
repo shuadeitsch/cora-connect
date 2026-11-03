@@ -703,6 +703,14 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
       const admins = db.users.filter((user) => user.role === "admin");
       assert(admins.length > 1, "Keep at least one admin on the account.");
     }
+    const split = (value: string | undefined) => [...new Set((value ?? "").split(/[,\n]/).map((part) => part.trim()).filter(Boolean))];
+    const territory = input.role === "shliach"
+      ? territoryRows(split(input.territoryStates), split(input.territoryAreas))
+      : [];
+    const fullAccess = input.role === "admin" || input.role === "shliach";
+    const canViewHistory = fullAccess ? true : input.canViewHistory;
+    const canViewContact = fullAccess ? true : input.canViewContact;
+    const canEdit = fullAccess ? true : input.canEdit;
 
     if (existingUser) {
       const next: User = {
@@ -711,13 +719,16 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
         email,
         role: input.role,
         expiresAt,
-        canViewHistory: input.role === "admin" ? true : input.canViewHistory,
-        canViewContact: input.role === "admin" ? true : input.canViewContact,
-        canEdit: input.role === "admin" ? true : input.canEdit,
+        canViewHistory,
+        canViewContact,
+        canEdit,
         assignedRouteIds: assigned,
+        territory: input.role === "shliach" ? territory : input.role === "admin" ? [] : existingUser.territory,
       };
-      if (isSupabaseMode()) await writeProfile(next);
-      else applyDemo((draft) => {
+      if (isSupabaseMode()) {
+        await writeProfile(next);
+        if (input.role === "shliach" || input.role === "admin") await replaceTerritories(next.id, territory);
+      } else applyDemo((draft) => {
         const index = draft.users.findIndex((user) => user.id === next.id);
         if (index >= 0) draft.users[index] = next;
       });
@@ -732,10 +743,11 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
         email,
         role: input.role,
         expiresAt,
-        canViewHistory: input.canViewHistory,
-        canViewContact: input.canViewContact,
-        canEdit: input.canEdit,
+        canViewHistory,
+        canViewContact,
+        canEdit,
         assignedRouteIds: assigned,
+        territory,
         acceptedAt: null,
         createdAt: existingInvite?.createdAt ?? new Date().toISOString(),
       };
@@ -745,7 +757,10 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
         if (index >= 0) draft.invites[index] = invite;
         else draft.invites.push(invite);
       });
-      return { ok: true, warning: "Invite saved. They create an account with this email, then wait for an admin to approve them." };
+      return {
+        ok: true,
+        warning: "Invite saved. When they create an account with this email, they are approved automatically with the role you chose.",
+      };
     }
 
     const user: User = {
@@ -757,12 +772,12 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
       role: input.role,
       status: "invited",
       expiresAt,
-      canViewHistory: input.role === "admin" ? true : input.canViewHistory,
-      canViewContact: input.role === "admin" ? true : input.canViewContact,
-      canEdit: input.role === "admin" ? true : input.canEdit,
+      canViewHistory,
+      canViewContact,
+      canEdit,
       assignedRouteIds: assigned,
       leaderId: null,
-      territory: [],
+      territory,
     };
     applyDemo((draft) => draft.users.push(user));
     return { ok: true, warning: `Invite saved. In this preview they can sign in with the demo password (${DEMO_PASSWORD}).` };

@@ -557,6 +557,8 @@ export async function writeInvite(invite: Invite) {
         can_view_contact: invite.canViewContact,
         can_edit: invite.canEdit,
         assigned_route_ids: invite.assignedRouteIds,
+        territory_states: [...new Set(invite.territory.map((row) => row.state).filter(Boolean))],
+        territory_areas: [...new Set(invite.territory.map((row) => row.area.trim()).filter(Boolean))],
         accepted_at: invite.acceptedAt,
         created_at: invite.createdAt,
       })

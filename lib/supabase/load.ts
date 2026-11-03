@@ -275,20 +275,30 @@ export async function loadSupabase(actor: User): Promise<Database> {
     options: list(row.options),
   }));
 
-  const invites: Invite[] = inviteRows.map((row) => ({
-    id: text(row, "id"),
-    orgId: text(row, "org_id"),
-    name: text(row, "name"),
-    email: text(row, "email"),
-    role: text(row, "role") as Role,
-    expiresAt: nullableText(row, "expires_at"),
-    canViewHistory: Boolean(row.can_view_history),
-    canViewContact: Boolean(row.can_view_contact),
-    canEdit: Boolean(row.can_edit),
-    assignedRouteIds: list(row.assigned_route_ids),
-    acceptedAt: nullableText(row, "accepted_at"),
-    createdAt: text(row, "created_at"),
-  }));
+  const invites: Invite[] = inviteRows.map((row) => {
+    const states = list(row.territory_states);
+    const areas = list(row.territory_areas);
+    const territory = states.length
+      ? (areas.length
+        ? states.flatMap((state) => areas.map((area) => ({ state, area })))
+        : states.map((state) => ({ state, area: "" })))
+      : [];
+    return {
+      id: text(row, "id"),
+      orgId: text(row, "org_id"),
+      name: text(row, "name"),
+      email: text(row, "email"),
+      role: text(row, "role") as Role,
+      expiresAt: nullableText(row, "expires_at"),
+      canViewHistory: Boolean(row.can_view_history),
+      canViewContact: Boolean(row.can_view_contact),
+      canEdit: Boolean(row.can_edit),
+      assignedRouteIds: list(row.assigned_route_ids),
+      territory,
+      acceptedAt: nullableText(row, "accepted_at"),
+      createdAt: text(row, "created_at"),
+    };
+  });
 
   const notes: AppNotification[] = notifications.map((row) => ({
     id: text(row, "id"),

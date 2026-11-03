@@ -308,7 +308,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         canEdit: invite.canEdit,
         assignedRouteIds: invite.assignedRouteIds,
         leaderId: null,
-        territory: [],
+        territory: invite.territory ?? [],
         kind: "invite",
       });
     }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0
+
+- An invite now approves the person automatically when they create their account. The role, permissions, and shliach territory chosen on the invite are applied right away. No extra step on Users.
+- My team invite offers Cora Connect admin or Shliach (with states, and optional areas). Visitor and Limited stay available. The confirmation text no longer says to wait for approval.
+- Sign-up and sign-in copy match the new invite flow. Allowlisted emails without an invite still wait for approval. Preapproved admins are unchanged.
+- Database migration `014_invite_auto_approve.sql` stores invite territory and updates `sync_profile_from_auth`.
+
 ## 1.6.3
 
 - Three ways to make a route, and each one is saved by name in Saved routes:
@@ -9,6 +16,7 @@
 - New routes are put in order nearest-first from your start point, using the same map points as the Map page.
 - Start route on a saved route: type a starting address or tap Use my location. The app works out the quickest stop order from there and lists it. Then Open in Google Maps (long routes are split into parts of 10 stops, with Next leg), or Open in Apple Maps one stop at a time with Next stop. Save this order keeps the new order on the route.
 - Saved route maps now show pins for every stop.
+
 
 ## 1.6.2
 
