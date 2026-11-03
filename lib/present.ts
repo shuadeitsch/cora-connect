@@ -93,7 +93,10 @@ function peopleFor(db: Database, householdId: string, hideContact: boolean): Per
     );
 }
 
-export function present(db: Database, user: User, mode: AppData["mode"], today: string): AppData {
+export function present(source: Database, user: User, mode: AppData["mode"], today: string): AppData {
+  // A removed visit is gone from History, Reports, and the dashboard alike.
+  const removedIds = new Set(source.removedVisitIds ?? []);
+  const db: Database = removedIds.size ? { ...source, visits: source.visits.filter((visit) => !removedIds.has(visit.id)) } : source;
   const perms = viewerPermissions(user, today);
   const allowed = allowedHouseholdIds(user, db.routes);
   const visibleHouseholds = db.households.filter((household) => !allowed || allowed.has(household.id));
@@ -112,8 +115,6 @@ export function present(db: Database, user: User, mode: AppData["mode"], today: 
       const last = householdVisits[0] ?? null;
       const people = peopleFor(db, household.id, hideContact);
       const displayName = people.map((person) => person.name.trim()).find(Boolean) || household.name;
-      const storedIds = new Set((db.contactVisits ?? []).filter((visit) => visit.householdId === household.id).map((visit) => visit.id));
-      for (const id of db.removedVisitIds ?? []) storedIds.delete(id);
       const editsContact = canEditContact(user, household.ownerId, db.users, today);
       const contactVisits = outreachFor(db, household).map((visit) => ({
         id: visit.id,
@@ -123,7 +124,9 @@ export function present(db: Database, user: User, mode: AppData["mode"], today: 
         visitDate: visit.visitDate,
         status: visit.status,
         createdAt: visit.createdAt,
-        canRemove: storedIds.has(visit.id) && (editsContact || (perms.canLogVisit && visit.createdBy === user.id)),
+        canRemove: visit.id.startsWith("legacy-")
+          ? editsContact
+          : editsContact || (perms.canLogVisit && visit.createdBy === user.id),
       }));
       const latest = contactVisits[0] ?? null;
       const duplicateOfName = household.duplicateOf

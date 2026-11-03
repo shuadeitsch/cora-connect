@@ -8,7 +8,7 @@ import { DEMO_PASSWORD } from "@/lib/demo-accounts";
 import { todayIso } from "@/lib/format";
 import { geocodeAddress } from "@/lib/geo";
 import { newId } from "@/lib/ids";
-import { allowedHouseholdIds, viewerPermissions } from "@/lib/model";
+import { allowedHouseholdIds, canEditContact, viewerPermissions } from "@/lib/model";
 import { hashPassword } from "@/lib/password";
 import { loadDatabase } from "@/lib/session";
 import { loadDemo, persistDemo, resetDemo } from "@/lib/store";
@@ -22,6 +22,8 @@ import {
   removeHousehold,
   removeContactVisit,
   setContactVisitRemoved,
+  setVisitLogRemoved,
+  setLegacyVisitFields,
   removeInvite,
   removeProfile,
   removeProject,
@@ -563,17 +565,61 @@ export async function removeContactVisitFromContact(actor: User, id: string): Pr
     const allowed = perms(actor);
     assert(allowed.canEdit || allowed.canLogVisit, "You don't have permission to remove a visit.");
     const db = await loadDatabase();
-    const visit = (db.contactVisits ?? []).find((item) => item.id === id);
-    assert(visit, "That visit is already gone.");
+
+    if (id.startsWith("legacy-")) {
+      const householdId = id.slice("legacy-".length);
+      const household = db.households.find((item) => item.id === householdId);
+      assert(household, "That visit is already gone.");
+      assert(canEditContact(actor, household.ownerId, db.users, todayIso()), "You can't remove this visit.");
+      const undo: UndoPayload = {
+        type: "restore-legacy-visit",
+        householdId,
+        projectId: household.projectId,
+        visitReaction: household.visitReaction,
+        notes: household.notes,
+      };
+      if (isSupabaseMode()) {
+        await setLegacyVisitFields(householdId, { project_id: null, visit_reaction: null, notes: "" });
+      } else {
+        applyDemo((draft) => {
+          const row = draft.households.find((item) => item.id === householdId);
+          if (row) {
+            row.projectId = null;
+            row.visitReaction = null;
+            row.notes = "";
+          }
+        });
+      }
+      return { ok: true, undo };
+    }
+
+    const removed = new Set(db.removedVisitIds ?? []);
+    const history = (db.contactVisits ?? []).find((item) => item.id === id && !removed.has(item.id));
+    const log = db.visits.find((item) => item.id === id && !removed.has(item.id));
+    assert(history || log, "That visit is already gone.");
+    const householdId = history?.householdId ?? log?.householdId ?? "";
+    const household = db.households.find((item) => item.id === householdId);
+    const creator = history?.createdBy ?? log?.visitorId ?? null;
+    assert(
+      canEditContact(actor, household?.ownerId ?? null, db.users, todayIso()) || (allowed.canLogVisit && creator === actor.id),
+      "You can't remove this visit.",
+    );
     if (isSupabaseMode()) {
-      await setContactVisitRemoved(id, true);
+      if (log) await setVisitLogRemoved(id, true);
+      if (history) {
+        try {
+          await setContactVisitRemoved(id, true);
+        } catch (error) {
+          if (log) await setVisitLogRemoved(id, false).catch(() => undefined);
+          throw error;
+        }
+      }
     } else {
-      assert(allowed.canEdit || visit.createdBy === actor.id, "You can't remove this visit.");
       applyDemo((draft) => {
         draft.removedVisitIds = [...new Set([...(draft.removedVisitIds ?? []), id])];
       });
     }
-    return { ok: true, undo: { type: "restore-contact-visit", id } };
+    return { ok: true, undo: { type: "restore-contact-visit", id, history: Boolean(history), log: Boolean(log) } };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not remove the visit." };
   }
@@ -1069,7 +1115,14 @@ export async function applyUndo(actor: User, undo: UndoPayload): Promise<ActionR
         await removeVisit(undo.id);
         await removeContactVisit(undo.id);
       } else if (undo.type === "restore-contact-visit") {
-        await setContactVisitRemoved(undo.id, false);
+        if (undo.log) await setVisitLogRemoved(undo.id, false);
+        if (undo.history ?? true) await setContactVisitRemoved(undo.id, false);
+      } else if (undo.type === "restore-legacy-visit") {
+        await setLegacyVisitFields(undo.householdId, {
+          project_id: undo.projectId,
+          visit_reaction: undo.visitReaction,
+          notes: undo.notes,
+        });
       } else if (undo.type === "import") {
         await undoImportRows(undo.batchId, undo.householdIds, undo.visitIds);
       } else if (undo.type === "flags") {
@@ -1112,6 +1165,15 @@ export async function applyUndo(actor: User, undo: UndoPayload): Promise<ActionR
       } else if (undo.type === "restore-contact-visit") {
         applyDemo((draft) => {
           draft.removedVisitIds = (draft.removedVisitIds ?? []).filter((item) => item !== undo.id);
+        });
+      } else if (undo.type === "restore-legacy-visit") {
+        applyDemo((draft) => {
+          const row = draft.households.find((item) => item.id === undo.householdId);
+          if (row) {
+            row.projectId = undo.projectId;
+            row.visitReaction = undo.visitReaction;
+            row.notes = undo.notes;
+          }
         });
       } else if (undo.type === "flags") {
         applyDemo((draft) => {

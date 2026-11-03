@@ -265,6 +265,36 @@ export async function setContactVisitRemoved(id: string, removed: boolean) {
   }
 }
 
+// Reports log row. Same read-back as above, since a blocked update is silent.
+export async function setVisitLogRemoved(id: string, removed: boolean) {
+  const supabase = await createClient();
+  await done(
+    await supabase.from("visits").update({ deleted_at: removed ? new Date().toISOString() : null }).eq("id", id),
+    removed ? "Remove visit" : "Restore visit",
+  );
+  const check = await supabase.from("visits").select("id, deleted_at").eq("id", id).maybeSingle();
+  if (check.error) throw new Error(`${removed ? "Remove visit" : "Restore visit"}: ${check.error.message}`);
+  const row = check.data as { deleted_at: string | null } | null;
+  if (!row || Boolean(row.deleted_at) !== removed) {
+    throw new Error(removed ? "You can't remove this visit." : "You can't restore this visit.");
+  }
+}
+
+// The visit stored on the contact itself before Visit History existed.
+export async function setLegacyVisitFields(
+  id: string,
+  fields: { project_id: string | null; visit_reaction: string | null; notes: string },
+) {
+  const supabase = await createClient();
+  await done(await supabase.from("households").update(fields).eq("id", id), "Remove visit");
+  const check = await supabase.from("households").select("project_id, visit_reaction, notes").eq("id", id).maybeSingle();
+  if (check.error) throw new Error(`Remove visit: ${check.error.message}`);
+  const row = check.data as { project_id: string | null; visit_reaction: string | null; notes: string | null } | null;
+  if (!row || row.project_id !== fields.project_id || row.visit_reaction !== fields.visit_reaction || (row.notes ?? "") !== fields.notes) {
+    throw new Error("You can't change this visit.");
+  }
+}
+
 export async function undoImportRows(batchId: string, householdIds: string[], visitIds: string[]) {
   const supabase = await createClient();
   if (visitIds.length) {

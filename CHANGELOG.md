@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.5
+
+- Every visit in Visit history can be removed, including a visit logged from the Visit button that only shows on Reports and an old visit saved on the contact itself. The trash button shows for anyone who can edit that contact and for the person who logged the visit.
+- Removing a visit also takes it off Reports and the dashboard. Undo brings it back everywhere.
+- Removing an old visit saved on the contact clears its Visited, reaction, and notes on that contact. Undo puts them back.
+
 ## 1.5.4
 
 - A single visit can be removed from a contact. In Visit history, each visit has a trash button. It asks "Remove this visit?" before removing it, and you can undo it right after. The person who logged the visit and anyone who can edit that contact can remove it. The visit is hidden, not erased.
