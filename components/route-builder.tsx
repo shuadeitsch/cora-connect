@@ -56,7 +56,6 @@ export function RouteBuilder({ data }: { data: AppData }) {
         numbers={{}}
         start={data.org.startLat != null && data.org.startLng != null ? { lat: data.org.startLat, lng: data.org.startLng } : null}
         routeLine={[]}
-        onAdd={noop}
         onOpen={noop}
         onVisit={noop}
         pickMode

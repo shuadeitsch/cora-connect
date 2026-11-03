@@ -33,7 +33,7 @@ export function MapCanvas({
   numbers: Record<string, number>;
   start: { lat: number; lng: number } | null;
   routeLine: { lat: number; lng: number }[];
-  onAdd: (id: string) => void;
+  onAdd?: (id: string) => void;
   onOpen: (id: string) => void;
   onVisit: (id: string) => void;
   /** Tapping a pin picks it (no popup). */
@@ -48,8 +48,8 @@ export function MapCanvas({
   const layerRef = useRef<LayerGroup | null>(null);
   const callbacks = useRef({ onAdd, onOpen, onVisit });
   callbacks.current = { onAdd, onOpen, onVisit };
-  const pickRef = useRef({ onPick, onBox, pins });
-  pickRef.current = { onPick, onBox, pins };
+  const pickRef = useRef({ onPick, onBox, pins, selected });
+  pickRef.current = { onPick, onBox, pins, selected };
   const [ready, setReady] = useState(0);
   const fitted = useRef("");
   const filterKey = pins.map((pin) => pin.id).join("|");
@@ -93,7 +93,7 @@ export function MapCanvas({
       const id = target.getAttribute("data-id");
       const act = target.getAttribute("data-act");
       if (!id || !act) return;
-      if (act === "add") callbacks.current.onAdd(id);
+      if (act === "add") callbacks.current.onAdd?.(id);
       if (act === "open") callbacks.current.onOpen(id);
       if (act === "visit") callbacks.current.onVisit(id);
     }
@@ -127,6 +127,7 @@ export function MapCanvas({
         L.marker([start.lat, start.lng], { icon }).bindPopup("Route start").addTo(layer);
         bounds.push([start.lat, start.lng]);
       }
+      const showAdd = Boolean(callbacks.current.onAdd);
       for (const pin of pins) {
         const color = selected.includes(pin.id) ? "#042f2e" : pin.due === "overdue" ? "#e11d48" : pin.due === "due" ? "#f59e0b" : "#0f766e";
         const number = numbers[pin.id];
@@ -138,8 +139,9 @@ export function MapCanvas({
             iconSize: [24, 24],
             iconAnchor: [12, 12],
           });
-          L.marker([pin.lat, pin.lng], { icon: pickIcon, title: pin.name, zIndexOffset: on ? 500 : 0 })
-            .on("click", () => pickRef.current.onPick?.(pin.id))
+          // Not interactive: taps and clicks are read off the map container (see the pick effect below),
+          // so a pin redrawn mid-click, or a browser that sends two click events, can't drop or undo a pick.
+          L.marker([pin.lat, pin.lng], { icon: pickIcon, title: pin.name, zIndexOffset: on ? 500 : 0, interactive: false, keyboard: false })
             .addTo(layer);
           bounds.push([pin.lat, pin.lng]);
           continue;
@@ -154,7 +156,7 @@ export function MapCanvas({
         const safeAddress = escapeHtml(pin.address);
         L.marker([pin.lat, pin.lng], { icon })
           .bindPopup(
-            `<div style="min-width:180px"><strong>${safeName}</strong><div style="color:#667;font-size:12px;margin:4px 0">${safeAddress}</div><div style="font-size:12px;margin-bottom:8px">${escapeHtml(pin.schedule)}</div><button type="button" data-act="add" data-id="${pin.id}" style="margin-right:6px">Add to route</button><button type="button" data-act="open" data-id="${pin.id}" style="margin-right:6px">Details</button><button type="button" data-act="visit" data-id="${pin.id}">Log visit</button></div>`,
+            `<div style="min-width:180px"><strong>${safeName}</strong><div style="color:#667;font-size:12px;margin:4px 0">${safeAddress}</div><div style="font-size:12px;margin-bottom:8px">${escapeHtml(pin.schedule)}</div>${showAdd ? `<button type="button" data-act="add" data-id="${pin.id}" style="margin-right:6px">Add to route</button>` : ""}<button type="button" data-act="open" data-id="${pin.id}" style="margin-right:6px">Details</button><button type="button" data-act="visit" data-id="${pin.id}">Log visit</button></div>`,
           )
           .addTo(layer);
         bounds.push([pin.lat, pin.lng]);
@@ -171,6 +173,46 @@ export function MapCanvas({
       cancelled = true;
     };
   }, [ready, filterKey, selected, numbers, start, routeLine, pins, pickMode]);
+
+  // Click pins: a tap or click that barely moves picks the nearest pin under it; a drag still pans the map.
+  useEffect(() => {
+    const map = mapRef.current;
+    const node = el.current;
+    if (!map || !node || !pickMode) return;
+    // Quick taps on two pins would otherwise read as a double-tap and zoom the map.
+    map.doubleClickZoom.disable();
+    let origin: { x: number; y: number; id: number } | null = null;
+    const local = (event: PointerEvent) => {
+      const rect = node.getBoundingClientRect();
+      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    };
+    function down(event: PointerEvent) {
+      if ((event.target as HTMLElement | null)?.closest(".leaflet-control, .leaflet-popup")) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      origin = event.isPrimary ? { ...local(event), id: event.pointerId } : null;
+    }
+    function up(event: PointerEvent) {
+      if (!origin || event.pointerId !== origin.id) return;
+      const at = local(event);
+      const from = origin;
+      origin = null;
+      if (Math.abs(at.x - from.x) > 8 || Math.abs(at.y - from.y) > 8) return;
+      const hit = pinAt(map!, pickRef.current.pins, at, pickRef.current.selected);
+      if (hit) pickRef.current.onPick?.(hit);
+    }
+    function cancel() {
+      origin = null;
+    }
+    node.addEventListener("pointerdown", down);
+    node.addEventListener("pointerup", up);
+    node.addEventListener("pointercancel", cancel);
+    return () => {
+      node.removeEventListener("pointerdown", down);
+      node.removeEventListener("pointerup", up);
+      node.removeEventListener("pointercancel", cancel);
+      map.doubleClickZoom.enable();
+    };
+  }, [ready, pickMode]);
 
   const canBox = Boolean(onBox);
   useEffect(() => {
@@ -243,17 +285,8 @@ export function MapCanvas({
       if (event.type === "pointercancel") return;
       if (Math.abs(at.x - from.x) < 8 && Math.abs(at.y - from.y) < 8) {
         // A tap in box mode still toggles the pin under it.
-        const hit = pickRef.current.pins.find((pin) => {
-          const point = map!.latLngToContainerPoint([pin.lat, pin.lng]);
-          return Math.abs(point.x - at.x) <= 14 && Math.abs(point.y - at.y) <= 14;
-        });
-        if (hit) {
-          // Swallow the click that follows so the marker doesn't toggle a second time.
-          const swallow = (click: MouseEvent) => { click.stopPropagation(); click.preventDefault(); };
-          node!.addEventListener("click", swallow, { capture: true, once: true });
-          window.setTimeout(() => node!.removeEventListener("click", swallow, { capture: true }), 500);
-          pickRef.current.onPick?.(hit.id);
-        }
+        const hit = pinAt(map!, pickRef.current.pins, at, pickRef.current.selected);
+        if (hit) pickRef.current.onPick?.(hit);
         return;
       }
       const a = map!.containerPointToLatLng([from.x, from.y]);
@@ -282,6 +315,18 @@ export function MapCanvas({
   }, [ready, boxMode, canBox]);
 
   return <div ref={el} className="h-full w-full" />;
+}
+
+/** The pin nearest to a container point, within a finger's width. */
+function pinAt(map: LeafletMap, pins: MapPin[], at: { x: number; y: number }, selected: string[] = []) {
+  // Picked pins are drawn on top, so on a tie the picked one is the pin under the finger.
+  let best: { id: string; d: number } | null = null;
+  for (const pin of pins) {
+    const point = map.latLngToContainerPoint([pin.lat, pin.lng]);
+    const d = Math.hypot(point.x - at.x, point.y - at.y) - (selected.includes(pin.id) ? 1 : 0);
+    if (d <= 16 && (!best || d <= best.d)) best = { id: pin.id, d };
+  }
+  return best?.id ?? null;
 }
 
 function escapeHtml(value: string) {

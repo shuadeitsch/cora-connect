@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Map as MapIcon, MoreHorizontal, Search } from "lucide-react";
-import { CityRouteDialog } from "@/components/create-route";
+import { Building2, ListChecks, Map as MapIcon, MoreHorizontal, Search } from "lucide-react";
+import { CityRouteDialog, PickContactsDialog } from "@/components/create-route";
 import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,6 +23,7 @@ export function RoutesView({ data }: { data: AppData }) {
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const [byCity, setByCity] = useState(false);
+  const [picking, setPicking] = useState(false);
   const rows = useMemo(
     () => data.routes.filter((route) => route.name.toLowerCase().includes(query.trim().toLowerCase())),
     [data.routes, query],
@@ -50,6 +51,7 @@ export function RoutesView({ data }: { data: AppData }) {
           {data.viewer.canCreateRoute ? (
             <>
               <Button className="rounded-full" onClick={() => router.push("/saved-routes/new")}><MapIcon className="size-4" /> Build on map</Button>
+              <Button variant="outline" className="rounded-full" onClick={() => setPicking(true)}><ListChecks className="size-4" /> Pick contacts</Button>
               <Button variant="outline" className="rounded-full" onClick={() => setByCity(true)}><Building2 className="size-4" /> New route by city</Button>
             </>
           ) : null}
@@ -74,6 +76,7 @@ export function RoutesView({ data }: { data: AppData }) {
         }
       />
       <CityRouteDialog data={data} open={byCity} onClose={() => setByCity(false)} />
+      <PickContactsDialog data={data} open={picking} onClose={() => setPicking(false)} />
       {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
       <div className="panel overflow-hidden rounded-3xl">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">

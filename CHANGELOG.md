@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.5
+
+- Fixed: on Routes > Build on map, clicking or tapping a pin sometimes did nothing. This happened when the pins were redrawn during the click, for example when more addresses finished loading. Quick taps on two pins could also zoom the map instead. Picking a pin now always works. Draw box selects what is inside the box and adds to what is already picked. The map stays still while you draw, with a mouse or a finger.
+- Routes page: new Pick contacts button, next to Build on map and New route by city. Filter by state, Sort by, Cities, or search. Tick the contacts you want, or Select all shown, then Create route.
+- The main Map page no longer creates routes. The Create Route button, the route panel, and the Add to route buttons on pins are gone. The Map page is for looking. To make a route, go to Routes.
+
 ## 1.7.4
 
 - Build on map now has two clear modes you switch between: Click pins and Draw box. Click pins adds or removes one contact at a time. Draw box selects everyone inside the box you drag. The map stays still while you draw, with a mouse or a finger. Each new box adds to what is already selected. In Click pins mode, hold Shift and drag to draw a box too.

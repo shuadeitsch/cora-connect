@@ -6,10 +6,11 @@ import { Notice } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ContactStateTabs, cityKey, useContactFilters } from "@/components/contact-filters";
+import { ContactFilterControls, ContactStateTabs, cityKey, useContactFilters } from "@/components/contact-filters";
 import { buildRouteAction } from "@/lib/actions";
 import { stateLabel } from "@/lib/constants";
 import type { AppData } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 function suggestedName(data: AppData, ids: string[]) {
   const picked = data.households.filter((household) => ids.includes(household.id));
@@ -113,6 +114,69 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
               {!shown.length ? <li className="px-3 py-6 text-center text-sm text-muted-foreground">No contacts{ctl.filters.state ? ` in ${stateLabel(ctl.filters.state)}` : ""}.</li> : null}
             </ul>
           </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Tick contacts from a filtered list, then name and save the route. */
+export function PickContactsDialog({ data, open, onClose }: { data: AppData; open: boolean; onClose: () => void }) {
+  const [query, setQuery] = useState("");
+  const ctl = useContactFilters(data, query);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [naming, setNaming] = useState(false);
+  const shown = ctl.matched;
+  const allShown = shown.length > 0 && shown.every((household) => picked.includes(household.id));
+  const toggle = (id: string) => setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) { setNaming(false); setPicked([]); setQuery(""); onClose(); } }}>
+      <DialogContent className="flex max-h-[92dvh] flex-col sm:max-w-2xl">
+        <DialogHeader><DialogTitle className="font-heading text-foreground">{naming ? "New route" : "Pick contacts"}</DialogTitle></DialogHeader>
+        {naming ? (
+          <NameRouteForm data={data} ids={picked} onBack={() => setNaming(false)} />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <ContactStateTabs ctl={ctl} />
+              <ContactFilterControls ctl={ctl} />
+              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search contacts" aria-label="Search contacts" className="h-10 w-44 rounded-full" />
+            </div>
+            <ul className="min-h-40 flex-1 divide-y overflow-auto rounded-xl border">
+              {shown.map((household) => {
+                const on = picked.includes(household.id);
+                return (
+                  <li key={household.id}>
+                    <label className={cn("flex min-h-12 cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted", on && "bg-primary/5")}>
+                      <input type="checkbox" className="size-4 accent-[#0f766e]" checked={on} onChange={() => toggle(household.id)} />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-foreground">{household.name}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{household.address || "No address"}</span>
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+              {!shown.length ? <li className="px-3 py-6 text-center text-sm text-muted-foreground">No contacts match.</li> : null}
+            </ul>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-foreground">{picked.length} selected</span>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-full"
+                disabled={!shown.length}
+                onClick={() => setPicked((current) => allShown
+                  ? current.filter((id) => !shown.some((household) => household.id === id))
+                  : [...current, ...shown.map((household) => household.id).filter((id) => !current.includes(id))])}
+              >
+                {allShown ? "Unselect shown" : `Select all shown (${shown.length})`}
+              </Button>
+              {picked.length ? <Button type="button" variant="outline" className="h-9 rounded-full" onClick={() => setPicked([])}>Clear</Button> : null}
+              <Button type="button" className="ml-auto h-9 rounded-full" disabled={!picked.length} onClick={() => setNaming(true)}>Create route</Button>
+            </div>
+          </>
         )}
       </DialogContent>
     </Dialog>

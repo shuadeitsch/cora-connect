@@ -131,7 +131,6 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
           numbers={numbers}
           start={data.org.startLat != null && data.org.startLng != null ? { lat: data.org.startLat, lng: data.org.startLng } : null}
           routeLine={pins.map((pin) => ({ lat: pin.lat, lng: pin.lng }))}
-          onAdd={() => {}}
           onOpen={(id) => router.push(`/households?focus=${id}`)}
           onVisit={(id) => router.push(`/reports?new=1&household=${id}`)}
         />
