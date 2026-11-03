@@ -23,6 +23,10 @@ export function MapCanvas({
   onAdd,
   onOpen,
   onVisit,
+  pickMode = false,
+  onPick,
+  boxMode = false,
+  onBox,
 }: {
   pins: MapPin[];
   selected: string[];
@@ -32,12 +36,20 @@ export function MapCanvas({
   onAdd: (id: string) => void;
   onOpen: (id: string) => void;
   onVisit: (id: string) => void;
+  /** Tapping a pin picks it (no popup). */
+  pickMode?: boolean;
+  onPick?: (id: string) => void;
+  /** Dragging draws a box and picks every pin inside it. */
+  boxMode?: boolean;
+  onBox?: (ids: string[]) => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
   const callbacks = useRef({ onAdd, onOpen, onVisit });
   callbacks.current = { onAdd, onOpen, onVisit };
+  const pickRef = useRef({ onPick, onBox, pins });
+  pickRef.current = { onPick, onBox, pins };
   const [ready, setReady] = useState(0);
   const fitted = useRef("");
   const filterKey = pins.map((pin) => pin.id).join("|");
@@ -118,6 +130,20 @@ export function MapCanvas({
       for (const pin of pins) {
         const color = selected.includes(pin.id) ? "#042f2e" : pin.due === "overdue" ? "#e11d48" : pin.due === "due" ? "#f59e0b" : "#0f766e";
         const number = numbers[pin.id];
+        if (pickMode) {
+          const on = selected.includes(pin.id);
+          const pickIcon = L.divIcon({
+            className: "",
+            html: `<div style="width:24px;height:24px;border-radius:999px;background:${on ? "#042f2e" : color};color:white;border:${on ? "3px solid #fbbf24" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 12px sans-serif;display:flex;align-items:center;justify-content:center">${on ? "&#10003;" : ""}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          });
+          L.marker([pin.lat, pin.lng], { icon: pickIcon, title: pin.name, zIndexOffset: on ? 500 : 0 })
+            .on("click", () => pickRef.current.onPick?.(pin.id))
+            .addTo(layer);
+          bounds.push([pin.lat, pin.lng]);
+          continue;
+        }
         const icon = L.divIcon({
           className: "",
           html: `<div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${color};color:white;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35);font:600 10px sans-serif;display:flex;align-items:center;justify-content:center">${number ?? ""}</div>`,
@@ -144,7 +170,69 @@ export function MapCanvas({
     return () => {
       cancelled = true;
     };
-  }, [ready, filterKey, selected, numbers, start, routeLine, pins]);
+  }, [ready, filterKey, selected, numbers, start, routeLine, pins, pickMode]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const node = el.current;
+    if (!map || !node || !boxMode) return;
+    map.dragging.disable();
+    const touchAction = node.style.touchAction;
+    node.style.touchAction = "none";
+    node.style.cursor = "crosshair";
+    let origin: { x: number; y: number } | null = null;
+    let box: HTMLDivElement | null = null;
+    const local = (event: PointerEvent) => {
+      const rect = node.getBoundingClientRect();
+      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    };
+    function down(event: PointerEvent) {
+      if ((event.target as HTMLElement | null)?.closest(".leaflet-control")) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      origin = local(event);
+      box = document.createElement("div");
+      box.style.cssText = "position:absolute;z-index:450;border:2px dashed #0f766e;background:rgba(15,118,110,.12);pointer-events:none;border-radius:6px";
+      node!.appendChild(box);
+      node!.setPointerCapture?.(event.pointerId);
+    }
+    function move(event: PointerEvent) {
+      if (!origin || !box) return;
+      const at = local(event);
+      box.style.left = `${Math.min(origin.x, at.x)}px`;
+      box.style.top = `${Math.min(origin.y, at.y)}px`;
+      box.style.width = `${Math.abs(at.x - origin.x)}px`;
+      box.style.height = `${Math.abs(at.y - origin.y)}px`;
+    }
+    function up(event: PointerEvent) {
+      if (!origin) return;
+      const at = local(event);
+      const from = origin;
+      origin = null;
+      box?.remove();
+      box = null;
+      if (Math.abs(at.x - from.x) < 8 && Math.abs(at.y - from.y) < 8) return;
+      const a = map!.containerPointToLatLng([from.x, from.y]);
+      const b = map!.containerPointToLatLng([at.x, at.y]);
+      const south = Math.min(a.lat, b.lat), north = Math.max(a.lat, b.lat);
+      const west = Math.min(a.lng, b.lng), east = Math.max(a.lng, b.lng);
+      const ids = pickRef.current.pins.filter((pin) => pin.lat >= south && pin.lat <= north && pin.lng >= west && pin.lng <= east).map((pin) => pin.id);
+      if (ids.length) pickRef.current.onBox?.(ids);
+    }
+    node.addEventListener("pointerdown", down);
+    node.addEventListener("pointermove", move);
+    node.addEventListener("pointerup", up);
+    node.addEventListener("pointercancel", up);
+    return () => {
+      node.removeEventListener("pointerdown", down);
+      node.removeEventListener("pointermove", move);
+      node.removeEventListener("pointerup", up);
+      node.removeEventListener("pointercancel", up);
+      box?.remove();
+      node.style.touchAction = touchAction;
+      node.style.cursor = "";
+      map.dragging.enable();
+    };
+  }, [ready, boxMode]);
 
   return <div ref={el} className="h-full w-full" />;
 }

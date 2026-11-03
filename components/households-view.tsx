@@ -17,6 +17,7 @@ import {
   Table2,
   Trash2,
   Upload,
+  Route as RouteIcon,
 } from "lucide-react";
 import { AddressLink } from "@/components/address-link";
 import { Avatar } from "@/components/avatar";
@@ -27,6 +28,7 @@ import { VisitDialog } from "@/components/visit-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CreateRouteDialog } from "@/components/create-route";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
@@ -86,6 +88,7 @@ export function HouseholdsView({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selected, setSelected] = useState<string[]>([]);
+  const [routeFromPicked, setRouteFromPicked] = useState(false);
   const [editing, setEditing] = useState<HouseholdView | null>(null);
   const [creating, setCreating] = useState(openNew);
   const [importOpen, setImportOpen] = useState(openImport);
@@ -258,6 +261,11 @@ export function HouseholdsView({
         >
           All contacts
         </button>
+        {selected.length && data.viewer.canCreateRoute ? (
+          <button type="button" className={pill} onClick={() => setRouteFromPicked(true)}>
+            <RouteIcon className="size-3.5" /> Build route ({selected.length})
+          </button>
+        ) : null}
         {selected.length && data.viewer.canEdit ? (
           <button type="button" className={`${pill} text-red-600`} onClick={() => setPendingDelete(selected)}>
             <Trash2 className="size-3.5" /> Delete {selected.length} contact{selected.length === 1 ? "" : "s"}
@@ -436,6 +444,7 @@ export function HouseholdsView({
         households={data.households.map((household) => ({ id: household.id, name: household.name }))}
         initial={visitFor ? { householdId: visitFor.id, visitDate: "", status: "", reaction: "", details: "" } : undefined}
       />
+      <CreateRouteDialog data={data} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} />
       <Dialog open={Boolean(pendingDelete?.length)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

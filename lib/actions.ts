@@ -41,7 +41,8 @@ import {
   setHouseholdSchedule,
 } from "@/lib/repo";
 import { getAppData, getCurrentUser } from "@/lib/session";
-import { geocodeMany } from "@/lib/geocode";
+import { geocodeMany, geocodeText } from "@/lib/geocode";
+import { nearestNeighbor } from "@/lib/geo";
 import type {
   ActionResult,
   ApprovalDecision,
@@ -301,4 +302,35 @@ export async function geocodeContactsAction(ids: string[]) {
     .filter((household) => wanted.has(household.id) && (household.lat == null || household.lng == null))
     .map((household) => ({ key: household.id, street: household.street, city: household.city, state: household.state, zip: household.zip }));
   return { ok: true as const, data: await geocodeMany(queries) };
+}
+
+/** Saves a new route from picked contacts, ordered nearest-first from the start point (looked-up points for contacts with no saved coordinates). */
+export async function buildRouteAction(input: { name: string; projectId: string; householdIds: string[] }) {
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  const data = await getAppData();
+  if (!data) return { ok: false as const, error: "Sign in again." };
+  const wanted = new Set(input.householdIds);
+  const picked = data.households.filter((household) => wanted.has(household.id));
+  const lookups = await geocodeMany(
+    picked
+      .filter((household) => household.lat == null || household.lng == null)
+      .map((household) => ({ key: household.id, street: household.street, city: household.city, state: household.state, zip: household.zip })),
+  );
+  const points = picked.map((household) => ({
+    id: household.id,
+    lat: household.lat ?? lookups[household.id]?.lat ?? null,
+    lng: household.lng ?? lookups[household.id]?.lng ?? null,
+  }));
+  const start = data.org.startLat != null && data.org.startLng != null ? { lat: data.org.startLat, lng: data.org.startLng } : null;
+  const ordered = nearestNeighbor(start, points);
+  return refresh(await saveRoute(user, { name: input.name, projectId: input.projectId, optimized: true, householdIds: ordered }));
+}
+
+/** Finds a typed starting point for Start route. Nothing is saved. */
+export async function geocodeStartAction(text: string) {
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  const point = await geocodeText(text);
+  return point ? { ok: true as const, data: point } : { ok: false as const, error: "Couldn't find that address. Try adding the town and state." };
 }

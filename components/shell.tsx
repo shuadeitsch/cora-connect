@@ -99,7 +99,7 @@ export function Shell({
   const viewingState = useViewingState();
   const [search, setSearch] = useState(false);
   const unread = notifications.filter((note) => !note.read).length;
-  const mapPage = pathname.startsWith("/map");
+  const mapPage = pathname.startsWith("/map") || pathname === "/saved-routes/new";
   const primary = PRIMARY.filter((item) => viewer.canManage || !item.adminOnly);
 
   useEffect(() => {

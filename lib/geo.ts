@@ -151,3 +151,30 @@ export function routeMiles(
   }
   return Math.round(total * 10) / 10;
 }
+
+/** Quickest stop order from a start point by straight-line distance: nearest neighbor, then 2-opt clean-up. Stops with no point go last. */
+export function quickestOrder(
+  start: { lat: number; lng: number },
+  points: { id: string; lat: number | null; lng: number | null }[],
+): string[] {
+  const located = points.filter((p): p is { id: string; lat: number; lng: number } => p.lat != null && p.lng != null);
+  const missing = points.filter((p) => p.lat == null || p.lng == null).map((p) => p.id);
+  const byId = new Map(located.map((p) => [p.id, p]));
+  const path = nearestNeighbor(start, located).map((id) => byId.get(id)!);
+  const at = (i: number) => (i < 0 ? start : path[i]);
+  let improved = true;
+  for (let round = 0; improved && round < 50; round++) {
+    improved = false;
+    for (let i = 0; i < path.length - 1; i++) {
+      for (let j = i + 1; j < path.length; j++) {
+        const before = miles(at(i - 1), path[i]) + (j + 1 < path.length ? miles(path[j], path[j + 1]) : 0);
+        const after = miles(at(i - 1), path[j]) + (j + 1 < path.length ? miles(path[i], path[j + 1]) : 0);
+        if (after + 1e-9 < before) {
+          path.splice(i, j - i + 1, ...path.slice(i, j + 1).reverse());
+          improved = true;
+        }
+      }
+    }
+  }
+  return [...path.map((p) => p.id), ...missing];
+}

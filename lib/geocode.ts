@@ -104,3 +104,23 @@ export async function geocodeMany(queries: GeocodeQuery[]): Promise<Record<strin
   await Promise.all(Array.from({ length: Math.min(5, queries.length) }, worker));
   return out;
 }
+
+/** A typed starting point: a full address through the Census geocoder, anything else (a town, a place name) through Nominatim. */
+export async function geocodeText(text: string): Promise<GeocodePoint | null> {
+  const line = clean(text).slice(0, 200);
+  if (!line) return null;
+  const exact = await census(line);
+  if (exact) return { ...exact, approximate: false };
+  const wait = nominatimNext - Date.now();
+  nominatimNext = Math.max(Date.now(), nominatimNext) + 1100;
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({ q: line, countrycodes: "us", format: "json", limit: "1" })}`;
+    const response = await fetch(url, { headers: { "User-Agent": USER_AGENT }, next: { revalidate: MONTH }, signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return null;
+    const rows = (await response.json()) as { lat: string; lon: string }[];
+    return rows[0] ? { lat: Number(rows[0].lat), lng: Number(rows[0].lon), approximate: true } : null;
+  } catch {
+    return null;
+  }
+}

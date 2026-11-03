@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Search } from "lucide-react";
+import { Building2, Map as MapIcon, MoreHorizontal, Search } from "lucide-react";
+import { CityRouteDialog } from "@/components/create-route";
 import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,6 +22,7 @@ export function RoutesView({ data }: { data: AppData }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const [byCity, setByCity] = useState(false);
   const rows = useMemo(
     () => data.routes.filter((route) => route.name.toLowerCase().includes(query.trim().toLowerCase())),
     [data.routes, query],
@@ -44,7 +46,14 @@ export function RoutesView({ data }: { data: AppData }) {
         title="Saved routes"
         crumb="Saved routes"
         action={
-          data.viewer.canDeleteRoute ? (
+          <div className="flex flex-wrap justify-end gap-2">
+          {data.viewer.canCreateRoute ? (
+            <>
+              <Button className="rounded-full" onClick={() => router.push("/saved-routes/new")}><MapIcon className="size-4" /> Build on map</Button>
+              <Button variant="outline" className="rounded-full" onClick={() => setByCity(true)}><Building2 className="size-4" /> New route by city</Button>
+            </>
+          ) : null}
+          {data.viewer.canDeleteRoute ? (
             <Button
               variant="outline"
               className="rounded-full text-red-600"
@@ -60,9 +69,11 @@ export function RoutesView({ data }: { data: AppData }) {
             >
               Delete all
             </Button>
-          ) : null
+          ) : null}
+          </div>
         }
       />
+      <CityRouteDialog data={data} open={byCity} onClose={() => setByCity(false)} />
       {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
       <div className="panel overflow-hidden rounded-3xl">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
@@ -121,7 +132,7 @@ export function RoutesView({ data }: { data: AppData }) {
             </Link>
           ))}
         </div>
-        {!slice.length ? <p className="px-4 py-10 text-center text-sm text-mutedink">No routes yet. Build one from the map.</p> : null}
+        {!slice.length ? <p className="px-4 py-10 text-center text-sm text-mutedink">No routes yet.</p> : null}
       </div>
     </div>
   );

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.3
+
+- Three ways to make a route, and each one is saved by name in Saved routes:
+  - Build on map (Routes page): the map with the same filters as Contacts. Tap pins to pick or unpick them, or turn on Select area and drag a box around several. The tray shows how many are selected, with Select shown and Clear. Then Create route, name it, and save.
+  - From Contacts: tick contacts and choose Build route. Name it, save, and the route opens.
+  - New route by city (Routes page): pick a state tab and a city (with counts). The route gets every contact in that city that shows on the contact list.
+- New routes are put in order nearest-first from your start point, using the same map points as the Map page.
+- Start route on a saved route: type a starting address or tap Use my location. The app works out the quickest stop order from there and lists it. Then Open in Google Maps (long routes are split into parts of 10 stops, with Next leg), or Open in Apple Maps one stop at a time with Next stop. Save this order keeps the new order on the route.
+- Saved route maps now show pins for every stop.
+
 ## 1.6.2
 
 - Map shows a pin for every contact. Contacts without saved map coordinates are now looked up by their street address (US Census), or placed at their town center when the address can't be matched. Lookups are remembered, so the map stays fast. Nothing is saved to the contact.
