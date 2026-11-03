@@ -103,7 +103,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
       rows("visits_visible"),
       rows("routes"),
       rows("route_stops"),
-      rows("route_assignments"),
+      rows("route_assignments", "*", ["route_id", "user_id"]),
       rows("notifications"),
       rows("notification_reads", "notification_id, user_id", ["notification_id", "user_id"]),
     ]);

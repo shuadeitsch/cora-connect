@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1
+
+- Signing in works again. Since 1.5.0 the app stopped with an error right after login because it sorted route assignments by a column that table does not have. It now sorts them by route and user.
+
 ## 1.5.0
 
 - Contacts can be filtered by tag. Probably doesn't exist is one of the choices, and choosing it lists those contacts even though they stay off the main list until then.
