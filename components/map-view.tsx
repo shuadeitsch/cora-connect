@@ -2,7 +2,7 @@
 
 import { AddressLink } from "@/components/address-link";
 import dynamic from "next/dynamic";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LocateFixed, X } from "lucide-react";
 import { Notice } from "@/components/page-header";
@@ -10,7 +10,9 @@ import { TaggedRouteNotice } from "@/components/tagged-route-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { MapPin } from "@/components/map-canvas";
-import { saveRouteAction } from "@/lib/actions";
+import { geocodeContactsAction, saveRouteAction } from "@/lib/actions";
+import { ContactFilterControls, ContactStateTabs, filterPill, useContactFilters } from "@/components/contact-filters";
+import { cn } from "@/lib/utils";
 import { nearestNeighbor } from "@/lib/geo";
 import type { AppData, HouseholdView } from "@/lib/types";
 
@@ -19,13 +21,77 @@ const MapCanvas = dynamic(() => import("@/components/map-canvas").then((mod) => 
   loading: () => <div className="h-full w-full animate-pulse bg-muted" />,
 });
 
+type Found = { addr: string; lat: number; lng: number; approximate: boolean } | { addr: string; lat: null; lng: null; approximate: false };
+const FOUND_KEY = "cora-map-points-v1";
+
+function addressOf(household: HouseholdView) {
+  return [household.street, household.city, household.state, household.zip].map((part) => part.trim().toLowerCase()).join("|");
+}
+
+/** Saved coordinates when the contact has them; otherwise a point looked up for this device and kept in this browser. */
+function useMapPoints(households: HouseholdView[]) {
+  const [found, setFound] = useState<Record<string, Found>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(FOUND_KEY) ?? "{}") as Record<string, Found>;
+      setFound(saved && typeof saved === "object" ? saved : {});
+    } catch {
+      setFound({});
+    }
+    setLoaded(true);
+  }, []);
+
+  const missing = useMemo(
+    () => households.filter((household) => (household.lat == null || household.lng == null) && found[household.id]?.addr !== addressOf(household)),
+    [households, found],
+  );
+
+  useEffect(() => {
+    if (!loaded || running.current || !missing.length) return;
+    running.current = true;
+    setBusy(true);
+    void (async () => {
+      const next: Record<string, Found> = {};
+      for (let index = 0; index < missing.length; index += 20) {
+        const batch = missing.slice(index, index + 20);
+        const result = await geocodeContactsAction(batch.map((household) => household.id)).catch(() => null);
+        if (!result?.ok) break;
+        for (const household of batch) {
+          const point = result.data[household.id];
+          next[household.id] = point
+            ? { addr: addressOf(household), lat: point.lat, lng: point.lng, approximate: point.approximate }
+            : { addr: addressOf(household), lat: null, lng: null, approximate: false };
+        }
+        setFound((current) => {
+          const merged = { ...current, ...next };
+          try { window.localStorage.setItem(FOUND_KEY, JSON.stringify(merged)); } catch { /* storage full: keep in memory */ }
+          return merged;
+        });
+      }
+      running.current = false;
+      setBusy(false);
+    })();
+  }, [loaded, missing]);
+
+  function pointFor(household: HouseholdView): { lat: number; lng: number; approximate: boolean } | null {
+    if (household.lat != null && household.lng != null) return { lat: household.lat, lng: household.lng, approximate: false };
+    const hit = found[household.id];
+    if (!hit || hit.lat == null || hit.addr !== addressOf(household)) return null;
+    return { lat: hit.lat, lng: hit.lng, approximate: hit.approximate };
+  }
+
+  return { pointFor, busy: busy || (!loaded && households.some((household) => household.lat == null)), missingCount: missing.length };
+}
+
 export function MapView({ data }: { data: AppData }) {
   const router = useRouter();
-  const [projectId, setProjectId] = useState("");
-  const [scheduleId, setScheduleId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [dueOnly, setDueOnly] = useState(false);
   const [query, setQuery] = useState("");
+  const filterCtl = useContactFilters(data, query);
+  const { pointFor, busy: locating } = useMapPoints(data.households);
   const [building, setBuilding] = useState(false);
   const [stopIds, setStopIds] = useState<string[]>([]);
   const [routeName, setRouteName] = useState("");
@@ -37,23 +103,17 @@ export function MapView({ data }: { data: AppData }) {
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
 
-  const filtered = useMemo(() => {
-    return data.households.filter((household) => {
-      if (projectId && household.projectId !== projectId) return false;
-      if (scheduleId && household.scheduleCategoryId !== scheduleId) return false;
-      if (categoryId && !household.categoryIds.includes(categoryId)) return false;
-      if (dueOnly && household.dueState !== "due" && household.dueState !== "overdue") return false;
-      if (query && !`${household.name} ${household.city} ${household.zip}`.toLowerCase().includes(query.toLowerCase())) return false;
-      return household.lat != null && household.lng != null;
-    });
-  }, [data.households, projectId, scheduleId, categoryId, dueOnly, query]);
+  const matched = filterCtl.matched;
+  const filtered = matched.filter((household) => pointFor(household));
+  const unplaced = matched.length - filtered.length;
 
   const active = data.routes.find((route) => route.id === activeRoute);
   const line = active
     ? active.stops.flatMap((stop) => (stop.lat != null && stop.lng != null ? [{ lat: stop.lat, lng: stop.lng }] : []))
     : stopIds.flatMap((id) => {
         const household = data.households.find((item) => item.id === id);
-        return household?.lat != null && household.lng != null ? [{ lat: household.lat, lng: household.lng }] : [];
+        const point = household ? pointFor(household) : null;
+        return point ? [{ lat: point.lat, lng: point.lng }] : [];
       });
 
   const numbers: Record<string, number> = {};
@@ -65,8 +125,8 @@ export function MapView({ data }: { data: AppData }) {
     id: household.id,
     name: household.name,
     address: household.address,
-    lat: household.lat!,
-    lng: household.lng!,
+    lat: pointFor(household)!.lat,
+    lng: pointFor(household)!.lng,
     due: household.dueState === "overdue" ? "overdue" : household.dueState === "due" ? "due" : "ok",
     schedule: household.scheduleName,
   }));
@@ -80,7 +140,8 @@ export function MapView({ data }: { data: AppData }) {
   function orderStops() {
     const points = stopIds.map((id) => {
       const household = data.households.find((item) => item.id === id)!;
-      return { id, lat: household.lat, lng: household.lng };
+      const point = pointFor(household);
+      return { id, lat: point?.lat ?? null, lng: point?.lng ?? null };
     });
     const start = data.org.startLat != null && data.org.startLng != null ? { lat: data.org.startLat, lng: data.org.startLng } : null;
     setStopIds(nearestNeighbor(start, points));
@@ -103,25 +164,18 @@ export function MapView({ data }: { data: AppData }) {
       />
       <div className="pointer-events-none absolute inset-0 z-[500]">
         <div className="pointer-events-auto m-3 flex flex-wrap items-center gap-2">
-          <select className="glass h-11 rounded-full px-3 text-sm" value={scheduleId} onChange={(event) => setScheduleId(event.target.value)}>
-            <option value="">All schedules</option>
-            {data.categories.filter((category) => category.kind === "scheduled").map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </select>
-          <select className="glass h-11 rounded-full px-3 text-sm" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-            <option value="">All categories</option>
-            {data.categories.filter((category) => category.kind === "regular").map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </select>
-          <button type="button" className="glass inline-flex h-11 items-center gap-2 rounded-full px-3 text-sm" onClick={() => setProjectId("")}>
-            <span className="size-2 rounded-full bg-[#2f6bff]" />
-            <select className="bg-transparent outline-none" value={projectId} onChange={(event) => setProjectId(event.target.value)} onClick={(event) => event.stopPropagation()}>
-              <option value="">All projects</option>
-              {data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-            </select>
+          <ContactStateTabs ctl={filterCtl} />
+          <ContactFilterControls ctl={filterCtl} />
+          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search contacts" aria-label="Search contacts" className="h-10 w-44 rounded-full bg-card" />
+          <button
+            type="button"
+            className={cn(filterPill, !filterCtl.filters.mode && !filterCtl.filters.cities.length && !query && "bg-primary text-primary-foreground")}
+            onClick={() => { filterCtl.resetFilters(); setQuery(""); }}
+          >
+            All contacts
           </button>
-          <label className="glass inline-flex h-11 items-center gap-2 rounded-full px-3 text-sm">
-            <input type="checkbox" checked={dueOnly} onChange={(event) => setDueOnly(event.target.checked)} /> Due now
-          </label>
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Household or zip" className="glass h-11 w-44 rounded-full border-0" />
+          {locating ? <span className="glass rounded-full px-3 py-2 text-xs text-muted-foreground">Finding addresses…</span> : null}
+          {!locating && unplaced > 0 ? <span className="glass rounded-full px-3 py-2 text-xs text-muted-foreground">{unplaced} without a map spot</span> : null}
           {data.viewer.canCreateRoute ? (
             <Button className="h-11 rounded-full" onClick={() => { setBuilding(true); setActiveRoute(""); }}>Create Route</Button>
           ) : null}
@@ -221,19 +275,30 @@ export function MapView({ data }: { data: AppData }) {
             </div>
           </aside>
         ) : null}
-        {contact ? <ContactCard household={contact} onClose={() => setContactId("")} onAdd={() => addStop(contact.id)} /> : null}
+        {contact ? <ContactCard household={contact} point={pointFor(contact)} onClose={() => setContactId("")} onAdd={() => addStop(contact.id)} /> : null}
       </div>
     </div>
   );
 }
 
-function ContactCard({ household, onClose, onAdd }: { household: HouseholdView; onClose: () => void; onAdd: () => void }) {
+function ContactCard({
+  household,
+  point,
+  onClose,
+  onAdd,
+}: {
+  household: HouseholdView;
+  point: { lat: number; lng: number; approximate: boolean } | null;
+  onClose: () => void;
+  onAdd: () => void;
+}) {
   return (
     <div className="glass pointer-events-auto absolute bottom-28 left-1/2 w-[min(100%-1.5rem,360px)] -translate-x-1/2 rounded-3xl p-3 lg:bottom-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-heading font-semibold text-foreground">{household.name}</p>
-          <p className="text-xs text-mutedink"><AddressLink address={household.address} lat={household.lat} lng={household.lng} /></p>
+          <p className="text-xs text-mutedink"><AddressLink address={household.address} lat={point && !point.approximate ? point.lat : null} lng={point && !point.approximate ? point.lng : null} /></p>
+          {point?.approximate ? <p className="text-[11px] text-mutedink">Pin is at the town center.</p> : null}
           <p className="text-xs text-mutedink">{household.scheduleName}</p>
         </div>
         <button type="button" aria-label="Close" onClick={onClose}><X className="size-4" /></button>

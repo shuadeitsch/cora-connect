@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.2
+
+- Map shows a pin for every contact. Contacts without saved map coordinates are now looked up by their street address (US Census), or placed at their town center when the address can't be matched. Lookups are remembered, so the map stays fast. Nothing is saved to the contact.
+- The map's filter bar now has the same controls as Contacts: state tabs, Sort by (with Tags, Visits and Possible duplicates), Cities, search and All contacts. Hidden tags stay hidden on the map too.
+- The old map filters (schedules, categories, projects, Due now) were removed.
+
 ## 1.6.1
 
 - The sign-in, sign-up, and reset password screens show the Cora Connect logo, larger and centered, on a clear background.

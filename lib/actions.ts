@@ -40,7 +40,8 @@ import {
   setHouseholdCategories,
   setHouseholdSchedule,
 } from "@/lib/repo";
-import { getCurrentUser } from "@/lib/session";
+import { getAppData, getCurrentUser } from "@/lib/session";
+import { geocodeMany } from "@/lib/geocode";
 import type {
   ActionResult,
   ApprovalDecision,
@@ -289,4 +290,15 @@ export async function resetDemoAction() {
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await resetDemoData(user));
+}
+
+/** Map points for contacts with no saved coordinates. Looked up on the fly; nothing is saved. */
+export async function geocodeContactsAction(ids: string[]) {
+  const data = await getAppData();
+  if (!data) return { ok: false as const, error: "Sign in again." };
+  const wanted = new Set(ids.slice(0, 40));
+  const queries = data.households
+    .filter((household) => wanted.has(household.id) && (household.lat == null || household.lng == null))
+    .map((household) => ({ key: household.id, street: household.street, city: household.city, state: household.state, zip: household.zip }));
+  return { ok: true as const, data: await geocodeMany(queries) };
 }
