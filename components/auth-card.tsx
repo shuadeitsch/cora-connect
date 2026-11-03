@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ReloadButton } from "@/components/reload-button";
-import { VersionBadge } from "@/components/version-badge";
 
 export function AuthCard({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
@@ -14,7 +13,6 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
       <div className="page-enter glass w-full max-w-md rounded-3xl p-6 sm:p-8">
         <Logo full />
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <VersionBadge />
           <ReloadButton />
         </div>
         <h1 className="mt-6 font-heading text-3xl font-semibold text-foreground">{title}</h1>

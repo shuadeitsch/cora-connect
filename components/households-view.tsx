@@ -42,6 +42,7 @@ import { useUndoToast } from "@/components/undo-toast";
 import { CANONICAL_HEADERS, toCsv } from "@/lib/csv";
 import { VisitedPicker } from "@/components/visited-picker";
 import { isRealVisit } from "@/lib/visited";
+import { setViewingState } from "@/lib/viewing-state";
 import { FOCUS_STATES, matchesStateFilter, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { CONTACT_TAGS, matchesTagFilter, officialTags, showInContactList } from "@/lib/contact-tags";
@@ -132,6 +133,12 @@ export function HouseholdsView({
   const [error, setError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
   const [, start] = useTransition();
+
+  useEffect(() => {
+    setViewingState(filters.state);
+  }, [filters.state]);
+
+  useEffect(() => () => setViewingState(null), []);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("cora-household-view");
@@ -313,7 +320,7 @@ export function HouseholdsView({
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
-        title={scopeLabel(data.viewer.role, data.viewer.territory)}
+        title={scopeLabel(data.viewer.role, data.viewer.territory, filters.state)}
         crumb="Contacts"
         action={
           data.viewer.canEdit || data.viewer.canManage ? (

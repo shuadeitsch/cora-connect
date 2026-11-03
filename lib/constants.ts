@@ -140,9 +140,12 @@ export function matchesStateFilter(householdState: string, filter: string): bool
   return sameState(householdState, filter);
 }
 
-export function scopeLabel(role: string, territory: { state: string }[]): string {
-  if (role === "admin") return "Cora · All states";
+/** Who you are and what you are looking at. Pass the open state tab ("" for All states) to show it instead of the default. */
+export function scopeLabel(role: string, territory: { state: string }[], viewing: string | null = null): string {
+  const looking = viewing === null ? null : viewing.trim() ? stateLabel(viewing) : "All states";
+  if (role === "admin") return `Cora · ${looking ?? "All states"}`;
   if (role === "shliach") {
+    if (looking) return `Shliach · ${looking}`;
     const names = [...new Set(territory.map((row) => stateLabel(row.state)).filter(Boolean))];
     if (names.length === 1) return `Shliach · ${names[0]}`;
     if (names.length > 1) return `Shliach · ${names.join(", ")}`;

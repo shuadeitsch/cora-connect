@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.9
+
+- The phone button in the top bar is now Feedback. Tap it to email info@chabadora.com, or call or text 347-770-1863.
+- The name card at the bottom of the side bar shows the state you are looking at, such as Maine, and says All states only when all states are showing. The Contacts title follows the same tab.
+- The sign-in, sign-up, and reset password screens no longer show the version number and update time. Inside the app it still shows.
+
 ## 1.5.8
 
 - Reactions is gone from the Sort by menu. It now has Tags, Visits, and Possible duplicates.
