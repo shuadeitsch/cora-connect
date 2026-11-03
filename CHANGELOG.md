@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.0
+
+- The admin role is now called Cora Connect admin everywhere: Users, My Team, the dashboard, sign-up, and the waiting room.
+- The Users page shows each person's current role as a badge.
+- The two role buttons on each row are replaced by Change role. It opens a small chooser for Cora Connect admin or Shliach, with the state picker for a shliach, and asks you to confirm before it changes anything.
+- New accounts waiting for approval show the same choice, Cora Connect admin or Shliach with his states, and an Approve button for that choice, plus Reject.
+
 ## 1.5.9
 
 - The phone button in the top bar is now Feedback. Tap it to email info@chabadora.com, or call or text 347-770-1863.

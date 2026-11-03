@@ -53,7 +53,7 @@ export function DashboardHome({ data }: { data: AppData }) {
         <Stat
           label="Team"
           value={String(stats.teamCount)}
-          hint={`${stats.roleCounts.admin} Cora admin · ${stats.roleCounts.shliach} shliach · ${stats.roleCounts.visitor} visitor`}
+          hint={`${stats.roleCounts.admin} Cora Connect admin · ${stats.roleCounts.shliach} shliach · ${stats.roleCounts.visitor} visitor`}
           href="/team"
           link="Manage team"
         />

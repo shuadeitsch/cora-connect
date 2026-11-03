@@ -147,7 +147,7 @@ function householdFromInput(db: Database, actor: User, input: HouseholdInput, ex
     if (first) state = normalizeState(first.state);
   }
   if (owner?.role === "shliach") {
-    if (!state) throw new Error("A Cora admin still needs to assign your state before you can add a contact.");
+    if (!state) throw new Error("A Cora Connect admin still needs to assign your state before you can add a contact.");
     const inState = territory.some((row) => normalizeState(row.state).toLowerCase() === state.toLowerCase());
     const allowed = contactInTerritory(territory, state, city) || (!city && inState);
     assert(allowed, "That contact is outside the assigned territory.");
@@ -815,7 +815,7 @@ export async function setAccountApproval(
     const db = await loadDatabase();
     const target = db.users.find((user) => user.id === id);
     assert(target, "That account is not on this team.");
-    assert(target.email.toLowerCase() !== OWNER_EMAIL, "That login stays a Cora admin.");
+    assert(target.email.toLowerCase() !== OWNER_EMAIL, "That login stays a Cora Connect admin.");
     const rows = decision === "shliach" ? territoryRows(territory?.states ?? [], territory?.areas ?? []) : [];
     const patch =
       decision === "admin"

@@ -40,7 +40,7 @@ export function SignupForm({ initialEmail }: { initialEmail: string }) {
   }
 
   return (
-    <AuthCard title="Create a Cora Connect account" subtitle="Use the email on your invite or the signup allowlist. A Cora admin approves you as a Cora admin or a shliach.">
+    <AuthCard title="Create a Cora Connect account" subtitle="Use the email on your invite or the signup allowlist. A Cora Connect admin approves you as a Cora Connect admin or a shliach.">
       <form className="space-y-3" onSubmit={(event) => void submit(event)}>
         <label className="block text-sm">
           <span className="mb-1 block text-[11px] font-medium tracking-wide text-mutedink uppercase">Name</span>

@@ -345,7 +345,7 @@ export function HouseholdsView({
         }
       />
       {data.viewer.role === "shliach" && !data.viewer.territory.length ? (
-        <div className="mb-3"><Notice>A Cora admin still needs to assign your states before you can add contacts.</Notice></div>
+        <div className="mb-3"><Notice>A Cora Connect admin still needs to assign your states before you can add contacts.</Notice></div>
       ) : null}
       {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
       {tabs.length ? (

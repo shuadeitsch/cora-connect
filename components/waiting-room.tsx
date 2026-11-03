@@ -16,7 +16,7 @@ const COPY: Record<string, { title: string; body: string }> = {
   },
   pending: {
     title: "Waiting for approval",
-    body: "A Cora admin has to approve this account before you can see contacts.",
+    body: "A Cora Connect admin has to approve this account before you can see contacts.",
   },
 };
 
