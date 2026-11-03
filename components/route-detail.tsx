@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { TaggedRouteNotice } from "@/components/tagged-route-notice";
 import type { MapPin } from "@/components/map-canvas";
 import { deleteRouteAction, saveRouteAction } from "@/lib/actions";
-import { mapsHref } from "@/lib/format";
+import { AddressLink } from "@/components/address-link";
+import { fullAddress } from "@/lib/format";
 import { nearestNeighbor } from "@/lib/geo";
 import type { AppData, RouteView } from "@/lib/types";
 
@@ -78,11 +79,13 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
           {route.stops.map((stop, index) => (
             <li key={stop.householdId} className="rounded-xl bg-card p-3 shadow-sm ring-1 ring-foreground/8">
               <p className="text-sm font-semibold text-foreground">{index + 1}. {stop.name}</p>
-              <p className="text-xs text-mutedink">{stop.street}, {stop.city}, {stop.state} {stop.zip}</p>
+              <p className="text-xs text-mutedink">
+                <AddressLink address={fullAddress(stop)} lat={stop.lat} lng={stop.lng} />
+              </p>
               <div className="mt-2 flex gap-2">
-                <a className="inline-flex items-center gap-1 text-xs text-link" href={mapsHref(stop.lat, stop.lng, `${stop.street}, ${stop.city}`)} target="_blank" rel="noreferrer">
+                <AddressLink address={fullAddress(stop)} lat={stop.lat} lng={stop.lng} label="Navigate" className="inline-flex items-center gap-1 text-xs text-link">
                   <Navigation className="size-3.5" /> Navigate
-                </a>
+                </AddressLink>
                 {stop.phone ? <a className="text-xs text-link" href={`tel:${stop.phone.replace(/\D/g, "")}`}>Call</a> : null}
                 <Link className="text-xs text-link" href={`/reports?new=1&household=${stop.householdId}`}>Log visit</Link>
               </div>

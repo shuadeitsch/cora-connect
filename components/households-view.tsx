@@ -18,6 +18,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import { AddressLink } from "@/components/address-link";
 import { Avatar } from "@/components/avatar";
 import { ImportContacts } from "@/components/import-contacts";
 import { Notice, PageHeader } from "@/components/page-header";
@@ -40,7 +41,7 @@ import { useUndoToast } from "@/components/undo-toast";
 import { CANONICAL_HEADERS, toCsv } from "@/lib/csv";
 import { VisitedPicker } from "@/components/visited-picker";
 import { CONTACT_PROJECTS, FOCUS_STATES, matchesStateFilter, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
-import { formatMedium, mapsHref, smsHref, telHref, whatsAppHref } from "@/lib/format";
+import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { CONTACT_TAGS, matchesTagFilter, officialTags, showInContactList } from "@/lib/contact-tags";
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
 import { visitStatusLabel } from "@/lib/visit-status";
@@ -394,7 +395,13 @@ export function HouseholdsView({
                     <Avatar name={household.name} />
                     <div className="min-w-0 flex-1">
                       <button type="button" className="text-left font-heading text-lg font-semibold text-foreground" onClick={() => setContact(household)}>{household.name}</button>
-                      <p className="truncate text-sm text-muted-foreground">{[household.city, household.state].filter(Boolean).join(", ") || "No address yet"}</p>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {household.address ? (
+                          <AddressLink address={household.address} lat={household.lat} lng={household.lng} className="max-w-full truncate">
+                            {[household.city, household.state].filter(Boolean).join(", ") || household.address}
+                          </AddressLink>
+                        ) : "No address yet"}
+                      </p>
                     </div>
                     <DueBadge state={household.dueState} />
                   </div>
@@ -456,7 +463,13 @@ export function HouseholdsView({
                         <button type="button" className="text-left font-semibold text-foreground hover:text-primary" onClick={() => setContact(household)}>
                           {household.name}
                         </button>
-                        <div className="text-[11px] text-muted-foreground">{[household.city, household.state].filter(Boolean).join(", ") || "No address yet"}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {household.address ? (
+                            <AddressLink address={household.address} lat={household.lat} lng={household.lng}>
+                              {[household.city, household.state].filter(Boolean).join(", ") || household.address}
+                            </AddressLink>
+                          ) : "No address yet"}
+                        </div>
                         <TagBadges tags={household.tags} />
                         <NotePreview notes={notesFor(household, data.viewer.canViewHistory)} compact />
                       </div>
@@ -953,11 +966,13 @@ function ContactDialog({
               )}
               <p className="mt-3 text-xs tracking-wide text-mutedink uppercase">Address</p>
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm text-link">{household.address || "No address yet"}</p>
                 {household.address ? (
-                  <a aria-label="Navigate" href={mapsHref(household.lat, household.lng, household.address)} target="_blank" rel="noreferrer" className="inline-flex size-8 items-center justify-center rounded-full bg-accent text-primary">
+                  <AddressLink address={household.address} lat={household.lat} lng={household.lng} className="text-sm text-link" />
+                ) : <p className="text-sm text-link">No address yet</p>}
+                {household.address ? (
+                  <AddressLink address={household.address} lat={household.lat} lng={household.lng} label="Navigate" className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-primary hover:no-underline">
                     <MapPin className="size-4" />
-                  </a>
+                  </AddressLink>
                 ) : null}
               </div>
             </section>

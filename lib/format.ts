@@ -95,3 +95,27 @@ export function telHref(phone: string): string {
 export function smsHref(phone: string): string {
   return `sms:${digitsOnly(phone)}`;
 }
+
+export interface MapLinks {
+  google: string;
+  apple: string;
+  waze: string;
+}
+
+// One address, three map apps. Coordinates win when the contact has them.
+export function mapLinks(lat: number | null, lng: number | null, address: string): MapLinks {
+  const q = encodeURIComponent(address.trim());
+  if (lat != null && lng != null) {
+    const ll = `${lat},${lng}`;
+    return {
+      google: `https://www.google.com/maps/search/?api=1&query=${ll}`,
+      apple: `https://maps.apple.com/?ll=${ll}${q ? `&q=${q}` : ""}`,
+      waze: `https://waze.com/ul?ll=${ll}&navigate=yes`,
+    };
+  }
+  return {
+    google: `https://www.google.com/maps/search/?api=1&query=${q}`,
+    apple: `https://maps.apple.com/?q=${q}`,
+    waze: `https://waze.com/ul?q=${q}&navigate=yes`,
+  };
+}

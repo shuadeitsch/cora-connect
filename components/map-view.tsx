@@ -1,5 +1,6 @@
 "use client";
 
+import { AddressLink } from "@/components/address-link";
 import dynamic from "next/dynamic";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -232,7 +233,7 @@ function ContactCard({ household, onClose, onAdd }: { household: HouseholdView; 
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-heading font-semibold text-foreground">{household.name}</p>
-          <p className="text-xs text-mutedink">{household.address}</p>
+          <p className="text-xs text-mutedink"><AddressLink address={household.address} lat={household.lat} lng={household.lng} /></p>
           <p className="text-xs text-mutedink">{household.scheduleName}</p>
         </div>
         <button type="button" aria-label="Close" onClick={onClose}><X className="size-4" /></button>
