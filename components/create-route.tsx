@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Notice } from "@/components/page-header";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -26,19 +27,37 @@ export function NameRouteForm({ data, ids, name: startName, onBack }: { data: Ap
   const [projectId, setProjectId] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const toast = useToast();
+  function fail(message: string) {
+    setError(message);
+    toast({ title: message, tone: "error" });
+  }
   return (
     <form
       className="grid gap-3"
       onSubmit={(event) => {
         event.preventDefault();
+        if (pending) return;
         setError("");
         start(async () => {
-          const result = await buildRouteAction({ name, projectId, householdIds: ids });
-          if (!result.ok) {
-            setError(result.error);
+          // Stay on this step until the database confirms the route; any failure is shown here and as a toast.
+          let result: Awaited<ReturnType<typeof buildRouteAction>>;
+          try {
+            result = await buildRouteAction({ name, projectId, householdIds: ids });
+          } catch {
+            fail("The route didn't save. Check your connection, press Reload, and try again.");
             return;
           }
-          router.push(`/saved-routes/${result.data?.id}`);
+          if (!result?.ok) {
+            fail(result?.error || "The route didn't save. Try again.");
+            return;
+          }
+          if (!result.data?.id) {
+            fail("The route didn't save. Try again.");
+            return;
+          }
+          toast({ title: `Route saved: ${name.trim()}` });
+          router.push(`/saved-routes/${result.data.id}`);
           router.refresh();
         });
       }}

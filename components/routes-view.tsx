@@ -55,13 +55,14 @@ export function RoutesView({ data }: { data: AppData }) {
               <Button variant="outline" className="rounded-full" onClick={() => setByCity(true)}><Building2 className="size-4" /> New route by city</Button>
             </>
           ) : null}
-          {data.viewer.canDeleteRoute ? (
+          {data.viewer.canDeleteRoute && data.routes.length ? (
             <Button
               variant="outline"
               className="rounded-full text-red-600"
               disabled={pending}
               onClick={() => {
-                if (!confirm("Delete every saved route?")) return;
+                const count = data.routes.length;
+                if (!confirm(`Delete all ${count} saved route${count === 1 ? "" : "s"} for everyone? This can't be undone.`)) return;
                 start(async () => {
                   const result = await deleteAllRoutesAction();
                   if (!result.ok) setError(result.error);

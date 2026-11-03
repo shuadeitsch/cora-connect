@@ -73,7 +73,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
   }
 
   return (
-    <div className="relative h-full min-h-[70dvh]">
+    <div className="relative isolate h-full min-h-[70dvh]">
       <MapCanvas
         pins={pins}
         selected={picked}

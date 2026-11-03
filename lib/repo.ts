@@ -662,7 +662,7 @@ function routeSaveError(error: unknown) {
     return "The route wasn't saved: your account isn't allowed to save routes right now. Ask a Cora Connect admin to check your access.";
   }
   if (/fetch failed|network|timeout/i.test(message)) return "The route wasn't saved: the connection dropped. Try again.";
-  return message ? `The route wasn't saved. ${message.replace(/^Save (route|stops): /, "")}` : "The route wasn't saved. Try again.";
+  return message ? `The route wasn't saved. ${message.replace(/^(Save route|Save stops|Check route): /, "")}` : "The route wasn't saved. Try again.";
 }
 
 export async function deleteRoute(actor: User, id: string): Promise<ActionResult> {

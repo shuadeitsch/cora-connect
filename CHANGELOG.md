@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.7
+
+- Fixed: on Build on map, pressing Create route opened the "New route" box behind the map, so you could not see it. The next tap closed it and nothing was saved. The box now shows on top of the map on phones, Chromebooks and computers.
+- Saving a route now says "Route saved" and opens the route. The app only does this after the route and all its stops are really saved. If anything goes wrong, you get a clear red message and stay on the same step, so you can try again.
+- Delete all on the Routes page now says how many routes it will delete for everyone. It is hidden when there are no routes.
+
 ## 1.7.6
 
 - Build on map: picking pins and drawing boxes now works with a mouse, a finger, or a pen, including Chromebook touchscreens. Pins are bigger and easier to hit, and a slightly shaky tap still counts.

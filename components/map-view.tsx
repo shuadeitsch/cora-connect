@@ -53,7 +53,7 @@ export function MapView({ data }: { data: AppData }) {
   const contact = data.households.find((household) => household.id === contactId) ?? null;
 
   return (
-    <div className="relative h-full min-h-[70dvh]">
+    <div className="relative isolate h-full min-h-[70dvh]">
       <MapCanvas
         pins={pins}
         selected={[]}

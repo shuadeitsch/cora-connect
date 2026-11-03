@@ -365,6 +365,12 @@ export async function writeRoute(route: Route, isNew: boolean) {
       "Save stops",
     );
   }
+  // Read the route back so a save is only reported once the database really has it with every stop.
+  const saved = await supabase.from("routes").select("id, route_stops(count)").eq("id", route.id).maybeSingle();
+  await done(saved, "Check route");
+  const stops = (saved.data as { route_stops?: { count: number }[] } | null)?.route_stops?.[0]?.count;
+  if (!saved.data) throw new Error("Check route: the route didn't save.");
+  if (stops != null && stops !== route.stops.length) throw new Error(`Check route: only ${stops} of ${route.stops.length} stops saved.`);
 }
 
 export async function removeRoute(id: string) {

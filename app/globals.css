@@ -299,6 +299,8 @@
 }
 
 .leaflet-container {
+  /* Leaflet panes use z-index 200-700; keep them inside the map so dialogs and toasts stay on top. */
+  isolation: isolate;
   height: 100%;
   width: 100%;
   font-family: var(--font-sans);
