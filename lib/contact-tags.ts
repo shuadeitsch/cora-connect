@@ -37,12 +37,19 @@ function close(word: string, target: string, max: number): boolean {
   return Math.abs(word.length - target.length) <= max && distance(word, target) <= max;
 }
 
+const EXIST_WORDS = ["exist", "exists", "existent", "existant", "existing", "excist", "exsist"];
+const NEGATIONS = ["doesnt", "dosent", "doesent", "dosnt", "dont", "not", "non", "no", "isnt", "nt"];
+
+/**
+ * Probably doesn't exist, in any of the ways people type it: probably not existent,
+ * probably non-existent, prob nonexistent, does not exist, probobly dosent exist.
+ */
 function isProbablyDoesntExist(folded: string): boolean {
   const words = folded.split(" ").filter(Boolean);
-  const probably = words.some((word) => close(word, "probably", 2));
-  const doesnt = words.includes("doesnt") || words.includes("dosent") || words.includes("doesent") || (words.includes("does") && words.includes("not"));
-  const exist = words.some((word) => word === "exist" || word === "exists" || close(word, "exist", 1));
-  return probably && doesnt && exist;
+  const exist = words.some((word) => EXIST_WORDS.some((target) => word === target || close(word, target, 1)));
+  const joined = words.some((word) => /^(non|in|un)ex[a-z]*st/.test(word));
+  const negated = words.some((word) => NEGATIONS.includes(word)) || (words.includes("does") && words.includes("not"));
+  return joined || (exist && negated);
 }
 
 export function canonicalTag(value: string): ContactTag | null {
@@ -70,8 +77,14 @@ export function parseContactTags(value: string): { tags: ContactTag[]; unknown: 
   return { tags, unknown };
 }
 
+/** Contacts with any of these tags stay off the main list and every other view until that tag is picked. */
+export const HIDDEN_TAGS: readonly ContactTag[] = CONTACT_TAGS;
+
 export function isTaggedContact(tags: string[]): boolean {
-  return tags.some((tag) => canonicalTag(tag));
+  return tags.some((tag) => {
+    const canonical = canonicalTag(tag);
+    return Boolean(canonical && HIDDEN_TAGS.includes(canonical));
+  });
 }
 
 export function officialTags(tags: string[]): ContactTag[] {

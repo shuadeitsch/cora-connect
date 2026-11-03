@@ -59,7 +59,16 @@ const SEASON_YEAR = /\b5\d{3}$/;
 
 const VISITED_NONE = "__not_visited";
 
-type SortMode = "" | "reactions" | "tags" | "duplicates" | "visits" | "unvisited" | `season:${string}`;
+type SortMode = "" | "reactions" | "tags" | "visits" | "duplicates";
+
+const SORT_ORDERS = [
+  ["name", "Name A–Z"],
+  ["name_desc", "Name Z–A"],
+  ["newest", "Newest"],
+  ["city", "City"],
+  ["state", "State"],
+  ["visited", "Visited"],
+] as const;
 
 const emptyFilters = {
   mode: "" as SortMode,
@@ -205,8 +214,6 @@ export function HouseholdsView({
     else if (mode === "tags") setFilters({ ...base, list: "tagged" });
     else if (mode === "duplicates") setFilters({ ...base, duplicates: true });
     else if (mode === "visits") setFilters({ ...base, visited: VISITED_ANY });
-    else if (mode === "unvisited") setFilters({ ...base, visited: VISITED_NONE });
-    else if (mode.startsWith("season:")) setFilters({ ...base, visited: mode.slice("season:".length) });
     else setFilters(base);
     setPage(1);
   }
@@ -341,11 +348,21 @@ export function HouseholdsView({
           <option value="">Sort by</option>
           <option value="reactions">Reactions</option>
           <option value="tags">Tags</option>
+          <option value="visits">Visits</option>
           <option value="duplicates">Possible duplicates</option>
-          <option value="visits">All visits</option>
-          <option value="unvisited">Not visited</option>
-          {seasonChoices.map((name) => <option key={name} value={`season:${name}`}>{name}</option>)}
         </select>
+        {filters.mode === "visits" ? (
+          <select
+            aria-label="Which visits"
+            className={pill}
+            value={filters.visited}
+            onChange={(event) => { setFilters({ ...filters, visited: event.target.value }); setPage(1); }}
+          >
+            <option value={VISITED_ANY}>All visits</option>
+            <option value={VISITED_NONE}>Not visited</option>
+            {seasonChoices.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        ) : null}
         {filters.mode === "reactions" ? (
           <select
             aria-label="Which reaction"
@@ -372,9 +389,18 @@ export function HouseholdsView({
             {CONTACT_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
           </select>
         ) : null}
+        <select
+          aria-label="Order"
+          title="Order"
+          className={cn(pill, "w-auto max-w-[8.5rem] pr-2")}
+          value={sort}
+          onChange={(event) => { setSort(event.target.value); setPage(1); }}
+        >
+          {SORT_ORDERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
         <button
           type="button"
-          className={cn(pill, !filters.mode && !query && "bg-primary text-primary-foreground")}
+          className={cn(pill, !filters.mode && !query && sort === "name" && "bg-primary text-primary-foreground")}
           onClick={showEveryone}
         >
           All contacts
