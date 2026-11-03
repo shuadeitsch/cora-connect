@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.2
+
+- The "Photo of 770" link is gone from the bottom of the side menu and the More menu. The photo credit stays on the /about page.
+
 ## 1.5.1
 
 - Signing in works again. Since 1.5.0 the app stopped with an error right after login because it sorted route assignments by a column that table does not have. It now sorts them by route and user.

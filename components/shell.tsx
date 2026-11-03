@@ -212,8 +212,7 @@ export function Shell({
           <NavLinks items={PRIMARY} canManage={viewer.canManage} />
           <p className="mt-4 px-5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">More</p>
           <NavLinks items={MORE_NAV} canManage={viewer.canManage} />
-          <Link href="/about" className="mx-5 mt-auto text-[11px] text-muted-foreground underline-offset-2 hover:underline">Photo of 770</Link>
-          <Link href="/settings?tab=account" className="mx-3 mt-2 flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
+          <Link href="/settings?tab=account" className="mx-3 mt-auto flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
             <Avatar name={viewer.name} className="size-9" />
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium text-foreground">{viewer.name}</span>
@@ -226,7 +225,6 @@ export function Shell({
             <SheetTitle className="sr-only">More</SheetTitle>
             <div className="px-2 pt-2">
               <NavLinks items={[...PRIMARY, ...MORE_NAV]} canManage={viewer.canManage} onNavigate={() => setMore(false)} />
-              <Link href="/about" onClick={() => setMore(false)} className="mx-3 mt-2 block px-2 text-xs text-muted-foreground underline-offset-2 hover:underline">Photo of 770</Link>
               <form action={logoutAction} className="px-3 pt-2">
                 <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-2xl px-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
                   <span className="flex size-8 items-center justify-center rounded-xl"><LogOut className="size-4" /></span>
