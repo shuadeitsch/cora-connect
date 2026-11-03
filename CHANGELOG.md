@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.6
+
+- Build on map: picking pins and drawing boxes now works with a mouse, a finger, or a pen, including Chromebook touchscreens. Pins are bigger and easier to hit, and a slightly shaky tap still counts.
+- A short line under the buttons says what to do: "Tap pins to add them" or "Drag on the map to draw a box".
+- New List button shows every contact on the map with a checkbox, so you can add people even without touching the map. It opens beside the map on big screens and above the buttons on phones.
+
 ## 1.7.5
 
 - Fixed: on Routes > Build on map, clicking or tapping a pin sometimes did nothing. This happened when the pins were redrawn during the click, for example when more addresses finished loading. Quick taps on two pins could also zoom the map instead. Picking a pin now always works. Draw box selects what is inside the box and adds to what is already picked. The map stays still while you draw, with a mouse or a finger.

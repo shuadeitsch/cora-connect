@@ -135,9 +135,9 @@ export function MapCanvas({
           const on = selected.includes(pin.id);
           const pickIcon = L.divIcon({
             className: "",
-            html: `<div style="width:24px;height:24px;border-radius:999px;background:${on ? "#042f2e" : color};color:white;border:${on ? "3px solid #fbbf24" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 12px sans-serif;display:flex;align-items:center;justify-content:center">${on ? "&#10003;" : ""}</div>`,
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
+            html: `<div style="width:28px;height:28px;border-radius:999px;background:${on ? "#042f2e" : color};color:white;border:${on ? "3px solid #fbbf24" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 12px sans-serif;display:flex;align-items:center;justify-content:center">${on ? "&#10003;" : ""}</div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
           });
           // Not interactive: taps and clicks are read off the map container (see the pick effect below),
           // so a pin redrawn mid-click, or a browser that sends two click events, can't drop or undo a pick.
@@ -178,10 +178,11 @@ export function MapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     const node = el.current;
-    if (!map || !node || !pickMode) return;
+    // In Draw box mode the box handler below reads taps too, so only one of them listens.
+    if (!map || !node || !pickMode || boxMode) return;
     // Quick taps on two pins would otherwise read as a double-tap and zoom the map.
     map.doubleClickZoom.disable();
-    let origin: { x: number; y: number; id: number } | null = null;
+    let origin: { x: number; y: number; id: number; slop: number } | null = null;
     const local = (event: PointerEvent) => {
       const rect = node.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -189,30 +190,32 @@ export function MapCanvas({
     function down(event: PointerEvent) {
       if ((event.target as HTMLElement | null)?.closest(".leaflet-control, .leaflet-popup")) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
-      origin = event.isPrimary ? { ...local(event), id: event.pointerId } : null;
+      origin = event.isPrimary ? { ...local(event), id: event.pointerId, slop: event.pointerType === "mouse" ? 6 : 14 } : null;
     }
     function up(event: PointerEvent) {
       if (!origin || event.pointerId !== origin.id) return;
       const at = local(event);
       const from = origin;
       origin = null;
-      if (Math.abs(at.x - from.x) > 8 || Math.abs(at.y - from.y) > 8) return;
-      const hit = pinAt(map!, pickRef.current.pins, at, pickRef.current.selected);
+      if (Math.abs(at.x - from.x) > from.slop || Math.abs(at.y - from.y) > from.slop) return;
+      const hit = pinAt(map!, pickRef.current.pins, at, pickRef.current.selected, event.pointerType === "mouse" ? 16 : 24);
       if (hit) pickRef.current.onPick?.(hit);
     }
     function cancel() {
       origin = null;
     }
-    node.addEventListener("pointerdown", down);
-    node.addEventListener("pointerup", up);
-    node.addEventListener("pointercancel", cancel);
+    // Capture phase: nothing inside the map (panes, Leaflet handlers) can swallow these before we see them.
+    const opts = { capture: true } as const;
+    node.addEventListener("pointerdown", down, opts);
+    node.addEventListener("pointerup", up, opts);
+    node.addEventListener("pointercancel", cancel, opts);
     return () => {
-      node.removeEventListener("pointerdown", down);
-      node.removeEventListener("pointerup", up);
-      node.removeEventListener("pointercancel", cancel);
+      node.removeEventListener("pointerdown", down, opts);
+      node.removeEventListener("pointerup", up, opts);
+      node.removeEventListener("pointercancel", cancel, opts);
       map.doubleClickZoom.enable();
     };
-  }, [ready, pickMode]);
+  }, [ready, pickMode, boxMode]);
 
   const canBox = Boolean(onBox);
   useEffect(() => {
@@ -224,6 +227,7 @@ export function MapCanvas({
     const touchAction = node.style.touchAction;
     if (boxMode) {
       map.dragging.disable();
+      map.doubleClickZoom.disable();
       node.style.touchAction = "none";
       node.style.cursor = "crosshair";
     }
@@ -285,7 +289,7 @@ export function MapCanvas({
       if (event.type === "pointercancel") return;
       if (Math.abs(at.x - from.x) < 8 && Math.abs(at.y - from.y) < 8) {
         // A tap in box mode still toggles the pin under it.
-        const hit = pinAt(map!, pickRef.current.pins, at, pickRef.current.selected);
+        const hit = pinAt(map!, pickRef.current.pins, at, pickRef.current.selected, event.pointerType === "mouse" ? 16 : 24);
         if (hit) pickRef.current.onPick?.(hit);
         return;
       }
@@ -310,6 +314,7 @@ export function MapCanvas({
       node.style.touchAction = touchAction;
       node.style.cursor = "";
       map.dragging.enable();
+      if (boxMode) map.doubleClickZoom.enable();
       map.boxZoom.enable();
     };
   }, [ready, boxMode, canBox]);
@@ -318,13 +323,13 @@ export function MapCanvas({
 }
 
 /** The pin nearest to a container point, within a finger's width. */
-function pinAt(map: LeafletMap, pins: MapPin[], at: { x: number; y: number }, selected: string[] = []) {
+function pinAt(map: LeafletMap, pins: MapPin[], at: { x: number; y: number }, selected: string[] = [], reach = 20) {
   // Picked pins are drawn on top, so on a tie the picked one is the pin under the finger.
   let best: { id: string; d: number } | null = null;
   for (const pin of pins) {
     const point = map.latLngToContainerPoint([pin.lat, pin.lng]);
     const d = Math.hypot(point.x - at.x, point.y - at.y) - (selected.includes(pin.id) ? 1 : 0);
-    if (d <= 16 && (!best || d <= best.d)) best = { id: pin.id, d };
+    if (d <= reach && (!best || d <= best.d)) best = { id: pin.id, d };
   }
   return best?.id ?? null;
 }
