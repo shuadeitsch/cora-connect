@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.8
+
+- Reactions is gone from the Sort by menu. It now has Tags, Visits, and Possible duplicates.
+- New Cities menu next to Sort by when a state is picked, such as Maine. It lists every city in that state in A–Z order, with how many contacts each has, and a search box. Tick one city or several. It works together with Sort by, starts at All cities, resets when you change state, and All contacts clears it.
+
 ## 1.5.7
 
 - The sort order is back as its own small menu next to Sort by: Name A–Z, Name Z–A, Newest, City, State, or Visited. All contacts sets it back to Name A–Z.

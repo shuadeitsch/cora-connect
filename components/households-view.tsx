@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
+  ChevronDown,
   Download,
   History,
   House,
@@ -54,12 +55,16 @@ const control = "h-9 w-full rounded-lg border border-input bg-card px-3 text-sm 
 
 // Removed visits are already left out of contactVisits, so they never count.
 const VISITED_ANY = "__any_visit";
-const ANY_REACTION = "__any_reaction";
 const SEASON_YEAR = /\b5\d{3}$/;
 
 const VISITED_NONE = "__not_visited";
 
-type SortMode = "" | "reactions" | "tags" | "visits" | "duplicates";
+type SortMode = "" | "tags" | "visits" | "duplicates";
+
+/** One key per town, so "Portland", " portland " and "PORTLAND" are the same city. Blank is "". */
+function cityKey(city: string): string {
+  return city.trim().replace(/\s+/g, " ").toLowerCase();
+}
 
 const SORT_ORDERS = [
   ["name", "Name A–Z"],
@@ -73,8 +78,8 @@ const SORT_ORDERS = [
 const emptyFilters = {
   mode: "" as SortMode,
   state: "",
+  cities: [] as string[],
   visited: "",
-  reaction: "",
   tag: "",
   duplicates: false,
   list: "main" as "main" | "tagged",
@@ -150,9 +155,10 @@ export function HouseholdsView({
     });
   }, [data.households]);
 
-  const filtered = useMemo(() => {
+  // Everything the filters allow except the city choice, so the Cities counts match what picking a city shows.
+  const beforeCity = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const rows = data.households.filter((household) => {
+    return data.households.filter((household) => {
       if (gone.includes(household.id)) return false;
       const noteHay = data.viewer.canViewHistory
         ? labeledVisitNotes(household.notes, household.contactVisits ?? [], formatMedium).map((note) => `${note.label} ${note.notes}`).join(" ")
@@ -173,17 +179,37 @@ export function HouseholdsView({
         const hit = visits.some((visit) => visit.visited.toLowerCase() === key) || household.latestVisited.toLowerCase() === key;
         if (!hit) return false;
       }
-      if (filters.reaction === ANY_REACTION) {
-        const visits = household.contactVisits ?? [];
-        if (!visits.some((visit) => visit.reaction) && !household.latestReaction) return false;
-      } else if (filters.reaction) {
-        const visits = household.contactVisits ?? [];
-        const hit = visits.some((visit) => visit.reaction === filters.reaction) || household.latestReaction === filters.reaction;
-        if (!hit) return false;
-      }
       if (filters.duplicates && !household.possibleDuplicate) return false;
       return true;
     });
+  }, [data.households, data.viewer.canViewHistory, query, filters.tag, filters.list, filters.state, filters.visited, filters.duplicates, gone]);
+
+  // Every city in the chosen state, alphabetical, with how many contacts each would show.
+  const cityChoices = useMemo(() => {
+    if (!filters.state) return [];
+    const names = new Map<string, Map<string, number>>();
+    for (const household of data.households) {
+      if (gone.includes(household.id) || !matchesStateFilter(household.state, filters.state)) continue;
+      const key = cityKey(household.city);
+      const spelled = household.city.trim().replace(/\s+/g, " ");
+      const spellings = names.get(key) ?? new Map<string, number>();
+      spellings.set(spelled, (spellings.get(spelled) ?? 0) + 1);
+      names.set(key, spellings);
+    }
+    const counts = new Map<string, number>();
+    for (const household of beforeCity) counts.set(cityKey(household.city), (counts.get(cityKey(household.city)) ?? 0) + 1);
+    return [...names.entries()]
+      .map(([key, spellings]) => ({
+        key,
+        label: key ? [...spellings.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0] : "No city",
+        count: counts.get(key) ?? 0,
+      }))
+      .sort((a, b) => (a.key ? 0 : 1) - (b.key ? 0 : 1) || a.label.localeCompare(b.label));
+  }, [data.households, filters.state, beforeCity, gone]);
+
+  const filtered = useMemo(() => {
+    const picked = new Set(filters.cities);
+    const rows = picked.size ? beforeCity.filter((household) => picked.has(cityKey(household.city))) : [...beforeCity];
     rows.sort((a, b) => {
       if (sort === "name_desc") return b.name.localeCompare(a.name);
       if (sort === "state") return a.state.localeCompare(b.state) || a.city.localeCompare(b.city) || a.name.localeCompare(b.name);
@@ -194,7 +220,7 @@ export function HouseholdsView({
       return a.name.localeCompare(b.name);
     });
     return rows;
-  }, [data.households, data.viewer.canViewHistory, query, filters, sort, gone]);
+  }, [beforeCity, filters.cities, sort]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pages);
@@ -209,9 +235,8 @@ export function HouseholdsView({
     .sort((a, b) => (b.match(SEASON_YEAR)?.[0] ?? "").localeCompare(a.match(SEASON_YEAR)?.[0] ?? "") || a.localeCompare(b));
 
   function chooseMode(mode: SortMode) {
-    const base = { ...emptyFilters, state: filters.state, mode };
-    if (mode === "reactions") setFilters({ ...base, reaction: ANY_REACTION });
-    else if (mode === "tags") setFilters({ ...base, list: "tagged" });
+    const base = { ...emptyFilters, state: filters.state, cities: filters.cities, mode };
+    if (mode === "tags") setFilters({ ...base, list: "tagged" });
     else if (mode === "duplicates") setFilters({ ...base, duplicates: true });
     else if (mode === "visits") setFilters({ ...base, visited: VISITED_ANY });
     else setFilters(base);
@@ -330,7 +355,7 @@ export function HouseholdsView({
                   "h-9 rounded-full px-3.5 text-sm font-medium transition",
                   selected ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted",
                 )}
-                onClick={() => { setFilters({ ...filters, state: tab.id }); setPage(1); }}
+                onClick={() => { setFilters({ ...filters, state: tab.id, cities: [] }); setPage(1); }}
               >
                 {tab.label}
               </button>
@@ -346,7 +371,6 @@ export function HouseholdsView({
           onChange={(event) => chooseMode(event.target.value as SortMode)}
         >
           <option value="">Sort by</option>
-          <option value="reactions">Reactions</option>
           <option value="tags">Tags</option>
           <option value="visits">Visits</option>
           <option value="duplicates">Possible duplicates</option>
@@ -363,17 +387,6 @@ export function HouseholdsView({
             {seasonChoices.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         ) : null}
-        {filters.mode === "reactions" ? (
-          <select
-            aria-label="Which reaction"
-            className={pill}
-            value={filters.reaction}
-            onChange={(event) => { setFilters({ ...filters, reaction: event.target.value }); setPage(1); }}
-          >
-            <option value={ANY_REACTION}>Any reaction</option>
-            {VISIT_REACTIONS.map((reaction) => <option key={reaction.id} value={reaction.id}>{reaction.label}</option>)}
-          </select>
-        ) : null}
         {filters.mode === "tags" ? (
           <select
             aria-label="Which tag"
@@ -388,6 +401,13 @@ export function HouseholdsView({
             <option value="">Any tag</option>
             {CONTACT_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
           </select>
+        ) : null}
+        {filters.state ? (
+          <CityFilter
+            choices={cityChoices}
+            picked={filters.cities}
+            onChange={(cities) => { setFilters({ ...filters, cities }); setPage(1); }}
+          />
         ) : null}
         <select
           aria-label="Order"
@@ -600,6 +620,64 @@ export function HouseholdsView({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function CityFilter({
+  choices,
+  picked,
+  onChange,
+}: {
+  choices: { key: string; label: string; count: number }[];
+  picked: string[];
+  onChange: (cities: string[]) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const chosen = choices.filter((choice) => picked.includes(choice.key));
+  const label = !picked.length ? "All cities" : chosen.length === 1 ? chosen[0].label : `${picked.length} cities`;
+  const needle = search.trim().toLowerCase();
+  const shown = needle ? choices.filter((choice) => choice.label.toLowerCase().includes(needle)) : choices;
+  return (
+    <Popover onOpenChange={(open) => { if (!open) setSearch(""); }}>
+      <PopoverTrigger asChild>
+        <button type="button" aria-label="Cities" className={cn(pill, "max-w-[11rem]", picked.length && "border-primary")}>
+          <span className="truncate">{label}</span>
+          <ChevronDown className="size-4 shrink-0 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[min(18rem,calc(100vw-1.5rem))] p-2">
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search cities"
+          aria-label="Search cities"
+          className="mb-2 h-9"
+        />
+        <button
+          type="button"
+          className={cn("mb-1 flex h-9 w-full items-center rounded-md px-2 text-left text-sm hover:bg-muted", !picked.length && "font-semibold text-primary")}
+          onClick={() => onChange([])}
+        >
+          All cities
+        </button>
+        <div className="max-h-64 overflow-y-auto">
+          {shown.map((choice) => {
+            const on = picked.includes(choice.key);
+            return (
+              <label key={choice.key || "__blank"} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-muted">
+                <Checkbox
+                  checked={on}
+                  onCheckedChange={(value) => onChange(value ? [...picked, choice.key] : picked.filter((key) => key !== choice.key))}
+                />
+                <span className="min-w-0 flex-1 truncate">{choice.label}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">{choice.count}</span>
+              </label>
+            );
+          })}
+          {!shown.length ? <div className="px-2 py-2 text-sm text-muted-foreground">No cities</div> : null}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
