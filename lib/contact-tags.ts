@@ -83,6 +83,13 @@ export function officialTags(tags: string[]): ContactTag[] {
   return found;
 }
 
+/** A blank filter matches every contact. A named tag matches the official wording, including curly apostrophes. */
+export function matchesTagFilter(tags: string[], filter: string): boolean {
+  const wanted = filter.trim();
+  if (!wanted) return true;
+  return officialTags(tags).includes(wanted as ContactTag);
+}
+
 /** Main list hides tagged contacts. A search, or the Tagged section, still shows them. */
 export function showInContactList(tags: string[], query: string, section: "main" | "tagged"): boolean {
   const tagged = isTaggedContact(tags);

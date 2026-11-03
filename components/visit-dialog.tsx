@@ -7,8 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUndoToast } from "@/components/undo-toast";
+import { VisitedPicker } from "@/components/visited-picker";
 import { deleteVisitAction, saveVisitAction } from "@/lib/actions";
-import { REACTIONS } from "@/lib/constants";
+import { VISIT_REACTIONS } from "@/lib/constants";
 import type { VisitInput } from "@/lib/types";
 
 const field = "h-9 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
@@ -74,6 +75,7 @@ export function VisitDialog({
               ))}
             </select>
           </label>
+          <VisitedPicker value={form.visited ?? ""} onChange={(visited) => set("visited", visited)} />
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-sm">
               <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visit date</span>
@@ -91,9 +93,9 @@ export function VisitDialog({
               <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Reaction</span>
               <select className={field} value={form.reaction} onChange={(event) => set("reaction", event.target.value)}>
                 <option value="">None</option>
-                {REACTIONS.map((reaction) => (
+                {VISIT_REACTIONS.map((reaction) => (
                   <option key={reaction.id} value={reaction.id}>
-                    {reaction.emoji} {reaction.label}
+                    {reaction.label}
                   </option>
                 ))}
               </select>
@@ -145,6 +147,7 @@ function emptyVisit(householdId: string): VisitInput {
     status: "",
     reaction: "",
     details: "",
+    visited: "",
   };
 }
 
@@ -163,5 +166,6 @@ export function visitInputFrom(visit: {
     status: visit.status ?? "",
     reaction: visit.reaction ?? "",
     details: visit.details,
+    visited: "",
   };
 }

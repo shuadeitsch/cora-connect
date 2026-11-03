@@ -205,7 +205,7 @@ const IMPORT_HINTS: Record<ImportField, string[]> = {
   share: ["share_with_cora", "share with cora", "share", "shared"],
   visited: ["visited", "project", "visit", "occasion"],
   status: ["status", "visit status"],
-  visitReaction: ["reaction", "reaction when we visited", "visit reaction"],
+  visitReaction: ["reaction", "reactions", "reaction when we visited", "reaction when visited", "visit reaction", "visit reactions", "their reaction"],
   notes: ["notes", "note", "comments", "comment"],
   visitDate: ["visit_date", "visit date", "date", "date visited"],
 };
@@ -226,7 +226,7 @@ One row is one visit. The same person can appear on several rows when they were 
 Every column may be blank. If the name is blank, leave it blank. If you do not know a value, leave that cell empty. Do not add a share_with_cora column. Sharing uses the app's default.
 
 Allowed values:
-- visited: Summer 5786, Chanukah 5787, or any other short label for when you went. Leave blank if unknown.
+- visited: a season and a Hebrew year, stored as "Summer 5786". Seasons: Summer, Chanukah, Pesach, Tishrei, Purim, Other. Leave blank if unknown.
 - status: Completed or Deferred. Blank means Completed.
 - visit_date: YYYY-MM-DD, or blank.
 - reaction: Very happy, Warm, Neutral, Cold, or Very cold / angry. Neutral means "nisht ahin nisht aher". Leave blank if unknown.
@@ -237,18 +237,45 @@ Allowed values:
 
 Do not add a year-arrived column. Do not invent people who were not in the source list.`;
 
+function normHeader(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Exact header match outranks a shorter hint that is only a prefix, so "Visit reaction" stays the reaction column. */
+function hintScore(header: string, hints: string[]): number {
+  const key = normHeader(header);
+  let best = 0;
+  for (const hint of hints) {
+    const needle = normHeader(hint);
+    if (!needle) continue;
+    if (key === needle || key === `${needle}s`) best = Math.max(best, 1000 + needle.length);
+    else if (key.startsWith(`${needle} `) || key.endsWith(` ${needle}`) || key.includes(` ${needle} `)) best = Math.max(best, needle.length);
+  }
+  return best;
+}
+
 export function guessImportMap(headers: string[]): Record<ImportField, string> {
   const mapping = Object.fromEntries(IMPORT_FIELDS.map((field) => [field.key, ""])) as Record<ImportField, string>;
-  const used = new Set<string>();
-  for (const field of IMPORT_FIELDS) {
-    const hit = headers.find((header) => {
-      const key = header.trim().toLowerCase();
-      return !used.has(header) && IMPORT_HINTS[field.key].includes(key);
-    });
-    if (hit) {
-      mapping[field.key] = hit;
-      used.add(hit);
+  const usedHeaders = new Set<string>();
+  const usedFields = new Set<ImportField>();
+  const ranked: { field: ImportField; header: string; score: number }[] = [];
+  for (const header of headers) {
+    for (const field of IMPORT_FIELDS) {
+      const score = hintScore(header, IMPORT_HINTS[field.key]);
+      if (score) ranked.push({ field: field.key, header, score });
     }
+  }
+  ranked.sort((a, b) => b.score - a.score || a.header.localeCompare(b.header));
+  for (const candidate of ranked) {
+    if (usedHeaders.has(candidate.header) || usedFields.has(candidate.field)) continue;
+    mapping[candidate.field] = candidate.header;
+    usedHeaders.add(candidate.header);
+    usedFields.add(candidate.field);
   }
   return mapping;
 }

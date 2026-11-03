@@ -94,11 +94,20 @@ function parseStatus(value: string): VisitStatus {
   throw new Error("Choose Completed or Deferred.");
 }
 
-function parseReaction(value: string): Reaction | null {
+function visitLogReaction(value: string): Reaction | null {
+  const raw = value.trim();
+  if (!raw) return null;
   const allowed: Reaction[] = ["happy", "warm", "neutral", "cold", "not_interested"];
-  if (!value) return null;
-  if (!allowed.includes(value as Reaction)) throw new Error("Choose a reaction, or leave it blank.");
-  return value as Reaction;
+  if (allowed.includes(raw as Reaction)) return raw as Reaction;
+  const household = parseHouseholdReaction(raw);
+  if (!household) throw new Error("Choose a reaction, or leave it blank.");
+  if (household === "very_happy") return "happy";
+  if (household === "very_cold") return "not_interested";
+  return household;
+}
+
+function permissionDenied(message: string): boolean {
+  return /row-level security|permission denied|42501/i.test(message);
 }
 
 function canSeeHousehold(db: Database, user: User, householdId: string) {
@@ -459,7 +468,7 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
     const date = input.visitDate.trim();
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Enter a visit date, or leave it blank.");
     const status = input.status ? parseStatus(input.status) : null;
-    const reaction = parseReaction(input.reaction);
+    const reaction = visitLogReaction(input.reaction);
     const existing = input.id ? db.visits.find((visit) => visit.id === input.id) : undefined;
     if (existing && existing.visitorId && existing.visitorId !== actor.id && !perms(actor).canManage) {
       throw new Error("You can edit visits you logged. An admin can edit any visit.");
@@ -480,11 +489,12 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
     const household = db.households.find((item) => item.id === input.householdId);
     const project = db.projects.find((item) => item.id === household?.projectId)?.name ?? "";
     const priorHistory = (db.contactVisits ?? []).find((item) => item.id === visit.id);
+    const chosenVisited = (input.visited ?? "").trim();
     const history: ContactVisit = {
       id: visit.id,
       orgId: visit.orgId,
       householdId: visit.householdId,
-      visited: priorHistory?.visited || project,
+      visited: chosenVisited || priorHistory?.visited || project,
       reaction: parseHouseholdReaction(input.reaction),
       notes: visit.details,
       visitDate: date || null,
@@ -494,9 +504,21 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
       createdAt: priorHistory?.createdAt ?? visit.createdAt,
       importBatchId: priorHistory?.importBatchId ?? null,
     };
+    const undo: UndoPayload = existing ? { type: "replace-visit", visit: existing } : { type: "delete-visit", id: visit.id };
     if (isSupabaseMode()) {
       await writeVisit(visit, !existing);
-      await writeContactVisit(history, !priorHistory);
+      try {
+        await writeContactVisit(history, !priorHistory);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        if (!permissionDenied(message)) throw error;
+        return {
+          ok: true,
+          data: { id: visit.id },
+          undo,
+          warning: "Visit logged. Apply migration 012 so the season is stored on the visit history row.",
+        };
+      }
     } else applyDemo((draft) => {
       const index = draft.visits.findIndex((item) => item.id === visit.id);
       if (index >= 0) draft.visits[index] = visit;
@@ -506,7 +528,6 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
       if (historyIndex >= 0) draft.contactVisits[historyIndex] = history;
       else draft.contactVisits.push(history);
     });
-    const undo: UndoPayload = existing ? { type: "replace-visit", visit: existing } : { type: "delete-visit", id: visit.id };
     return { ok: true, data: { id: visit.id }, undo };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not save the visit." };

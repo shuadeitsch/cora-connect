@@ -1,5 +1,7 @@
-import { canonicalImportMap, IMPORT_TEMPLATE_CSV, mapContacts } from "../lib/csv";
-import { parseContactTags, showInContactList, taggedAlongRoute } from "../lib/contact-tags";
+import { canonicalImportMap, guessImportMap, IMPORT_TEMPLATE_CSV, mapContacts } from "../lib/csv";
+import { matchesTagFilter, parseContactTags, showInContactList, taggedAlongRoute } from "../lib/contact-tags";
+import { parseHouseholdReaction } from "../lib/constants";
+import { planImport } from "../lib/import-plan";
 import { parseVisitStatus } from "../lib/visit-status";
 
 function assert(condition: boolean, message: string) {
@@ -48,5 +50,36 @@ const near = taggedAlongRoute(
   [{ householdId: "1", city: "Bangor", state: "ME" }],
 );
 assert(near.map((item) => item.name).join("|") === "No town|On route|Same town", "the route notice is the stop, the same town, and a stateless contact in that state");
+
+const maineHeaders = ["Name", "Phone", "Reactions", "Visited", "Notes"];
+const maineMap = guessImportMap(maineHeaders);
+assert(maineMap.visitReaction === "Reactions", "a Reactions column maps onto the visit reaction");
+assert(maineMap.visited === "Visited", "Visited is not stolen by the reaction column");
+assert(guessImportMap(["Visit reaction"]) .visitReaction === "Visit reaction", "Visit reaction stays the reaction column");
+assert(guessImportMap(["Reaction:"]) .visitReaction === "Reaction:", "a Reaction header with punctuation still maps");
+
+const maineCsv = "Name,Phone,Reactions,Visited,Notes\nAda,207-555-0100,Very cold / angry,Summer 5786,Brought a calendar\n";
+const maineRows = mapContacts(maineCsv, { ...maineMap, name: "Name", phone: "Phone", visitReaction: maineMap.visitReaction, visited: "Visited", notes: "Notes" });
+assert(maineRows.contacts[0]?.reaction === "Very cold / angry", "the Reactions cell is kept on the row");
+const mainePlan = planImport(maineRows.contacts.map((row) => ({ ...row, shareWithCora: null })), []);
+assert(mainePlan.contacts[0]?.visits[0]?.reaction === "very_cold", "Very cold / angry is stored on that visit");
+
+for (const [label, id] of [
+  ["VERY HAPPY", "very_happy"],
+  ["very  happy", "very_happy"],
+  ["Very cold/angry", "very_cold"],
+  ["Very cold / angry", "very_cold"],
+  ["  Cold ", "cold"],
+  ["Warm", "warm"],
+  ["NEUTRAL", "neutral"],
+  ["Neutral (nisht ahin nisht aher)", "neutral"],
+] as const) {
+  assert(parseHouseholdReaction(label) === id, `${label} maps to ${id}`);
+}
+
+assert(matchesTagFilter(["Probably doesn't exist"], "Probably doesn't exist"), "the tag filter includes Probably doesn't exist");
+assert(matchesTagFilter(["Not Jewish"], "Probably doesn't exist") === false, "a different tag does not match");
+assert(matchesTagFilter(["Probably doesn’t exist"], "Probably doesn't exist"), "a curly apostrophe still matches the tag filter");
+assert(matchesTagFilter([], "") === true, "an empty tag filter matches every contact");
 
 console.log("import format ok");

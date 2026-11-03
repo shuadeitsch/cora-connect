@@ -48,25 +48,39 @@ function list(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
 }
 
-async function optionalTable(table: string): Promise<{ rows: Row[]; ready: boolean }> {
+async function paged(table: string, columns = "*", order: string | string[] = "id"): Promise<{ rows: Row[]; error: string }> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from(table).select("*");
-  if (error) {
-    if (/does not exist|schema cache|could not find the table/i.test(error.message)) return { rows: [], ready: false };
-    throw new Error(`${table}: ${error.message}`);
+  const pageSize = 1000;
+  const orders = Array.isArray(order) ? order : [order];
+  const rows: Row[] = [];
+  for (let from = 0; ; from += pageSize) {
+    let query = supabase.from(table).select(columns);
+    for (const column of orders) query = query.order(column, { ascending: true });
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error) return { rows, error: error.message };
+    const batch = (data ?? []) as unknown as Row[];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+    if (from >= pageSize * 100) throw new Error(`${table}: stopped after ${rows.length} rows`);
   }
-  return { rows: (data ?? []) as unknown as Row[], ready: true };
+  return { rows, error: "" };
+}
+
+async function optionalTable(table: string): Promise<{ rows: Row[]; ready: boolean }> {
+  const loaded = await paged(table);
+  if (!loaded.error) return { rows: loaded.rows, ready: true };
+  if (/does not exist|schema cache|could not find the table/i.test(loaded.error)) return { rows: [], ready: false };
+  throw new Error(`${table}: ${loaded.error}`);
 }
 
 function alive(row: Row) {
   return !row.deleted_at;
 }
 
-async function rows(table: string, columns = "*"): Promise<Row[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from(table).select(columns);
-  if (error) throw new Error(`${table}: ${error.message}`);
-  return (data ?? []) as unknown as Row[];
+async function rows(table: string, columns = "*", order: string | string[] = "id"): Promise<Row[]> {
+  const loaded = await paged(table, columns, order);
+  if (loaded.error) throw new Error(`${table}: ${loaded.error}`);
+  return loaded.rows;
 }
 
 export async function loadSupabase(actor: User): Promise<Database> {
@@ -85,13 +99,13 @@ export async function loadSupabase(actor: User): Promise<Database> {
       rows("custom_field_defs"),
       rows("households"),
       rows("people_visible"),
-      rows("household_categories"),
+      rows("household_categories", "*", ["household_id", "category_id"]),
       rows("visits_visible"),
       rows("routes"),
       rows("route_stops"),
       rows("route_assignments"),
       rows("notifications"),
-      rows("notification_reads", "notification_id, user_id"),
+      rows("notification_reads", "notification_id, user_id", ["notification_id", "user_id"]),
     ]);
 
   let inviteRows: Row[] = [];
