@@ -66,29 +66,51 @@ export function visitReactionMeta(id: HouseholdReaction | null | undefined) {
   return VISIT_REACTIONS.find((item) => item.id === id) ?? null;
 }
 
+/** Lowercase, treat slashes and punctuation as spaces, and collapse spacing. */
+export function normalizeReactionText(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_/]+/g, " ")
+    .replace(/[^a-z ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const BLANK_REACTIONS = ["n a", "na", "none", "not applicable", "blank"];
+
+/** Longest phrase wins, so "very cold" is not stored as Cold. */
+const REACTION_PHRASES: [string, HouseholdReaction][] = [
+  ["very cold angry", "very_cold"],
+  ["nisht ahin nisht aher", "neutral"],
+  ["not interested", "very_cold"],
+  ["very happy", "very_happy"],
+  ["very cold", "very_cold"],
+  ["neutral", "neutral"],
+  ["happy", "very_happy"],
+  ["angry", "very_cold"],
+  ["warm", "warm"],
+  ["cold", "cold"],
+];
+
+function hasPhrase(text: string, phrase: string): boolean {
+  return text === phrase || text.startsWith(`${phrase} `) || text.endsWith(` ${phrase}`) || text.includes(` ${phrase} `);
+}
+
 export function parseHouseholdReaction(value: string): HouseholdReaction | null {
-  const raw = value.trim().toLowerCase().replace(/[_/]+/g, " ").replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
-  if (!raw) return null;
-  if (["n a", "na", "none", "not applicable", "blank"].includes(raw)) return null;
-  const aliases: Record<string, HouseholdReaction> = {
-    "very happy": "very_happy",
-    happy: "very_happy",
-    warm: "warm",
-    neutral: "neutral",
-    "nisht ahin nisht aher": "neutral",
-    cold: "cold",
-    "very cold": "very_cold",
-    "very cold angry": "very_cold",
-    angry: "very_cold",
-    "not interested": "very_cold",
-  };
-  return aliases[raw] ?? null;
+  const raw = normalizeReactionText(value);
+  if (!raw || BLANK_REACTIONS.includes(raw)) return null;
+  const phrases = [...REACTION_PHRASES].sort((a, b) => b[0].length - a[0].length);
+  for (const [phrase, id] of phrases) {
+    if (hasPhrase(raw, phrase)) return id;
+  }
+  return null;
 }
 
 /** N/A and similar words mean the spreadsheet had no reaction, not an unknown one. */
 export function isBlankReactionText(value: string): boolean {
-  const raw = value.trim().toLowerCase().replace(/[_/]+/g, " ").replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
-  return !raw || ["n a", "na", "none", "not applicable", "blank"].includes(raw);
+  const raw = normalizeReactionText(value);
+  return !raw || BLANK_REACTIONS.includes(raw);
 }
 
 export function stateLabel(value: string): string {

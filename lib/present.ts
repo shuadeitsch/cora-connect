@@ -1,3 +1,4 @@
+import { parseHouseholdReaction } from "@/lib/constants";
 import { monthKey, fullAddress } from "@/lib/format";
 import { legMiles } from "@/lib/model";
 import {
@@ -42,8 +43,26 @@ function sortOutreach(rows: ContactVisit[]) {
 
 function outreachFor(db: Database, household: Household): ContactVisit[] {
   const stored = (db.contactVisits ?? []).filter((visit) => visit.householdId === household.id);
-  if (stored.length || db.contactVisitsReady) return sortOutreach(stored);
+  const byId = new Map(stored.map((visit) => [visit.id, visit]));
   const project = db.projects.find((item) => item.id === household.projectId)?.name ?? "";
+  for (const log of db.visits.filter((visit) => visit.householdId === household.id)) {
+    if (byId.has(log.id)) continue;
+    byId.set(log.id, {
+      id: log.id,
+      orgId: log.orgId,
+      householdId: log.householdId,
+      visited: project,
+      reaction: parseHouseholdReaction(log.reaction ?? ""),
+      notes: log.details,
+      visitDate: log.visitDate || null,
+      status: log.status === "deferred" ? "deferred" : "completed",
+      arrived: "",
+      createdBy: log.visitorId,
+      createdAt: log.createdAt,
+      importBatchId: null,
+    });
+  }
+  if (byId.size || db.contactVisitsReady) return sortOutreach([...byId.values()]);
   if (!project && !household.visitReaction && !household.notes.trim()) return [];
   return [{
     id: `legacy-${household.id}`,

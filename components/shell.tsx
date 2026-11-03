@@ -123,7 +123,7 @@ export function Shell({
           <Link href="/households" aria-label="Cora Connect home" className="min-w-0">
             {/* The header mark is a photo file. next/image is not configured for it. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/crm-logo.jpeg" alt="" className="h-10 w-auto max-w-[9.5rem] object-contain object-left sm:h-11 sm:max-w-[13rem]" />
+            <img src="/crm-logo.jpeg" alt="" className="h-10 w-auto max-w-[9.5rem] object-contain object-left sm:h-11 sm:max-w-[13rem]" />
           </Link>
           <div className="flex w-full min-w-0 flex-wrap items-center gap-1">
             <VersionBadge className="min-w-0 flex-1" />

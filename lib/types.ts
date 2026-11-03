@@ -455,6 +455,8 @@ export interface VisitInput {
   status: string;
   reaction: string;
   details: string;
+  /** Season and Hebrew year, stored as "Summer 5786". Blank keeps the previous value on an edit. */
+  visited?: string;
 }
 
 export interface ContactSnapshot {

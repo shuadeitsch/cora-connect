@@ -37,9 +37,10 @@ import {
 } from "@/lib/actions";
 import { useUndoToast } from "@/components/undo-toast";
 import { CANONICAL_HEADERS, toCsv } from "@/lib/csv";
+import { VisitedPicker } from "@/components/visited-picker";
 import { CONTACT_PROJECTS, FOCUS_STATES, matchesStateFilter, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, mapsHref, smsHref, telHref, whatsAppHref } from "@/lib/format";
-import { CONTACT_TAGS, officialTags, showInContactList } from "@/lib/contact-tags";
+import { CONTACT_TAGS, matchesTagFilter, officialTags, showInContactList } from "@/lib/contact-tags";
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
 import { visitStatusLabel } from "@/lib/visit-status";
 import { TOWNS } from "@/lib/geo";
@@ -52,6 +53,7 @@ const emptyFilters = {
   state: "",
   visited: "",
   reaction: "",
+  tag: "",
   duplicates: false,
   list: "main" as "main" | "tagged",
 };
@@ -120,6 +122,10 @@ export function HouseholdsView({
       if (!current) return current;
       return data.households.find((household) => household.id === current.id) ?? current;
     });
+    setContact((current) => {
+      if (!current) return current;
+      return data.households.find((household) => household.id === current.id) ?? current;
+    });
   }, [data.households]);
 
   const filtered = useMemo(() => {
@@ -131,7 +137,9 @@ export function HouseholdsView({
         : "";
       const hay = `${household.name} ${household.city} ${household.state} ${household.zip} ${household.tags.join(" ")} ${household.projectName ?? ""} ${noteHay} ${household.people.map((person) => `${person.name} ${person.phone} ${person.email}`).join(" ")}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (!showInContactList(household.tags, q, filters.list)) return false;
+      if (filters.tag) {
+        if (!matchesTagFilter(household.tags, filters.tag)) return false;
+      } else if (!showInContactList(household.tags, q, filters.list)) return false;
       if (filters.state && !matchesStateFilter(household.state, filters.state)) return false;
       if (filters.visited) {
         const key = filters.visited.toLowerCase();
@@ -298,6 +306,15 @@ export function HouseholdsView({
         >
           Tagged
         </button>
+        <select
+          aria-label="Filter by tag"
+          className={pill}
+          value={filters.tag}
+          onChange={(event) => { setFilters({ ...filters, tag: event.target.value }); setPage(1); }}
+        >
+          <option value="">Any tag</option>
+          {CONTACT_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+        </select>
         <select
           aria-label="Filter by reaction"
           className={pill}
@@ -738,7 +755,6 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
             </div>
           )}
           <datalist id="cora-towns">{TOWNS.map((town) => <option key={`${town.city}-${town.state}`} value={town.city}>{town.city}, {town.state}</option>)}</datalist>
-          <datalist id="cora-visited">{CONTACT_PROJECTS.map((name) => <option key={name} value={name} />)}</datalist>
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visits</span>
@@ -754,14 +770,11 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
             </div>
             {form.visits.length ? form.visits.map((visit, index) => (
               <div key={visit.id ?? index} className="grid gap-2 rounded-2xl border p-3">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visited</span>
-                    <Input list="cora-visited" value={visit.visited} onChange={(event) => {
-                      const visits = form.visits.map((item, at) => at === index ? { ...item, visited: event.target.value } : item);
-                      setForm({ ...form, visits });
-                    }} />
-                  </label>
+                <div className="grid gap-2">
+                  <VisitedPicker value={visit.visited} onChange={(visited) => {
+                    const visits = form.visits.map((item, at) => at === index ? { ...item, visited } : item);
+                    setForm({ ...form, visits });
+                  }} />
                   <label className="grid gap-1 text-sm">
                     <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visit date</span>
                     <Input type="date" value={visit.visitDate} onChange={(event) => {
