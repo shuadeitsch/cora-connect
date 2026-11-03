@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1
+
+- The sign-in, sign-up, and reset password screens show the Cora Connect logo, larger and centered, on a clear background.
+- Those screens no longer have the reload button or the photo credit line at the bottom.
+
 ## 1.6.0
 
 - The admin role is now called Cora Connect admin everywhere: Users, My Team, the dashboard, sign-up, and the waiting room.

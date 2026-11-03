@@ -1,8 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ReloadButton } from "@/components/reload-button";
 
 export function AuthCard({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
@@ -11,19 +8,18 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
         <ThemeToggle />
       </div>
       <div className="page-enter glass w-full max-w-md rounded-3xl p-6 sm:p-8">
-        <Logo full />
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <ReloadButton />
-        </div>
+        {/* Cora Connect logo with its background removed. next/image is not configured for brand art. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/cora-connect-logo.png"
+          alt="Cora Connect"
+          width={873}
+          height={365}
+          className="mx-auto block h-auto w-64 max-w-[80%] dark:rounded-2xl dark:bg-white/90 dark:p-2"
+        />
         <h1 className="mt-6 font-heading text-3xl font-semibold text-foreground">{title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
         <div className="mt-6">{children}</div>
-        <p className="mt-6 text-[11px] leading-relaxed text-muted-foreground">
-          Background photo of 770 Eastern Parkway by{" "}
-          <a className="underline" href="https://commons.wikimedia.org/wiki/File:Eastern_Parkway_770_-_front_door.jpg" target="_blank" rel="noreferrer">Danny-w</a>
-          , <a className="underline" href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>.{" "}
-          <Link className="underline" href="/about">Credit</Link>
-        </p>
       </div>
     </div>
   );
