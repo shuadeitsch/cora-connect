@@ -49,6 +49,7 @@ export async function addPlannerItemAction(input: {
   title: string;
   time?: string;
   notes?: string;
+  address?: string;
 }): Promise<Result> {
   const who = await admin();
   if (typeof who === "string") return { ok: false, error: who };
@@ -65,6 +66,7 @@ export async function addPlannerItemAction(input: {
     title,
     time,
     notes: (input.notes ?? "").trim().slice(0, 2000),
+    address: input.kind === "event" ? (input.address ?? "").trim().slice(0, 300) : "",
     sort: Date.now() % 2147483647,
     created_by: who.id,
   });

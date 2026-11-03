@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.4
+
+- Build on map now has two clear modes you switch between: Click pins and Draw box. Click pins adds or removes one contact at a time. Draw box selects everyone inside the box you drag. The map stays still while you draw, with a mouse or a finger. Each new box adds to what is already selected. In Click pins mode, hold Shift and drag to draw a box too.
+- Daily planner events can now have an address (optional). Tap the address to open it in Google Maps, Apple Maps, or Waze.
+
 ## 1.7.3
 
 - Projects are now only Summer 5786, Chanukah 5787, and Unsorted (no project), everywhere they are listed or chosen: the Visits menu under Sort by, the visit form, new route dialogs, import, settings, and route labels. Contacts, visits, and routes tied to any other project show as Unsorted. No data was changed.

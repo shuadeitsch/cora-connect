@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, BoxSelect } from "lucide-react";
+import { ArrowLeft, BoxSelect, MousePointerClick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { MapPin } from "@/components/map-canvas";
@@ -81,14 +81,24 @@ export function RouteBuilder({ data }: { data: AppData }) {
         </div>
         <div className="glass pointer-events-auto absolute inset-x-3 bottom-24 flex flex-wrap items-center gap-2 rounded-3xl p-2 lg:inset-x-auto lg:right-4 lg:bottom-4">
           <span className="px-2 text-sm font-semibold text-foreground">{picked.length} selected</span>
-          <button
-            type="button"
-            aria-pressed={boxMode}
-            className={cn(filterPill, "h-9", boxMode && "bg-primary text-primary-foreground")}
-            onClick={() => setBoxMode((on) => !on)}
-          >
-            <BoxSelect className="size-4" /> {boxMode ? "Drag a box" : "Select area"}
-          </button>
+          <div role="group" aria-label="How to select" className="inline-flex rounded-full bg-muted p-0.5">
+            <button
+              type="button"
+              aria-pressed={!boxMode}
+              className={cn("inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium", !boxMode ? "bg-primary text-primary-foreground shadow-sm" : "text-foreground")}
+              onClick={() => setBoxMode(false)}
+            >
+              <MousePointerClick className="size-4" /> Click pins
+            </button>
+            <button
+              type="button"
+              aria-pressed={boxMode}
+              className={cn("inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium", boxMode ? "bg-primary text-primary-foreground shadow-sm" : "text-foreground")}
+              onClick={() => setBoxMode(true)}
+            >
+              <BoxSelect className="size-4" /> Draw box
+            </button>
+          </div>
           <button
             type="button"
             className={cn(filterPill, "h-9")}

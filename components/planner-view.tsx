@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Clock, Plus, Route as RouteIcon, Trash2, X } from "lucide-react";
+import { CalendarPlus, Clock, MapPin, Plus, Route as RouteIcon, Trash2, X } from "lucide-react";
+import { AddressLink } from "@/components/address-link";
 import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,7 +97,8 @@ function DayCard({
   const [title, setTitle] = useState("");
   const [time, setTime] = useState("");
   const [notes, setNotes] = useState("");
-  const reset = () => { setAdding(""); setRouteId(""); setTitle(""); setTime(""); setNotes(""); };
+  const [address, setAddress] = useState("");
+  const reset = () => { setAdding(""); setRouteId(""); setTitle(""); setTime(""); setNotes(""); setAddress(""); };
 
   return (
     <section className="panel rounded-3xl p-4">
@@ -137,7 +139,7 @@ function DayCard({
             event.preventDefault();
             const route = data.routes.find((item) => item.id === routeId);
             run(
-              () => addPlannerItemAction({ dayId: day.id, kind: adding, routeId, title: adding === "route" ? route?.name ?? "" : title, time, notes }),
+              () => addPlannerItemAction({ dayId: day.id, kind: adding, routeId, title: adding === "route" ? route?.name ?? "" : title, time, notes, address }),
               reset,
             );
           }}
@@ -154,6 +156,9 @@ function DayCard({
           ) : (
             <Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title" aria-label="Title" />
           )}
+          {adding === "event" ? (
+            <Input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Address (optional)" aria-label="Address (optional)" autoComplete="street-address" />
+          ) : null}
           <Input type="time" value={time} onChange={(event) => setTime(event.target.value)} aria-label="Time (optional)" className="w-auto" />
           <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes (optional)" aria-label="Notes" rows={2} />
           <Button type="submit" className="justify-self-start rounded-full" disabled={pending || (adding === "route" ? !routeId : !title.trim())}>
@@ -189,6 +194,12 @@ function ItemRow({
           {item.kind === "route" && !route ? <span className="ml-2 text-xs font-normal text-muted-foreground">(route removed)</span> : null}
         </p>
         {route ? <p className="text-xs text-muted-foreground">{route.stopCount} stops</p> : null}
+        {item.kind === "event" && item.address ? (
+          <p className="mt-0.5 flex items-center gap-1 text-sm">
+            <MapPin className="size-3.5 shrink-0 text-muted-foreground" />
+            <AddressLink address={item.address} className="text-link" />
+          </p>
+        ) : null}
         {item.notes ? <p className="mt-1 text-sm whitespace-pre-wrap text-foreground">{item.notes}</p> : null}
       </div>
       {canEdit ? (

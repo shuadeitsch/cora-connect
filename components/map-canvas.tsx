@@ -172,31 +172,62 @@ export function MapCanvas({
     };
   }, [ready, filterKey, selected, numbers, start, routeLine, pins, pickMode]);
 
+  const canBox = Boolean(onBox);
   useEffect(() => {
     const map = mapRef.current;
     const node = el.current;
-    if (!map || !node || !boxMode) return;
-    map.dragging.disable();
+    if (!map || !node || !canBox) return;
+    // Shift-drag draws a selection box here, never Leaflet's zoom box.
+    map.boxZoom.disable();
     const touchAction = node.style.touchAction;
-    node.style.touchAction = "none";
-    node.style.cursor = "crosshair";
+    if (boxMode) {
+      map.dragging.disable();
+      node.style.touchAction = "none";
+      node.style.cursor = "crosshair";
+    }
     let origin: { x: number; y: number } | null = null;
     let box: HTMLDivElement | null = null;
+    let pointer = -1;
+    let paused = false;
     const local = (event: PointerEvent) => {
       const rect = node.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
+    function finish() {
+      origin = null;
+      pointer = -1;
+      box?.remove();
+      box = null;
+      if (paused) {
+        map!.dragging.enable();
+        paused = false;
+      }
+    }
     function down(event: PointerEvent) {
+      if (origin) return;
       if ((event.target as HTMLElement | null)?.closest(".leaflet-control")) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (!boxMode && !(event.pointerType === "mouse" && event.shiftKey)) return;
+      // Keep Leaflet from panning or pinch-handling this gesture.
+      event.stopPropagation();
+      event.preventDefault();
+      if (!boxMode && map!.dragging.enabled()) {
+        map!.dragging.disable();
+        paused = true;
+      }
       origin = local(event);
+      pointer = event.pointerId;
       box = document.createElement("div");
-      box.style.cssText = "position:absolute;z-index:450;border:2px dashed #0f766e;background:rgba(15,118,110,.12);pointer-events:none;border-radius:6px";
+      box.style.cssText = "position:absolute;z-index:450;border:2px dashed #0f766e;background:rgba(15,118,110,.12);pointer-events:none;border-radius:6px;left:0;top:0;width:0;height:0";
+      box.style.left = `${origin.x}px`;
+      box.style.top = `${origin.y}px`;
       node!.appendChild(box);
-      node!.setPointerCapture?.(event.pointerId);
+      try { node!.setPointerCapture(event.pointerId); } catch { /* old browsers */ }
     }
     function move(event: PointerEvent) {
-      if (!origin || !box) return;
+      if (!origin || !box || event.pointerId !== pointer) return;
+      event.stopPropagation();
+      event.preventDefault();
       const at = local(event);
       box.style.left = `${Math.min(origin.x, at.x)}px`;
       box.style.top = `${Math.min(origin.y, at.y)}px`;
@@ -204,13 +235,27 @@ export function MapCanvas({
       box.style.height = `${Math.abs(at.y - origin.y)}px`;
     }
     function up(event: PointerEvent) {
-      if (!origin) return;
+      if (!origin || event.pointerId !== pointer) return;
+      event.stopPropagation();
       const at = local(event);
       const from = origin;
-      origin = null;
-      box?.remove();
-      box = null;
-      if (Math.abs(at.x - from.x) < 8 && Math.abs(at.y - from.y) < 8) return;
+      finish();
+      if (event.type === "pointercancel") return;
+      if (Math.abs(at.x - from.x) < 8 && Math.abs(at.y - from.y) < 8) {
+        // A tap in box mode still toggles the pin under it.
+        const hit = pickRef.current.pins.find((pin) => {
+          const point = map!.latLngToContainerPoint([pin.lat, pin.lng]);
+          return Math.abs(point.x - at.x) <= 14 && Math.abs(point.y - at.y) <= 14;
+        });
+        if (hit) {
+          // Swallow the click that follows so the marker doesn't toggle a second time.
+          const swallow = (click: MouseEvent) => { click.stopPropagation(); click.preventDefault(); };
+          node!.addEventListener("click", swallow, { capture: true, once: true });
+          window.setTimeout(() => node!.removeEventListener("click", swallow, { capture: true }), 500);
+          pickRef.current.onPick?.(hit.id);
+        }
+        return;
+      }
       const a = map!.containerPointToLatLng([from.x, from.y]);
       const b = map!.containerPointToLatLng([at.x, at.y]);
       const south = Math.min(a.lat, b.lat), north = Math.max(a.lat, b.lat);
@@ -218,21 +263,23 @@ export function MapCanvas({
       const ids = pickRef.current.pins.filter((pin) => pin.lat >= south && pin.lat <= north && pin.lng >= west && pin.lng <= east).map((pin) => pin.id);
       if (ids.length) pickRef.current.onBox?.(ids);
     }
-    node.addEventListener("pointerdown", down);
-    node.addEventListener("pointermove", move);
-    node.addEventListener("pointerup", up);
-    node.addEventListener("pointercancel", up);
+    const opts = { capture: true } as const;
+    node.addEventListener("pointerdown", down, opts);
+    node.addEventListener("pointermove", move, opts);
+    node.addEventListener("pointerup", up, opts);
+    node.addEventListener("pointercancel", up, opts);
     return () => {
-      node.removeEventListener("pointerdown", down);
-      node.removeEventListener("pointermove", move);
-      node.removeEventListener("pointerup", up);
-      node.removeEventListener("pointercancel", up);
-      box?.remove();
+      node.removeEventListener("pointerdown", down, opts);
+      node.removeEventListener("pointermove", move, opts);
+      node.removeEventListener("pointerup", up, opts);
+      node.removeEventListener("pointercancel", up, opts);
+      finish();
       node.style.touchAction = touchAction;
       node.style.cursor = "";
       map.dragging.enable();
+      map.boxZoom.enable();
     };
-  }, [ready, boxMode]);
+  }, [ready, boxMode, canBox]);
 
   return <div ref={el} className="h-full w-full" />;
 }

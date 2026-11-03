@@ -9,6 +9,7 @@ export interface PlannerItem {
   title: string;
   time: string | null;
   notes: string;
+  address: string;
   sort: number;
 }
 
@@ -23,7 +24,7 @@ export async function loadPlanner(): Promise<{ days: PlannerDay[]; error: string
   const supabase = await createClient();
   const [days, items] = await Promise.all([
     supabase.from("planner_days").select("id, date").order("date"),
-    supabase.from("planner_items").select("id, day_id, kind, route_id, title, time, notes, sort, created_at").order("sort").order("created_at"),
+    supabase.from("planner_items").select("id, day_id, kind, route_id, title, time, notes, address, sort, created_at").order("sort").order("created_at"),
   ]);
   if (days.error || items.error) return { days: [], error: "Couldn't load the planner. Reload to try again." };
   const byDay = new Map<string, PlannerItem[]>();
@@ -36,6 +37,7 @@ export async function loadPlanner(): Promise<{ days: PlannerDay[]; error: string
       title: row.title ?? "",
       time: row.time ? String(row.time).slice(0, 5) : null,
       notes: row.notes ?? "",
+      address: row.address ?? "",
       sort: row.sort ?? 0,
     };
     byDay.set(item.dayId, [...(byDay.get(item.dayId) ?? []), item]);
