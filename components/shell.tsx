@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bell,
+  CalendarDays,
   ClipboardList,
   House,
   LayoutGrid,
@@ -40,6 +41,7 @@ const PRIMARY: { href: string; label: string; icon: typeof House; adminOnly?: bo
 const MORE_NAV: { href: string; label: string; icon: typeof House; adminOnly?: boolean }[] = [
   { href: "/map", label: "Map", icon: Map },
   { href: "/saved-routes", label: "Routes", icon: Route },
+  { href: "/planner", label: "Daily planner", icon: CalendarDays },
   { href: "/reports", label: "Reports", icon: ClipboardList },
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
   { href: "/team", label: "My Team", icon: Users },

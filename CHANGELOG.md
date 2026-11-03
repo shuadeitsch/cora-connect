@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.2
+
+- New Daily planner in the side bar. Each day shows the date and the Hebrew date (for example, Saturday, December 5, 2026 · 25 Kislev 5787). It starts with Dec 5 to Dec 11, 2026.
+- Admins can add a day (pick a date), remove a day, and add or remove saved routes and events on any day. Events have a title, an optional time, and notes. A route on a day links to the route.
+- Everyone approved in Cora Connect can see the planner.
+- Database migration `015_daily_planner.sql` adds two new tables (planner days and planner items). Existing tables and access are unchanged.
+
 ## 1.7.1
 
 - Fixed: saving a new route failed with "new row violates row-level security policy" for everyone, so Build on map, Build route from Contacts, and New route by city never saved. New routes are now saved in a way the database's access rules accept. No access rules were changed.
