@@ -1,0 +1,535 @@
+export type Role = "admin" | "shliach" | "visitor" | "limited";
+export type VisitStatus = "completed" | "deferred";
+export type Reaction = "happy" | "warm" | "neutral" | "cold" | "not_interested";
+export type HouseholdReaction = "very_happy" | "warm" | "neutral" | "cold" | "very_cold";
+export type Gender = "him" | "her";
+export type CategoryKind = "regular" | "scheduled";
+export type FieldType = "text" | "number" | "date" | "select";
+export type MemberStatus = "invited" | "pending" | "approved" | "rejected" | "disabled";
+export type ApprovalDecision = "admin" | "shliach" | "reject" | "disable";
+
+export interface Territory {
+  state: string;
+  area: string;
+}
+export type DueState = "none" | "upcoming" | "due" | "overdue";
+
+export interface Organization {
+  id: string;
+  name: string;
+  chabadHouseName: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  lat: number | null;
+  lng: number | null;
+  startLat: number | null;
+  startLng: number | null;
+  defaultState: string;
+  planName: string;
+  planLimit: number;
+  planRenewsOn: string;
+}
+
+export interface User {
+  id: string;
+  orgId: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: Role;
+  status: MemberStatus;
+  expiresAt: string | null;
+  canViewHistory: boolean;
+  canViewContact: boolean;
+  canEdit: boolean;
+  assignedRouteIds: string[];
+  leaderId: string | null;
+  territory: Territory[];
+}
+
+export interface Invite {
+  id: string;
+  orgId: string;
+  name: string;
+  email: string;
+  role: Role;
+  expiresAt: string | null;
+  canViewHistory: boolean;
+  canViewContact: boolean;
+  canEdit: boolean;
+  assignedRouteIds: string[];
+  acceptedAt: string | null;
+  createdAt: string;
+}
+
+export interface Project {
+  id: string;
+  orgId: string;
+  name: string;
+}
+
+export interface Category {
+  id: string;
+  orgId: string;
+  name: string;
+  kind: CategoryKind;
+  intervalDays: number | null;
+}
+
+export interface CustomFieldDef {
+  id: string;
+  orgId: string;
+  name: string;
+  fieldType: FieldType;
+  options: string[];
+}
+
+export interface Person {
+  id: string;
+  householdId: string;
+  name: string;
+  gender: Gender | null;
+  phone: string;
+  email: string;
+  whatsapp: string;
+  sortOrder: number;
+}
+
+export interface Household {
+  id: string;
+  orgId: string;
+  name: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  lat: number | null;
+  lng: number | null;
+  notes: string;
+  projectId: string | null;
+  scheduleCategoryId: string | null;
+  categoryIds: string[];
+  tags: string[];
+  customFields: Record<string, string>;
+  sharedWithCora: boolean;
+  ownerId: string | null;
+  visitReaction: HouseholdReaction | null;
+  possibleDuplicate: boolean;
+  duplicateOf: string | null;
+  createdAt: string;
+}
+
+export interface ContactVisit {
+  id: string;
+  orgId: string;
+  householdId: string;
+  visited: string;
+  reaction: HouseholdReaction | null;
+  notes: string;
+  visitDate: string | null;
+  status: "completed" | "deferred";
+  arrived: string;
+  createdBy: string | null;
+  createdAt: string;
+  importBatchId: string | null;
+}
+
+export interface Visit {
+  id: string;
+  orgId: string;
+  householdId: string;
+  visitorId: string | null;
+  visitorName: string;
+  visitDate: string;
+  status: VisitStatus | null;
+  reaction: Reaction | null;
+  details: string;
+  followUpDate: string | null;
+  createdAt: string;
+}
+
+export interface RouteStop {
+  householdId: string;
+  position: number;
+}
+
+export interface Route {
+  id: string;
+  orgId: string;
+  name: string;
+  projectId: string | null;
+  optimized: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  stops: RouteStop[];
+}
+
+export interface AppNotification {
+  id: string;
+  orgId: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  readBy: string[];
+}
+
+export interface Database {
+  version: 1;
+  organization: Organization;
+  users: User[];
+  invites: Invite[];
+  projects: Project[];
+  categories: Category[];
+  customFields: CustomFieldDef[];
+  households: Household[];
+  people: Person[];
+  visits: Visit[];
+  contactVisits: ContactVisit[];
+  contactVisitsReady: boolean;
+  routes: Route[];
+  notifications: AppNotification[];
+}
+
+export interface Viewer {
+  id: string;
+  orgId: string;
+  name: string;
+  email: string;
+  role: Role;
+  status: MemberStatus;
+  expiresAt: string | null;
+  expired: boolean;
+  canViewHistory: boolean;
+  canViewContact: boolean;
+  canEdit: boolean;
+  canManage: boolean;
+  canLogVisit: boolean;
+  canCreateRoute: boolean;
+  canDeleteRoute: boolean;
+  leaderId: string | null;
+  territory: Territory[];
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  status: MemberStatus;
+  expiresAt: string | null;
+  canViewHistory: boolean;
+  canViewContact: boolean;
+  canEdit: boolean;
+  assignedRouteIds: string[];
+  leaderId: string | null;
+  territory: Territory[];
+  kind: "member" | "invite";
+}
+
+export interface HouseholdView {
+  id: string;
+  name: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  lat: number | null;
+  lng: number | null;
+  notes: string;
+  projectId: string | null;
+  projectName: string | null;
+  scheduleCategoryId: string | null;
+  scheduleName: string;
+  intervalDays: number | null;
+  categoryIds: string[];
+  categoryNames: string[];
+  tags: string[];
+  customFields: Record<string, string>;
+  sharedWithCora: boolean;
+  ownerId: string | null;
+  visitReaction: HouseholdReaction | null;
+  possibleDuplicate: boolean;
+  duplicateOf: string | null;
+  duplicateOfName: string | null;
+  contactVisits: ContactVisitView[];
+  latestVisited: string;
+  latestReaction: HouseholdReaction | null;
+  visitCount: number;
+  createdAt: string;
+  people: Person[];
+  lastVisitAt: string | null;
+  lastStatus: VisitStatus | null;
+  nextDue: string | null;
+  dueState: DueState;
+  address: string;
+}
+
+export interface ContactVisitView {
+  id: string;
+  visited: string;
+  reaction: HouseholdReaction | null;
+  notes: string;
+  visitDate: string | null;
+  status: "completed" | "deferred";
+  createdAt: string;
+}
+
+export interface VisitView {
+  id: string;
+  householdId: string;
+  householdName: string;
+  visitorId: string | null;
+  visitorName: string;
+  visitDate: string;
+  status: VisitStatus | null;
+  reaction: Reaction | null;
+  details: string;
+  followUpDate: string | null;
+  scheduleName: string;
+  categoryNames: string[];
+  projectName: string | null;
+  createdAt: string;
+}
+
+export interface RouteStopView {
+  householdId: string;
+  position: number;
+  name: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  lat: number | null;
+  lng: number | null;
+  phone: string;
+}
+
+export interface RouteView {
+  id: string;
+  name: string;
+  projectId: string | null;
+  projectName: string;
+  optimized: boolean;
+  createdAt: string;
+  stopCount: number;
+  stops: RouteStopView[];
+  miles: number | null;
+}
+
+export interface Stats {
+  householdCount: number;
+  householdsThisMonth: number;
+  planLimit: number;
+  visitsThisMonth: number;
+  routeCount: number;
+  optimizedRoutes: number;
+  stopCount: number;
+  teamCount: number;
+  roleCounts: Record<Role, number>;
+  activity: { label: string; count: number }[];
+  reactions: Record<Reaction, number>;
+  topCategories: { name: string; count: number }[];
+  dueThisWeek: {
+    id: string;
+    name: string;
+    schedule: string;
+    overdue: boolean;
+    nextDue: string | null;
+  }[];
+  recentVisits: {
+    id: string;
+    householdId: string;
+    householdName: string;
+    visitorName: string;
+    status: VisitStatus | null;
+    reaction: Reaction | null;
+    visitDate: string;
+    details: string;
+  }[];
+  checklist: {
+    chabadHouse: boolean;
+    startPoint: boolean;
+    imported: boolean;
+    route: boolean;
+    visit: boolean;
+  };
+}
+
+export interface AppNotificationView {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface AppData {
+  mode: "demo" | "supabase";
+  viewer: Viewer;
+  org: Organization;
+  members: TeamMember[];
+  projects: Project[];
+  categories: Category[];
+  customFields: CustomFieldDef[];
+  households: HouseholdView[];
+  visits: VisitView[];
+  routes: RouteView[];
+  notifications: AppNotificationView[];
+  stats: Stats;
+}
+
+export interface HouseholdInput {
+  id?: string;
+  name: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  lat: string;
+  lng: string;
+  notes: string;
+  projectId: string;
+  scheduleCategoryId: string;
+  categoryIds: string[];
+  tags: string;
+  customFields: Record<string, string>;
+  sharedWithCora: boolean;
+  ownerId: string;
+  visitReaction: string;
+  visits: {
+    id?: string;
+    visited: string;
+    status: string;
+    reaction: string;
+    notes: string;
+    visitDate: string;
+  }[];
+  people: {
+    id?: string;
+    name: string;
+    gender: string;
+    phone: string;
+    email: string;
+    whatsapp: string;
+  }[];
+}
+
+export interface ImportedPerson {
+  name: string;
+  phone: string;
+  email: string;
+}
+
+export interface ContactImport {
+  visitedFallback: string;
+  ownerId: string;
+  sharedWithCora: boolean;
+  rows: {
+    name: string;
+    phone: string;
+    email: string;
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+    shareWithCora: boolean | null;
+    tags: string;
+    visited: string;
+    status: string;
+    reaction: string;
+    notes: string;
+    visitDate: string;
+  }[];
+}
+
+export interface VisitInput {
+  id?: string;
+  householdId: string;
+  visitDate: string;
+  status: string;
+  reaction: string;
+  details: string;
+}
+
+export interface ContactSnapshot {
+  household: Household;
+  people: Person[];
+  contactVisits: ContactVisit[];
+  visits: Visit[];
+}
+
+export type UndoPayload =
+  | { type: "delete-created"; householdIds: string[] }
+  | { type: "restore-deleted"; householdIds: string[] }
+  | { type: "reinsert"; snapshots: ContactSnapshot[] }
+  | { type: "replace-contact"; snapshot: ContactSnapshot }
+  | { type: "restore-visit"; visit: Visit; mode: "undelete" | "reinsert" }
+  | { type: "replace-visit"; visit: Visit }
+  | { type: "delete-visit"; id: string }
+  | { type: "import"; batchId: string; householdIds: string[]; visitIds: string[] }
+  | { type: "flags"; id: string; possibleDuplicate: boolean; duplicateOf: string | null }
+  | { type: "merge"; source: ContactSnapshot; target: ContactSnapshot };
+
+export interface RouteInput {
+  id?: string;
+  name: string;
+  projectId: string;
+  optimized: boolean;
+  householdIds: string[];
+}
+
+export interface MemberInput {
+  id?: string;
+  kind?: "member" | "invite";
+  name: string;
+  email: string;
+  role: Role;
+  expiresAt: string;
+  canViewHistory: boolean;
+  canViewContact: boolean;
+  canEdit: boolean;
+  assignedRouteIds: string[];
+}
+
+export interface OrgInput {
+  name: string;
+  chabadHouseName: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  defaultState: string;
+  startLat: string;
+  startLng: string;
+  useHouseAsStart: boolean;
+}
+
+export interface CategoryInput {
+  id?: string;
+  name: string;
+  kind: CategoryKind;
+  intervalDays: string;
+}
+
+export interface ProjectInput {
+  id?: string;
+  name: string;
+}
+
+export interface FieldInput {
+  id?: string;
+  name: string;
+  fieldType: FieldType;
+  options: string;
+}
+
+export type ActionResult<T = undefined> =
+  | { ok: true; data?: T; warning?: string; undo?: UndoPayload }
+  | { ok: false; error: string };

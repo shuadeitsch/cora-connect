@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# contact / data dumps (never commit)
+*.xlsx
+*.xls
+*.csv
+!docs/**/*.csv
+
+# debug / OS
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+*.pem
+.vercel
+
+# typescript
+*.tsbuildinfo
+
+# local password / login notes
+*password*.txt
+*login*.txt
