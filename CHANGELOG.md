@@ -4,7 +4,8 @@
 
 - Tapping an address opens a small menu to open it in Google Maps, Apple Maps, or Waze. It works on the contact page, the contact cards and table rows, route stops, and the map's contact card. When a contact has map coordinates, those are used. Otherwise the full address is used.
 - In the contacts table, the Visited column shows every visit, newest first, as small chips colored by reaction. The two newest fit on one line, and a +N chip opens the full list, so rows stay short.
-- The visit filter on the contacts page starts on All contacts, which shows everyone. All visits shows contacts with at least one visit, and Not yet visited shows contacts with none. Removed visits don't count. The season choices work as before.
+- The contacts page has one Sort by menu instead of several filters: Reactions, Tags, Possible duplicates, All visits, and each season from the projects list, such as Chanukah 5787 and Summer 5786. Choosing Reactions or Tags shows a second menu to pick which one. The All contacts button next to it clears every filter and the search and shows everyone. Removed visits don't count.
+- Export moved to the top right, next to Import and New contact.
 
 ## 1.5.5
 

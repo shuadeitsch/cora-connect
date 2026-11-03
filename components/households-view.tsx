@@ -40,7 +40,7 @@ import {
 import { useUndoToast } from "@/components/undo-toast";
 import { CANONICAL_HEADERS, toCsv } from "@/lib/csv";
 import { VisitedPicker } from "@/components/visited-picker";
-import { CONTACT_PROJECTS, FOCUS_STATES, matchesStateFilter, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
+import { FOCUS_STATES, matchesStateFilter, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { CONTACT_TAGS, matchesTagFilter, officialTags, showInContactList } from "@/lib/contact-tags";
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
@@ -53,9 +53,13 @@ const control = "h-9 w-full rounded-lg border border-input bg-card px-3 text-sm 
 
 // Removed visits are already left out of contactVisits, so they never count.
 const VISITED_ANY = "__any_visit";
-const VISITED_NONE = "__not_visited";
+const ANY_REACTION = "__any_reaction";
+const SEASON_YEAR = /\b5\d{3}$/;
+
+type SortMode = "" | "reactions" | "tags" | "duplicates" | "visits" | `season:${string}`;
 
 const emptyFilters = {
+  mode: "" as SortMode,
   state: "",
   visited: "",
   reaction: "",
@@ -149,15 +153,16 @@ export function HouseholdsView({
       if (filters.state && !matchesStateFilter(household.state, filters.state)) return false;
       if (filters.visited === VISITED_ANY) {
         if (!(household.contactVisits ?? []).length) return false;
-      } else if (filters.visited === VISITED_NONE) {
-        if ((household.contactVisits ?? []).length) return false;
       } else if (filters.visited) {
         const key = filters.visited.toLowerCase();
         const visits = household.contactVisits ?? [];
         const hit = visits.some((visit) => visit.visited.toLowerCase() === key) || household.latestVisited.toLowerCase() === key;
         if (!hit) return false;
       }
-      if (filters.reaction) {
+      if (filters.reaction === ANY_REACTION) {
+        const visits = household.contactVisits ?? [];
+        if (!visits.some((visit) => visit.reaction) && !household.latestReaction) return false;
+      } else if (filters.reaction) {
         const visits = household.contactVisits ?? [];
         const hit = visits.some((visit) => visit.reaction === filters.reaction) || household.latestReaction === filters.reaction;
         if (!hit) return false;
@@ -181,10 +186,31 @@ export function HouseholdsView({
   const safePage = Math.min(page, pages);
   const slice = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const allFiltered = filtered.length > 0 && filtered.every((row) => selected.includes(row.id));
-  const visitedChoices = [...new Set([
-    ...CONTACT_PROJECTS,
-    ...data.households.flatMap((household) => (household.contactVisits ?? []).map((visit) => visit.visited).filter(Boolean)),
-  ])].sort((a, b) => a.localeCompare(b));
+  // Seasons come from the projects list and from the visits themselves, newest year first.
+  const seasonChoices = [...new Set([
+    ...data.projects.map((project) => project.name.trim()),
+    ...data.households.flatMap((household) => (household.contactVisits ?? []).map((visit) => visit.visited.trim())),
+  ])]
+    .filter((name) => SEASON_YEAR.test(name))
+    .sort((a, b) => (b.match(SEASON_YEAR)?.[0] ?? "").localeCompare(a.match(SEASON_YEAR)?.[0] ?? "") || a.localeCompare(b));
+
+  function chooseMode(mode: SortMode) {
+    const base = { ...emptyFilters, state: filters.state, mode };
+    if (mode === "reactions") setFilters({ ...base, reaction: ANY_REACTION });
+    else if (mode === "tags") setFilters({ ...base, list: "tagged" });
+    else if (mode === "duplicates") setFilters({ ...base, duplicates: true });
+    else if (mode === "visits") setFilters({ ...base, visited: VISITED_ANY });
+    else if (mode.startsWith("season:")) setFilters({ ...base, visited: mode.slice("season:".length) });
+    else setFilters(base);
+    setPage(1);
+  }
+
+  function showEveryone() {
+    setFilters({ ...emptyFilters, state: initialState(data) });
+    setQuery("");
+    setSort("name");
+    setPage(1);
+  }
   const tabs = stateTabs(data);
 
   function download(rows: HouseholdView[]) {
@@ -252,14 +278,23 @@ export function HouseholdsView({
         title={scopeLabel(data.viewer.role, data.viewer.territory)}
         crumb="Contacts"
         action={
-          data.viewer.canEdit ? (
+          data.viewer.canEdit || data.viewer.canManage ? (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" className="rounded-full" onClick={() => setImportOpen(true)}>
-                <Upload /> Import
-              </Button>
-              <Button className="rounded-full" onClick={() => setCreating(true)}>
-                <Plus /> New Contact
-              </Button>
+              {data.viewer.canManage ? (
+                <Button variant="outline" className="rounded-full" onClick={() => download(selected.length ? filtered.filter((row) => selected.includes(row.id)) : filtered)}>
+                  <Download /> Export
+                </Button>
+              ) : null}
+              {data.viewer.canEdit ? (
+                <>
+                  <Button variant="outline" className="rounded-full" onClick={() => setImportOpen(true)}>
+                    <Upload /> Import
+                  </Button>
+                  <Button className="rounded-full" onClick={() => setCreating(true)}>
+                    <Plus /> New Contact
+                  </Button>
+                </>
+              ) : null}
             </div>
           ) : null
         }
@@ -292,74 +327,51 @@ export function HouseholdsView({
       ) : null}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <select
-          aria-label="Filter by visited"
-          className={pill}
-          value={filters.visited}
-          onChange={(event) => { setFilters({ ...filters, visited: event.target.value }); setPage(1); }}
+          aria-label="Sort by"
+          className={cn(pill, filters.mode && "border-primary")}
+          value={filters.mode}
+          onChange={(event) => chooseMode(event.target.value as SortMode)}
         >
-          <option value="">All contacts</option>
-          <option value={VISITED_ANY}>All visits</option>
-          <option value={VISITED_NONE}>Not yet visited</option>
-          {visitedChoices.map((name) => <option key={name} value={name}>{name}</option>)}
+          <option value="">Sort by</option>
+          <option value="reactions">Reactions</option>
+          <option value="tags">Tags</option>
+          <option value="duplicates">Possible duplicates</option>
+          <option value="visits">All visits</option>
+          {seasonChoices.map((name) => <option key={name} value={`season:${name}`}>{name}</option>)}
         </select>
-        <button
-          type="button"
-          className={cn(pill, filters.duplicates && "bg-primary text-primary-foreground")}
-          aria-pressed={filters.duplicates}
-          onClick={() => { setFilters({ ...filters, duplicates: !filters.duplicates }); setPage(1); }}
-        >
-          Possible duplicates
-        </button>
-        <button
-          type="button"
-          className={cn(pill, filters.list === "tagged" && "bg-primary text-primary-foreground")}
-          aria-pressed={filters.list === "tagged"}
-          onClick={() => { setFilters({ ...filters, list: filters.list === "tagged" ? "main" : "tagged" }); setPage(1); }}
-        >
-          Tagged
-        </button>
-        <select
-          aria-label="Filter by tag"
-          className={pill}
-          value={filters.tag}
-          onChange={(event) => { setFilters({ ...filters, tag: event.target.value }); setPage(1); }}
-        >
-          <option value="">Any tag</option>
-          {CONTACT_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-        </select>
-        <select
-          aria-label="Filter by reaction"
-          className={pill}
-          value={filters.reaction}
-          onChange={(event) => { setFilters({ ...filters, reaction: event.target.value }); setPage(1); }}
-        >
-          <option value="">All reactions</option>
-          {VISIT_REACTIONS.map((reaction) => <option key={reaction.id} value={reaction.id}>{reaction.label}</option>)}
-        </select>
-        <Popover>
-          <PopoverTrigger asChild>
-            <button type="button" className={pill}>Sort by</button>
-          </PopoverTrigger>
-          <PopoverContent className="w-44 p-1">
-            {[
-              ["name", "Name A–Z"],
-              ["name_desc", "Name Z–A"],
-              ["newest", "Newest"],
-              ["city", "City"],
-              ["state", "State"],
-              ["visited", "Visited"],
-            ].map(([value, label]) => (
-              <button key={value} type="button" className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted" onClick={() => setSort(value)}>
-                {label}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
-        {data.viewer.canManage ? (
-          <button type="button" className={pill} onClick={() => download(selected.length ? filtered.filter((row) => selected.includes(row.id)) : filtered)}>
-            <Download className="size-3.5" /> Export
-          </button>
+        {filters.mode === "reactions" ? (
+          <select
+            aria-label="Which reaction"
+            className={pill}
+            value={filters.reaction}
+            onChange={(event) => { setFilters({ ...filters, reaction: event.target.value }); setPage(1); }}
+          >
+            <option value={ANY_REACTION}>Any reaction</option>
+            {VISIT_REACTIONS.map((reaction) => <option key={reaction.id} value={reaction.id}>{reaction.label}</option>)}
+          </select>
         ) : null}
+        {filters.mode === "tags" ? (
+          <select
+            aria-label="Which tag"
+            className={pill}
+            value={filters.tag}
+            onChange={(event) => {
+              const tag = event.target.value;
+              setFilters({ ...filters, tag, list: tag ? "main" : "tagged" });
+              setPage(1);
+            }}
+          >
+            <option value="">Any tag</option>
+            {CONTACT_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+          </select>
+        ) : null}
+        <button
+          type="button"
+          className={cn(pill, !filters.mode && !query && "bg-primary text-primary-foreground")}
+          onClick={showEveryone}
+        >
+          All contacts
+        </button>
         {selected.length && data.viewer.canEdit ? (
           <button type="button" className={`${pill} text-red-600`} onClick={() => setPendingDelete(selected)}>
             <Trash2 className="size-3.5" /> Delete {selected.length} contact{selected.length === 1 ? "" : "s"}
