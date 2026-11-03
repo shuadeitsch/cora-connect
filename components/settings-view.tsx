@@ -1,5 +1,6 @@
 "use client";
 
+import { UNSORTED_PROJECT } from "@/lib/constants";
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Notice, PageHeader } from "@/components/page-header";
@@ -10,11 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   deleteCategoryAction,
   deleteFieldAction,
-  deleteProjectAction,
   saveCategoryAction,
   saveFieldAction,
   saveOrganizationAction,
-  saveProjectAction,
 } from "@/lib/actions";
 import { geocodeAddress } from "@/lib/geo";
 import { AccountPassword } from "@/components/account-password";
@@ -215,58 +214,18 @@ function CategoryList({ title, rows, onDelete }: { title: string; rows: { id: st
 }
 
 function Projects({ data }: { data: AppData }) {
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [error, setError] = useState("");
-  const [pending, start] = useTransition();
+  const rows = [...data.projects.map((project) => project.name), UNSORTED_PROJECT];
   return (
     <section className="max-w-xl panel rounded-3xl p-4">
       <h2 className="font-heading text-lg font-semibold text-foreground">Projects</h2>
-      <p className="text-sm text-mutedink">Group households and routes, for example a summer visitation or a campus list.</p>
       <ul className="mt-3 divide-y">
-        {data.projects.map((project) => (
-          <li key={project.id} className="flex items-center justify-between py-2 text-sm">
-            {project.name}
-            {data.viewer.canManage ? (
-              <button
-                type="button"
-                className="text-xs text-red-600"
-                onClick={() => {
-                  if (!confirm(`Delete ${project.name}?`)) return;
-                  start(async () => {
-                    const result = await deleteProjectAction(project.id);
-                    if (!result.ok) setError(result.error);
-                    else router.refresh();
-                  });
-                }}
-              >
-                Delete
-              </button>
-            ) : null}
+        {rows.map((name) => (
+          <li key={name} className="py-2 text-sm text-foreground">
+            {name}
+            {name === UNSORTED_PROJECT ? <span className="ml-2 text-xs text-mutedink">no project</span> : null}
           </li>
         ))}
       </ul>
-      {data.viewer.canManage ? (
-        <form
-          className="mt-3 flex flex-wrap gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            start(async () => {
-              const result = await saveProjectAction({ name });
-              if (!result.ok) setError(result.error);
-              else {
-                setName("");
-                setError("");
-                router.refresh();
-              }
-            });
-          }}
-        >
-          <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="New project" className="max-w-xs" required />
-          <Button type="submit" className="rounded-full" disabled={pending}>Add</Button>
-        </form>
-      ) : null}
-      {error ? <div className="mt-2"><Notice>{error}</Notice></div> : null}
     </section>
   );
 }

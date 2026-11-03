@@ -1,3 +1,4 @@
+import { projectLabel } from "@/lib/constants";
 /** Contact-level notes that were never copied onto a visit. Mendel confirmed those existing notes are from Summer 5786. */
 export const LEGACY_NOTE_VISIT = "Summer 5786";
 
@@ -15,7 +16,7 @@ type NoteVisit = {
 };
 
 export function visitNoteLabel(visited: string, visitDate: string | null, formatDate: (iso: string) => string): string {
-  const name = visited.trim() || "Visit";
+  const name = visited.trim() ? projectLabel(visited) : "Visit";
   const date = visitDate?.trim() ?? "";
   if (!date) return name;
   const formatted = formatDate(date).trim();

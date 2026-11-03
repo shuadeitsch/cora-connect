@@ -155,6 +155,24 @@ export function scopeLabel(role: string, territory: { state: string }[], viewing
 }
 
 export const CONTACT_PROJECTS = ["Summer 5786", "Chanukah 5787"] as const;
+/** Everything that isn't one of CONTACT_PROJECTS (or has no project) shows as this. */
+export const UNSORTED_PROJECT = "Unsorted";
+
+export function isListedProject(name: string | null | undefined): boolean {
+  const key = (name ?? "").trim().toLowerCase();
+  return CONTACT_PROJECTS.some((item) => item.toLowerCase() === key);
+}
+
+/** The project name to show: Summer 5786, Chanukah 5787, or Unsorted. */
+export function projectLabel(name: string | null | undefined): string {
+  const key = (name ?? "").trim().toLowerCase();
+  return CONTACT_PROJECTS.find((item) => item.toLowerCase() === key) ?? UNSORTED_PROJECT;
+}
+
+/** Only the listed projects, in the listed order. */
+export function listedProjects<T extends { name: string }>(projects: T[]): T[] {
+  return CONTACT_PROJECTS.flatMap((name) => projects.filter((project) => project.name.trim() === name).slice(0, 1));
+}
 
 export const US_STATES: [string, string][] = [
   ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"], ["CA", "California"],
@@ -193,10 +211,6 @@ export function contactInTerritory(
 }
 
 export function projectChoices<T extends { id: string; name: string }>(projects: T[], currentId?: string | null): T[] {
-  const named = CONTACT_PROJECTS.map((name) => projects.find((project) => project.name === name)).filter((project): project is T => Boolean(project));
-  if (currentId && !named.some((project) => project.id === currentId)) {
-    const current = projects.find((project) => project.id === currentId);
-    if (current) named.push(current);
-  }
-  return named;
+  void currentId; // Other projects show as Unsorted, so they are not offered.
+  return listedProjects(projects);
 }

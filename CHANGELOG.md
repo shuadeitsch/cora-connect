@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.3
+
+- Projects are now only Summer 5786, Chanukah 5787, and Unsorted (no project), everywhere they are listed or chosen: the Visits menu under Sort by, the visit form, new route dialogs, import, settings, and route labels. Contacts, visits, and routes tied to any other project show as Unsorted. No data was changed.
+- Users page: a clear list of everyone who can use Cora Connect, with name, email, account type (and a shliach's states), status (Approved, Pending, Disabled, Expired), and expiry date. It opens on Everyone when no one is waiting.
+- My Team (admins): a Shluchim list. Tap a shliach to see the people under him, with email, status, and expiry. Shows "No shluchim yet" when there are none.
+- The Feedback button in the top bar is now just an icon. It offers one option: Call 347-770-1863.
+
 ## 1.7.2
 
 - New Daily planner in the side bar. Each day shows the date and the Hebrew date (for example, Saturday, December 5, 2026 · 25 Kislev 5787). It starts with Dec 5 to Dec 11, 2026.

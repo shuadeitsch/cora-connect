@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { FOCUS_STATES, matchesStateFilter, sameState, stateLabel } from "@/lib/constants";
+import { CONTACT_PROJECTS, FOCUS_STATES, UNSORTED_PROJECT, matchesStateFilter, projectLabel, sameState, stateLabel } from "@/lib/constants";
 import { CONTACT_TAGS, matchesTagFilter, showInContactList } from "@/lib/contact-tags";
 import { formatMedium } from "@/lib/format";
 import { labeledVisitNotes } from "@/lib/visit-notes";
@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 // Removed visits are already left out of contactVisits, so they never count.
 export const VISITED_ANY = "__any_visit";
 export const VISITED_NONE = "__not_visited";
-const SEASON_YEAR = /\b5\d{3}$/;
 
 export type SortMode = "" | "tags" | "visits" | "duplicates";
 
@@ -80,9 +79,8 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
       } else if (filters.visited === VISITED_NONE) {
         if ((household.contactVisits ?? []).some((visit) => isRealVisit(visit.visited))) return false;
       } else if (filters.visited) {
-        const key = filters.visited.toLowerCase();
         const visits = household.contactVisits ?? [];
-        const hit = visits.some((visit) => visit.visited.toLowerCase() === key) || household.latestVisited.toLowerCase() === key;
+        const hit = visits.some((visit) => isRealVisit(visit.visited) && projectLabel(visit.visited) === filters.visited);
         if (!hit) return false;
       }
       if (filters.duplicates && !household.possibleDuplicate) return false;
@@ -118,13 +116,8 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
     return picked.size ? beforeCity.filter((household) => picked.has(cityKey(household.city))) : [...beforeCity];
   }, [beforeCity, filters.cities]);
 
-  // Seasons come from the projects list and from the visits themselves, newest year first.
-  const seasonChoices = useMemo(() => [...new Set([
-    ...data.projects.map((project) => project.name.trim()),
-    ...data.households.flatMap((household) => (household.contactVisits ?? []).map((visit) => visit.visited.trim())),
-  ])]
-    .filter((name) => SEASON_YEAR.test(name))
-    .sort((a, b) => (b.match(SEASON_YEAR)?.[0] ?? "").localeCompare(a.match(SEASON_YEAR)?.[0] ?? "") || a.localeCompare(b)), [data.projects, data.households]);
+  // Visits are grouped as Summer 5786, Chanukah 5787, or Unsorted (any other or old value).
+  const seasonChoices: string[] = [...CONTACT_PROJECTS, UNSORTED_PROJECT];
 
   function chooseMode(mode: SortMode) {
     const base = { ...emptyFilters, state: filters.state, cities: filters.cities, mode };

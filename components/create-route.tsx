@@ -46,7 +46,7 @@ export function NameRouteForm({ data, ids, name: startName, onBack }: { data: Ap
       <Input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Route name" aria-label="Route name" />
       {data.projects.length ? (
         <select className="h-10 rounded-lg border bg-card px-2 text-sm" value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Project">
-          <option value="">No project</option>
+          <option value="">Unsorted</option>
           {data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select>
       ) : null}

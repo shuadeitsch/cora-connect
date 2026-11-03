@@ -44,7 +44,7 @@ import { CANONICAL_HEADERS, toCsv } from "@/lib/csv";
 import { VisitedPicker } from "@/components/visited-picker";
 import { isRealVisit } from "@/lib/visited";
 import { setViewingState } from "@/lib/viewing-state";
-import { FOCUS_STATES, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
+import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { CONTACT_TAGS, officialTags } from "@/lib/contact-tags";
 import { ContactFilterControls, ContactStateTabs, useContactFilters } from "@/components/contact-filters";
@@ -474,7 +474,7 @@ function ReactionBadge({ reaction }: { reaction: HouseholdReaction | null }) {
 }
 
 function visitChipLabel(visit: HouseholdView["contactVisits"][number]) {
-  const name = visit.visited.trim();
+  const name = visit.visited.trim() ? projectLabel(visit.visited) : "";
   const date = visit.visitDate ? formatMedium(visit.visitDate) : "";
   return name || date || "Visit";
 }

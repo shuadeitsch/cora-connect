@@ -168,7 +168,7 @@ export function MapView({ data }: { data: AppData }) {
             </div>
             <Input className="mt-2" placeholder="Route name" value={routeName} onChange={(event) => setRouteName(event.target.value)} />
             <select className="mt-2 h-9 rounded-lg border px-2 text-sm" value={routeProject} onChange={(event) => setRouteProject(event.target.value)}>
-              <option value="">Project</option>
+              <option value="">Unsorted</option>
               {data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
             </select>
             <ol className="mt-2 flex-1 space-y-1 overflow-auto text-sm">

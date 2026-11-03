@@ -1,4 +1,4 @@
-import { parseHouseholdReaction } from "@/lib/constants";
+import { isListedProject, listedProjects, parseHouseholdReaction, projectLabel } from "@/lib/constants";
 import { isRealVisit } from "@/lib/visited";
 import { monthKey, fullAddress } from "@/lib/format";
 import { legMiles } from "@/lib/model";
@@ -148,7 +148,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         lng: household.lng,
         notes: household.notes,
         projectId: household.projectId,
-        projectName: project?.name ?? null,
+        projectName: project && isListedProject(project.name) ? projectLabel(project.name) : null,
         scheduleCategoryId: household.scheduleCategoryId,
         scheduleName: !schedule || schedule.intervalDays == null ? "None" : schedule.name,
         intervalDays: schedule?.intervalDays ?? null,
@@ -230,7 +230,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         id: route.id,
         name: route.name,
         projectId: route.projectId,
-        projectName: db.projects.find((project) => project.id === route.projectId)?.name ?? "Unsorted Routes",
+        projectName: projectLabel(db.projects.find((project) => project.id === route.projectId)?.name),
         optimized: route.optimized,
         createdAt: route.createdAt.slice(0, 10),
         stopCount: stops.length,
@@ -330,7 +330,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
     },
     org: db.organization,
     members: roster,
-    projects: db.projects,
+    projects: listedProjects(db.projects),
     categories: db.categories,
     customFields: db.customFields,
     households,

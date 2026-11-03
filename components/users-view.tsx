@@ -3,12 +3,13 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Notice, PageHeader } from "@/components/page-header";
+import { StatusPill, expiryText, memberStates } from "@/components/people-overview";
 import { ScrollRegion } from "@/components/scroll-region";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { setAccountApprovalAction } from "@/lib/actions";
-import { ACCOUNT_STATUS_LABEL, FOCUS_STATES, OWNER_EMAIL, ROLE_LABEL, sameState } from "@/lib/constants";
+import { FOCUS_STATES, OWNER_EMAIL, ROLE_LABEL, sameState } from "@/lib/constants";
 import type { AppData, ApprovalDecision, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,7 @@ function territoryText(member: TeamMember) {
 
 export function UsersView({ data }: { data: AppData }) {
   const router = useRouter();
-  const [filter, setFilter] = useState<"pending" | "all">("pending");
+  const [filter, setFilter] = useState<"pending" | "all">(() => (data.members.some((member) => member.kind === "member" && member.status === "pending") ? "pending" : "all"));
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState("");
   const [, start] = useTransition();
@@ -57,7 +58,7 @@ export function UsersView({ data }: { data: AppData }) {
           Pending ({pendingCount})
         </Button>
         <Button type="button" variant={filter === "all" ? "default" : "outline"} className="rounded-full" onClick={() => setFilter("all")}>
-          All accounts
+          Everyone ({accounts.length})
         </Button>
       </div>
       {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
@@ -68,9 +69,9 @@ export function UsersView({ data }: { data: AppData }) {
               <tr className="border-b">
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="hidden px-3 py-2 font-medium xl:table-cell">Email</th>
-                <th className="px-3 py-2 font-medium">Role</th>
-                <th className="hidden px-3 py-2 font-medium xl:table-cell">Territory</th>
+                <th className="px-3 py-2 font-medium">Account type</th>
                 <th className="px-3 py-2 font-medium">Status</th>
+                <th className="hidden px-3 py-2 font-medium md:table-cell">Expires</th>
                 <th className="px-3 py-2 font-medium" />
               </tr>
             </thead>
@@ -85,13 +86,15 @@ export function UsersView({ data }: { data: AppData }) {
                       <div className="text-xs font-normal text-muted-foreground xl:hidden">{member.email}</div>
                     </td>
                     <td className="hidden px-3 py-3 text-muted-foreground xl:table-cell">{member.email}</td>
-                    <td className="px-3 py-3"><RoleBadge member={member} /></td>
-                    <td className="hidden px-3 py-3 text-muted-foreground xl:table-cell">
-                      {member.role === "shliach"
-                        ? [...new Set(member.territory.map((row) => row.area ? `${row.state} · ${row.area}` : row.state))].join(", ") || "No territory yet"
-                        : "—"}
+                    <td className="px-3 py-3">
+                      <RoleBadge member={member} />
+                      {member.role === "shliach" ? <div className="mt-1 text-xs text-muted-foreground">{memberStates(member) || "No states yet"}</div> : null}
                     </td>
-                    <td className="px-3 py-3">{ACCOUNT_STATUS_LABEL[member.status]}</td>
+                    <td className="px-3 py-3">
+                      <StatusPill member={member} />
+                      <div className="mt-1 text-xs text-muted-foreground md:hidden">{member.expiresAt ? `Expires ${expiryText(member)}` : ""}</div>
+                    </td>
+                    <td className="hidden px-3 py-3 text-muted-foreground md:table-cell">{expiryText(member)}</td>
                     <td className="px-3 py-3">
                       {locked ? <span className="text-xs text-muted-foreground">Always Cora Connect admin</span> : member.status === "pending" ? (
                         <div className="grid justify-end gap-2">

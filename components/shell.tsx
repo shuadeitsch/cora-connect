@@ -152,26 +152,17 @@ export function Shell({
               <button
                 type="button"
                 aria-label="Feedback"
-                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium text-foreground hover:bg-muted"
+                title="Feedback"
+                className="inline-flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted"
               >
                 <MessageSquareText className="size-[18px]" />
-                <span className="hidden sm:inline">Feedback</span>
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-[min(18rem,calc(100vw-1.5rem))]">
               <p className="font-heading text-sm font-semibold text-foreground">Send feedback</p>
               <div className="mt-3 flex flex-col gap-1 text-sm">
-                <a className="flex min-h-11 items-center gap-2 rounded-xl px-2 hover:bg-muted" href={`mailto:info@chabadora.com?subject=${encodeURIComponent("Cora Connect feedback")}`}>
-                  <span className="text-muted-foreground">Email</span>
-                  <span className="ml-auto text-primary">info@chabadora.com</span>
-                </a>
                 <a className="flex min-h-11 items-center gap-2 rounded-xl px-2 hover:bg-muted" href="tel:+13477701863">
-                  <span className="text-muted-foreground">Call</span>
-                  <span className="ml-auto text-primary">347-770-1863</span>
-                </a>
-                <a className="flex min-h-11 items-center gap-2 rounded-xl px-2 hover:bg-muted" href="sms:+13477701863">
-                  <span className="text-muted-foreground">Text</span>
-                  <span className="ml-auto text-primary">347-770-1863</span>
+                  <span className="text-primary">Call 347-770-1863</span>
                 </a>
               </div>
             </PopoverContent>

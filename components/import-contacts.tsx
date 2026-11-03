@@ -148,7 +148,7 @@ export function ImportContacts({ open, data, onClose }: { open: boolean; data: A
         <label className="grid gap-1 text-sm">
           <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Visited when the row leaves it blank</span>
           <select className={selectClass} value={visitedFallback} onChange={(event) => setVisitedFallback(event.target.value)}>
-            <option value="">Leave blank</option>
+            <option value="">Unsorted</option>
             {CONTACT_PROJECTS.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         </label>
