@@ -40,6 +40,7 @@ import {
 import { useUndoToast } from "@/components/undo-toast";
 import { CANONICAL_HEADERS, toCsv } from "@/lib/csv";
 import { VisitedPicker } from "@/components/visited-picker";
+import { isRealVisit } from "@/lib/visited";
 import { FOCUS_STATES, matchesStateFilter, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { CONTACT_TAGS, matchesTagFilter, officialTags, showInContactList } from "@/lib/contact-tags";
@@ -56,7 +57,9 @@ const VISITED_ANY = "__any_visit";
 const ANY_REACTION = "__any_reaction";
 const SEASON_YEAR = /\b5\d{3}$/;
 
-type SortMode = "" | "reactions" | "tags" | "duplicates" | "visits" | `season:${string}`;
+const VISITED_NONE = "__not_visited";
+
+type SortMode = "" | "reactions" | "tags" | "duplicates" | "visits" | "unvisited" | `season:${string}`;
 
 const emptyFilters = {
   mode: "" as SortMode,
@@ -152,7 +155,9 @@ export function HouseholdsView({
       } else if (!showInContactList(household.tags, q, filters.list)) return false;
       if (filters.state && !matchesStateFilter(household.state, filters.state)) return false;
       if (filters.visited === VISITED_ANY) {
-        if (!(household.contactVisits ?? []).length) return false;
+        if (!(household.contactVisits ?? []).some((visit) => isRealVisit(visit.visited))) return false;
+      } else if (filters.visited === VISITED_NONE) {
+        if ((household.contactVisits ?? []).some((visit) => isRealVisit(visit.visited))) return false;
       } else if (filters.visited) {
         const key = filters.visited.toLowerCase();
         const visits = household.contactVisits ?? [];
@@ -200,6 +205,7 @@ export function HouseholdsView({
     else if (mode === "tags") setFilters({ ...base, list: "tagged" });
     else if (mode === "duplicates") setFilters({ ...base, duplicates: true });
     else if (mode === "visits") setFilters({ ...base, visited: VISITED_ANY });
+    else if (mode === "unvisited") setFilters({ ...base, visited: VISITED_NONE });
     else if (mode.startsWith("season:")) setFilters({ ...base, visited: mode.slice("season:".length) });
     else setFilters(base);
     setPage(1);
@@ -337,6 +343,7 @@ export function HouseholdsView({
           <option value="tags">Tags</option>
           <option value="duplicates">Possible duplicates</option>
           <option value="visits">All visits</option>
+          <option value="unvisited">Not visited</option>
           {seasonChoices.map((name) => <option key={name} value={`season:${name}`}>{name}</option>)}
         </select>
         {filters.mode === "reactions" ? (
@@ -428,7 +435,7 @@ export function HouseholdsView({
                     <DueBadge state={household.dueState} />
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <span>{household.latestVisited || "No visit yet"}{household.visitCount > 1 ? ` · ${household.visitCount} visits` : household.visitCount === 1 ? " · 1 visit" : ""}</span>
+                    <span>{household.latestVisited || "Not visited"}{household.visitCount > 1 ? ` · ${household.visitCount} visits` : household.visitCount === 1 ? " · 1 visit" : ""}</span>
                     <ReactionBadge reaction={household.latestReaction} />
                     {household.possibleDuplicate ? <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-900">Possible duplicate</span> : null}
                     <TagBadges tags={household.tags} />
@@ -599,8 +606,9 @@ function VisitChip({ visit }: { visit: HouseholdView["contactVisits"][number] })
 }
 
 // Newest first. Two chips fit on one line; the rest sit behind +N.
-function VisitChips({ visits }: { visits: HouseholdView["contactVisits"] }) {
-  if (!visits.length) return <span>—</span>;
+function VisitChips({ visits: all }: { visits: HouseholdView["contactVisits"] }) {
+  const visits = all.filter((visit) => isRealVisit(visit.visited));
+  if (!visits.length) return <span className="text-[11px]">Not visited</span>;
   const shown = visits.slice(0, 2);
   const more = visits.length - shown.length;
   return (
@@ -1024,7 +1032,7 @@ function ContactDialog({
               <div className="mt-2 flex flex-wrap gap-2">
                 <ReactionBadge reaction={household.latestReaction} />
                 <TagBadges tags={household.tags} />
-                <span className="text-sm text-muted-foreground">{household.latestVisited || "No visit yet"}{household.visitCount ? ` · ${household.visitCount} visit${household.visitCount === 1 ? "" : "s"}` : ""}</span>
+                <span className="text-sm text-muted-foreground">{household.latestVisited || "Not visited"}{household.visitCount ? ` · ${household.visitCount} visit${household.visitCount === 1 ? "" : "s"}` : ""}</span>
               </div>
               <div className="mt-3">
                 <NotePreview notes={notesFor(household, canHistory)} />

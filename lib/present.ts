@@ -1,4 +1,5 @@
 import { parseHouseholdReaction } from "@/lib/constants";
+import { isRealVisit } from "@/lib/visited";
 import { monthKey, fullAddress } from "@/lib/format";
 import { legMiles } from "@/lib/model";
 import {
@@ -129,6 +130,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
           : editsContact || (perms.canLogVisit && visit.createdBy === user.id),
       }));
       const latest = contactVisits[0] ?? null;
+      const realVisits = contactVisits.filter((visit) => isRealVisit(visit.visited));
       const duplicateOfName = household.duplicateOf
         ? visibleHouseholds.find((item) => item.id === household.duplicateOf)?.name
           ?? db.people.find((person) => person.householdId === household.duplicateOf && person.name.trim())?.name
@@ -163,9 +165,9 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         duplicateOf: household.duplicateOf,
         duplicateOfName,
         contactVisits,
-        latestVisited: latest?.visited ?? "",
+        latestVisited: realVisits[0]?.visited ?? "",
         latestReaction: latest?.reaction ?? null,
-        visitCount: contactVisits.length,
+        visitCount: realVisits.length,
         createdAt: household.createdAt,
         people,
         lastVisitAt: last?.visitDate ?? null,

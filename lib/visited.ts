@@ -42,3 +42,10 @@ export function hebrewYearChoices(now = new Date(), extra: number[] = []): numbe
   for (let offset = -2; offset <= 2; offset += 1) years.add(current + offset);
   return [...years].filter((year) => year >= 5700 && year <= 6000).sort((a, b) => a - b);
 }
+
+const NOT_VISITED = new Set(["", "false", "no", "n", "0", "none", "n/a", "na", "-", "—", "not visited", "not yet visited"]);
+
+/** A visit row only counts as a visit when its Visited field says something real. Blank means Not visited. */
+export function isRealVisit(visited: string | null | undefined): boolean {
+  return !NOT_VISITED.has((visited ?? "").trim().toLowerCase());
+}
