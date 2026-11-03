@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { CommandPalette, type PaletteHousehold } from "@/components/command-palette";
-import { Logo } from "@/components/logo";
 import { ReloadButton } from "@/components/reload-button";
 import { VersionBadge } from "@/components/version-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -121,9 +120,9 @@ export function Shell({
       <header className="glass z-30 mx-2 mt-2 flex min-h-14 shrink-0 items-center justify-between gap-2 rounded-2xl px-2 py-1 sm:mx-3 sm:px-3">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 pl-1">
           <Link href="/households" aria-label="Cora Connect home" className="min-w-0">
-            {/* The header mark is a photo file. next/image is not configured for it. */}
+            {/* The header mark is the Cora logo file. next/image is not configured for it. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/crm-logo.jpeg" alt="" className="h-10 w-auto max-w-[9.5rem] object-contain object-left sm:h-11 sm:max-w-[13rem]" />
+            <img src="/brand/cora-logo.png" alt="Cora" className="h-10 w-auto max-w-[9.5rem] object-contain object-left sm:h-11 sm:max-w-[13rem]" />
           </Link>
           <div className="flex w-full min-w-0 flex-wrap items-center gap-1">
             <VersionBadge className="min-w-0 flex-1" />
@@ -207,7 +206,9 @@ export function Shell({
       <div className="flex min-h-0 flex-1">
         <aside className="glass mx-3 my-3 hidden w-[220px] shrink-0 flex-col rounded-3xl py-4 lg:flex">
           <Link href="/households" className="mb-3 block px-4">
-            <Logo full />
+            {/* The side bar mark is the Cora Connect logo photo. next/image is not configured for it. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/crm-logo.jpeg" alt="Cora Connect" className="h-12 w-auto max-w-[11.5rem] object-contain object-left" />
           </Link>
           <NavLinks items={PRIMARY} canManage={viewer.canManage} />
           <p className="mt-4 px-5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">More</p>

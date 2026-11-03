@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.3
+
+- The logos swapped places. The top bar shows the Cora logo, and the left side bar shows the Cora Connect logo.
+
 ## 1.5.2
 
 - The "Photo of 770" link is gone from the bottom of the side menu and the More menu. The photo credit stays on the /about page.
