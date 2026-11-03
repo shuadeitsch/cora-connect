@@ -329,24 +329,26 @@ export async function patchHouseholdFlags(
   return true;
 }
 
-export async function writeRoute(route: Route) {
+export async function writeRoute(route: Route, isNew: boolean) {
   const supabase = await createClient();
-  await done(
-    await supabase
-      .from("routes")
-      .upsert({
-        id: route.id,
-        org_id: route.orgId,
-        name: route.name,
-        project_id: route.projectId,
-        optimized: route.optimized,
-        created_by: route.createdBy,
-        created_at: route.createdAt,
-      })
-      .select("id")
-      .single(),
-    "Save route",
-  );
+  const row = {
+    org_id: route.orgId,
+    name: route.name,
+    project_id: route.projectId,
+    optimized: route.optimized,
+  };
+  if (isNew) {
+    // Plain insert with no RETURNING: the routes SELECT policy (can_see_route) looks the row up in the table,
+    // and a row being inserted isn't there yet, so insert-with-returning or upsert fails RLS for everyone.
+    await done(
+      await supabase.from("routes").insert({ id: route.id, ...row, created_by: route.createdBy, created_at: route.createdAt }),
+      "Save route",
+    );
+  } else {
+    const updated = await supabase.from("routes").update(row).eq("id", route.id).select("id");
+    await done(updated, "Save route");
+    if (!updated.data?.length) throw new Error("Save route: that route is no longer available to you.");
+  }
   await done(await supabase.from("route_stops").delete().eq("route_id", route.id).select("id"), "Replace stops");
   if (route.stops.length) {
     await done(

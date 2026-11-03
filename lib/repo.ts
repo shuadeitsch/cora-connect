@@ -644,7 +644,7 @@ export async function saveRoute(actor: User, input: RouteInput): Promise<ActionR
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       stops: ids.map((householdId, position) => ({ householdId, position })),
     };
-    if (isSupabaseMode()) await writeRoute(route);
+    if (isSupabaseMode()) await writeRoute(route, !existing);
     else applyDemo((draft) => {
       const index = draft.routes.findIndex((item) => item.id === route.id);
       if (index >= 0) draft.routes[index] = route;
@@ -652,8 +652,17 @@ export async function saveRoute(actor: User, input: RouteInput): Promise<ActionR
     });
     return { ok: true, data: { id: route.id } };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Could not save the route." };
+    return { ok: false, error: routeSaveError(error) };
   }
+}
+
+function routeSaveError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (/row-level security|permission denied/i.test(message)) {
+    return "The route wasn't saved: your account isn't allowed to save routes right now. Ask a Cora Connect admin to check your access.";
+  }
+  if (/fetch failed|network|timeout/i.test(message)) return "The route wasn't saved: the connection dropped. Try again.";
+  return message ? `The route wasn't saved. ${message.replace(/^Save (route|stops): /, "")}` : "The route wasn't saved. Try again.";
 }
 
 export async function deleteRoute(actor: User, id: string): Promise<ActionResult> {

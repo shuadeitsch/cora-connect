@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.1
+
+- Fixed: saving a new route failed with "new row violates row-level security policy" for everyone, so Build on map, Build route from Contacts, and New route by city never saved. New routes are now saved in a way the database's access rules accept. No access rules were changed.
+- If a route can't be saved, the message now says why in plain words (no access, connection dropped) instead of the database error.
+
 ## 1.7.0
 
 - An invite now approves the person automatically when they create their account. The role, permissions, and shliach territory chosen on the invite are applied right away. No extra step on Users.
