@@ -4,6 +4,7 @@ import { legMiles } from "@/lib/model";
 import {
   allowedHouseholdIds,
   buildActivity,
+  canEditContact,
   categoryCounts,
   checklistFor,
   dueInfo,
@@ -42,11 +43,12 @@ function sortOutreach(rows: ContactVisit[]) {
 }
 
 function outreachFor(db: Database, household: Household): ContactVisit[] {
-  const stored = (db.contactVisits ?? []).filter((visit) => visit.householdId === household.id);
+  const removed = new Set(db.removedVisitIds ?? []);
+  const stored = (db.contactVisits ?? []).filter((visit) => visit.householdId === household.id && !removed.has(visit.id));
   const byId = new Map(stored.map((visit) => [visit.id, visit]));
   const project = db.projects.find((item) => item.id === household.projectId)?.name ?? "";
   for (const log of db.visits.filter((visit) => visit.householdId === household.id)) {
-    if (byId.has(log.id)) continue;
+    if (byId.has(log.id) || removed.has(log.id)) continue;
     byId.set(log.id, {
       id: log.id,
       orgId: log.orgId,
@@ -110,6 +112,9 @@ export function present(db: Database, user: User, mode: AppData["mode"], today: 
       const last = householdVisits[0] ?? null;
       const people = peopleFor(db, household.id, hideContact);
       const displayName = people.map((person) => person.name.trim()).find(Boolean) || household.name;
+      const storedIds = new Set((db.contactVisits ?? []).filter((visit) => visit.householdId === household.id).map((visit) => visit.id));
+      for (const id of db.removedVisitIds ?? []) storedIds.delete(id);
+      const editsContact = canEditContact(user, household.ownerId, db.users, today);
       const contactVisits = outreachFor(db, household).map((visit) => ({
         id: visit.id,
         visited: visit.visited,
@@ -118,6 +123,7 @@ export function present(db: Database, user: User, mode: AppData["mode"], today: 
         visitDate: visit.visitDate,
         status: visit.status,
         createdAt: visit.createdAt,
+        canRemove: storedIds.has(visit.id) && (editsContact || (perms.canLogVisit && visit.createdBy === user.id)),
       }));
       const latest = contactVisits[0] ?? null;
       const duplicateOfName = household.duplicateOf

@@ -248,6 +248,23 @@ export async function removeContactVisit(id: string) {
   await done(await supabase.from("contact_visits").delete().eq("id", id), "Delete visit");
 }
 
+// Soft delete. Database rules decide who may: anyone who can edit the
+// contact, or the person who logged the visit. A blocked update changes no
+// rows and returns no error, so read the row back to be sure.
+export async function setContactVisitRemoved(id: string, removed: boolean) {
+  const supabase = await createClient();
+  await done(
+    await supabase.from("contact_visits").update({ deleted_at: removed ? new Date().toISOString() : null }).eq("id", id),
+    removed ? "Remove visit" : "Restore visit",
+  );
+  const check = await supabase.from("contact_visits").select("id, deleted_at").eq("id", id).maybeSingle();
+  if (check.error) throw new Error(`${removed ? "Remove visit" : "Restore visit"}: ${check.error.message}`);
+  const row = check.data as { deleted_at: string | null } | null;
+  if (!row || Boolean(row.deleted_at) !== removed) {
+    throw new Error(removed ? "You can't remove this visit." : "You can't restore this visit.");
+  }
+}
+
 export async function undoImportRows(batchId: string, householdIds: string[], visitIds: string[]) {
   const supabase = await createClient();
   if (visitIds.length) {

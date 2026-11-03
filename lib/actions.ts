@@ -22,6 +22,7 @@ import {
   deleteProject,
   deleteRoute,
   deleteVisit,
+  removeContactVisitFromContact,
   importContacts,
   importHouseholds,
   mergeContacts,
@@ -194,6 +195,16 @@ export async function deleteVisitAction(id: string) {
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteVisit(user, id));
+}
+
+export async function removeContactVisitAction(id: string) {
+  try {
+    const user = await actor();
+    if (!user) return { ok: false as const, error: "Sign in again." };
+    return refresh(await removeContactVisitFromContact(user, id));
+  } catch (error) {
+    return actionError(error, "Could not remove the visit.");
+  }
 }
 
 export async function saveRouteAction(input: RouteInput) {

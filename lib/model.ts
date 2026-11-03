@@ -31,6 +31,17 @@ export function viewerPermissions(user: User, today: string) {
   };
 }
 
+// Mirrors public.can_edit_household so the app only offers what the database allows.
+export function canEditContact(user: User, ownerId: string | null, users: User[], today: string) {
+  const perms = viewerPermissions(user, today);
+  if (!perms.canEdit) return false;
+  if (user.role === "admin") return true;
+  if (!ownerId) return false;
+  if (ownerId === user.id) return true;
+  if (user.leaderId && ownerId === user.leaderId) return true;
+  return users.some((member) => member.id === ownerId && member.leaderId === user.id);
+}
+
 export function dueInfo(
   intervalDays: number | null,
   createdAt: string,

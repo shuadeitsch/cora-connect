@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.4
+
+- A single visit can be removed from a contact. In Visit history, each visit has a trash button. It asks "Remove this visit?" before removing it, and you can undo it right after. The person who logged the visit and anyone who can edit that contact can remove it. The visit is hidden, not erased.
+- The Cora Connect logo in the left side bar fills the full width of the bar.
+
 ## 1.5.3
 
 - The logos swapped places. The top bar shows the Cora logo, and the left side bar shows the Cora Connect logo.

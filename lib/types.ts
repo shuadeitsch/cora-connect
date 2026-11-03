@@ -190,6 +190,7 @@ export interface Database {
   visits: Visit[];
   contactVisits: ContactVisit[];
   contactVisitsReady: boolean;
+  removedVisitIds?: string[];
   routes: Route[];
   notifications: AppNotification[];
 }
@@ -277,6 +278,7 @@ export interface ContactVisitView {
   visitDate: string | null;
   status: "completed" | "deferred";
   createdAt: string;
+  canRemove: boolean;
 }
 
 export interface VisitView {
@@ -474,6 +476,7 @@ export type UndoPayload =
   | { type: "restore-visit"; visit: Visit; mode: "undelete" | "reinsert" }
   | { type: "replace-visit"; visit: Visit }
   | { type: "delete-visit"; id: string }
+  | { type: "restore-contact-visit"; id: string }
   | { type: "import"; batchId: string; householdIds: string[]; visitIds: string[] }
   | { type: "flags"; id: string; possibleDuplicate: boolean; duplicateOf: string | null }
   | { type: "merge"; source: ContactSnapshot; target: ContactSnapshot };

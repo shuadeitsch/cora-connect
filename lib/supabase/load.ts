@@ -329,6 +329,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     visits,
     contactVisits,
     contactVisitsReady: contactVisitLoad.ready,
+    removedVisitIds: contactVisitLoad.rows.filter((row) => !alive(row)).map((row) => text(row, "id")),
     routes,
     notifications: notes,
   };

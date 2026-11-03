@@ -205,10 +205,10 @@ export function Shell({
       </header>
       <div className="flex min-h-0 flex-1">
         <aside className="glass mx-3 my-3 hidden w-[220px] shrink-0 flex-col rounded-3xl py-4 lg:flex">
-          <Link href="/households" className="mb-3 block px-4">
+          <Link href="/households" className="mb-3 block w-full px-2">
             {/* The side bar mark is the Cora Connect logo photo. next/image is not configured for it. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/crm-logo.jpeg" alt="Cora Connect" className="h-12 w-auto max-w-[11.5rem] object-contain object-left" />
+            <img src="/crm-logo.jpeg" alt="Cora Connect" className="block h-auto w-full object-contain" />
           </Link>
           <NavLinks items={PRIMARY} canManage={viewer.canManage} />
           <p className="mt-4 px-5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">More</p>

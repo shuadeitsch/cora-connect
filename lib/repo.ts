@@ -21,6 +21,7 @@ import {
   removeField,
   removeHousehold,
   removeContactVisit,
+  setContactVisitRemoved,
   removeInvite,
   removeProfile,
   removeProject,
@@ -557,6 +558,27 @@ export async function deleteVisit(actor: User, id: string): Promise<ActionResult
   }
 }
 
+export async function removeContactVisitFromContact(actor: User, id: string): Promise<ActionResult> {
+  try {
+    const allowed = perms(actor);
+    assert(allowed.canEdit || allowed.canLogVisit, "You don't have permission to remove a visit.");
+    const db = await loadDatabase();
+    const visit = (db.contactVisits ?? []).find((item) => item.id === id);
+    assert(visit, "That visit is already gone.");
+    if (isSupabaseMode()) {
+      await setContactVisitRemoved(id, true);
+    } else {
+      assert(allowed.canEdit || visit.createdBy === actor.id, "You can't remove this visit.");
+      applyDemo((draft) => {
+        draft.removedVisitIds = [...new Set([...(draft.removedVisitIds ?? []), id])];
+      });
+    }
+    return { ok: true, undo: { type: "restore-contact-visit", id } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not remove the visit." };
+  }
+}
+
 export async function saveRoute(actor: User, input: RouteInput): Promise<ActionResult<{ id: string }>> {
   try {
     assert(perms(actor).canCreateRoute, "You don't have permission to build routes.");
@@ -1046,6 +1068,8 @@ export async function applyUndo(actor: User, undo: UndoPayload): Promise<ActionR
       } else if (undo.type === "delete-visit") {
         await removeVisit(undo.id);
         await removeContactVisit(undo.id);
+      } else if (undo.type === "restore-contact-visit") {
+        await setContactVisitRemoved(undo.id, false);
       } else if (undo.type === "import") {
         await undoImportRows(undo.batchId, undo.householdIds, undo.visitIds);
       } else if (undo.type === "flags") {
@@ -1084,6 +1108,10 @@ export async function applyUndo(actor: User, undo: UndoPayload): Promise<ActionR
         applyDemo((draft) => {
           draft.visits = draft.visits.filter((visit) => visit.id !== undo.id);
           draft.contactVisits = (draft.contactVisits ?? []).filter((visit) => visit.id !== undo.id);
+        });
+      } else if (undo.type === "restore-contact-visit") {
+        applyDemo((draft) => {
+          draft.removedVisitIds = (draft.removedVisitIds ?? []).filter((item) => item !== undo.id);
         });
       } else if (undo.type === "flags") {
         applyDemo((draft) => {

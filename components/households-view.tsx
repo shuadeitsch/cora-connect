@@ -33,6 +33,7 @@ import {
   deleteHouseholdsAction,
   dismissDuplicateAction,
   mergeContactsAction,
+  removeContactVisitAction,
   saveHouseholdAction,
 } from "@/lib/actions";
 import { useUndoToast } from "@/components/undo-toast";
@@ -1014,6 +1015,12 @@ function ActionLink({ href, icon: Icon, label }: { href: string; icon: typeof Ph
 
 function HistoryDialog({ household, canHistory, onClose }: { household: HouseholdView | null; canHistory: boolean; onClose: () => void }) {
   const visits = household?.contactVisits ?? [];
+  const announce = useUndoToast();
+  const [confirming, setConfirming] = useState("");
+  const [pending, start] = useTransition();
+  useEffect(() => {
+    setConfirming("");
+  }, [household?.id]);
   return (
     <Dialog open={Boolean(household)} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
@@ -1027,13 +1034,48 @@ function HistoryDialog({ household, canHistory, onClose }: { household: Househol
               const label = visitNoteLabel(visit.visited, visit.visitDate, formatMedium);
               return (
                 <article key={visit.id} className="rounded-xl border p-3 text-sm">
-                  <p className="font-medium text-foreground">{label}</p>
-                  <p className="text-xs text-mutedink">{visitStatusLabel(visit.status)}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground">{label}</p>
+                      <p className="text-xs text-mutedink">{visitStatusLabel(visit.status)}</p>
+                    </div>
+                    {visit.canRemove && confirming !== visit.id ? (
+                      <button
+                        type="button"
+                        aria-label={`Remove visit ${label}`}
+                        title="Remove visit"
+                        className="-mt-1 -mr-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+                        onClick={() => setConfirming(visit.id)}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    ) : null}
+                  </div>
                   {reaction ? <p className="mt-2 text-xs">{reaction.label}</p> : null}
                   {visit.notes ? (
                     <div className="mt-2">
                       <p className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Notes from {label}</p>
                       <p className="mt-1 whitespace-pre-wrap text-foreground">{visit.notes}</p>
+                    </div>
+                  ) : null}
+                  {confirming === visit.id ? (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-red-50 p-2">
+                      <p className="font-medium text-red-800">Remove this visit?</p>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" className="h-10 rounded-full" disabled={pending} onClick={() => setConfirming("")}>Cancel</Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          className="h-10 rounded-full"
+                          disabled={pending}
+                          onClick={() => start(async () => {
+                            const result = await removeContactVisitAction(visit.id);
+                            if (announce(result, "Visit removed")) setConfirming("");
+                          })}
+                        >
+                          {pending ? "Removing…" : "Remove"}
+                        </Button>
+                      </div>
                     </div>
                   ) : null}
                 </article>
