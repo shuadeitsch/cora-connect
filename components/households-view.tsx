@@ -478,7 +478,10 @@ export function HouseholdsView({
                   <td className="px-2"><IconAction label="View contact" onClick={() => setContact(household)} icon={MapPin} /></td>
                   <td className="px-2"><IconAction label="Log visit" onClick={() => setVisitFor(household)} icon={Pencil} disabled={!data.viewer.canLogVisit} /></td>
                   <td className="px-2"><IconAction label="Visit history" onClick={() => setHistory(household)} icon={History} /></td>
-                  <td className="px-2 text-muted-foreground">{household.latestVisited || "—"}{household.visitCount > 1 ? ` (${household.visitCount})` : ""}{household.possibleDuplicate ? " · Possible duplicate" : ""}</td>
+                  <td className="max-w-[16rem] px-2 text-muted-foreground">
+                    <VisitChips visits={household.contactVisits ?? []} />
+                    {household.possibleDuplicate ? <span className="block text-[11px]">Possible duplicate</span> : null}
+                  </td>
                   <td className="px-2"><ReactionBadge reaction={household.latestReaction} /></td>
                   <td className="px-2">
                     <button type="button" aria-label={`Delete ${household.name}`} disabled={!data.viewer.canEdit} className="text-muted-foreground hover:text-red-600 disabled:opacity-30" onClick={() => setPendingDelete([household.id])}>
@@ -551,6 +554,62 @@ function ReactionBadge({ reaction }: { reaction: HouseholdReaction | null }) {
   const meta = visitReactionMeta(reaction);
   if (!meta) return null;
   return <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", meta.className)}>{meta.label}</span>;
+}
+
+function visitChipLabel(visit: HouseholdView["contactVisits"][number]) {
+  const name = visit.visited.trim();
+  const date = visit.visitDate ? formatMedium(visit.visitDate) : "";
+  return name || date || "Visit";
+}
+
+function VisitChip({ visit }: { visit: HouseholdView["contactVisits"][number] }) {
+  const meta = visitReactionMeta(visit.reaction);
+  const label = visitChipLabel(visit);
+  const full = visitNoteLabel(visit.visited, visit.visitDate, formatMedium);
+  return (
+    <span
+      title={meta ? `${full} · ${meta.label}` : full}
+      className={cn("inline-flex max-w-[8.5rem] shrink-0 items-center truncate rounded-full px-2 py-0.5 text-[11px] leading-4 font-medium whitespace-nowrap", meta ? meta.className : "bg-muted text-foreground")}
+    >
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
+// Newest first. Two chips fit on one line; the rest sit behind +N.
+function VisitChips({ visits }: { visits: HouseholdView["contactVisits"] }) {
+  if (!visits.length) return <span>—</span>;
+  const shown = visits.slice(0, 2);
+  const more = visits.length - shown.length;
+  return (
+    <div className="flex min-w-0 flex-nowrap items-center gap-1">
+      {shown.map((visit) => <VisitChip key={visit.id} visit={visit} />)}
+      {more > 0 ? (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Show all ${visits.length} visits`}
+              className="inline-flex h-5 shrink-0 items-center rounded-full border border-border bg-card px-1.5 text-[11px] leading-4 font-medium text-foreground hover:bg-muted"
+            >
+              +{more}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 gap-1 p-2">
+            {visits.map((visit) => {
+              const meta = visitReactionMeta(visit.reaction);
+              return (
+                <div key={visit.id} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="min-w-0 truncate text-foreground">{visitNoteLabel(visit.visited, visit.visitDate, formatMedium)}</span>
+                  {meta ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", meta.className)}>{meta.label}</span> : null}
+                </div>
+              );
+            })}
+          </PopoverContent>
+        </Popover>
+      ) : null}
+    </div>
+  );
 }
 
 function DueBadge({ state }: { state: HouseholdView["dueState"] }) {
