@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.13
+- Behind the scenes: the AI check can now be reached without signing in (it only reports whether AI is available). Nothing changes for users.
+
 ## 1.8.12
 - Behind the scenes: a small check that tells us whether the app can use AI (for the upcoming "Ask AI for a route"). Nothing changes for users yet.
 

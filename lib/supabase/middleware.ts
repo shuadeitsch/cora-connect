@@ -24,7 +24,7 @@ export async function updateSupabaseSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  const open = path === "/login" || path === "/signup" || path === "/forgot-password" || path === "/offline" || path === "/about" || path === "/debug" || path === "/health" || path === "/api/version" || path.startsWith("/auth/");
+  const open = path === "/login" || path === "/signup" || path === "/forgot-password" || path === "/offline" || path === "/about" || path === "/debug" || path === "/health" || path === "/api/version" || path === "/api/ai-status" || path.startsWith("/auth/");
   if (!data.user && !open) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
