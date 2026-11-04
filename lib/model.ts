@@ -51,6 +51,19 @@ export function canEditContact(user: User, ownerId: string | null, users: User[]
   return users.some((member) => member.id === ownerId && member.leaderId === user.id);
 }
 
+/** Stored order for a not-duplicate pair: low id first. */
+export function pairKey(a: string, b: string) {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
+/** Admins and editors may mark "Not a duplicate"; a shliach only on his own contacts; never a bochur. */
+export function canMarkNotDuplicate(user: User, ownerId: string | null, users: User[], today: string, shared = false, state = "", city = "") {
+  if (user.role === "bochur") return false;
+  if (!canEditContact(user, ownerId, users, today, shared, state, city)) return false;
+  if (user.role === "shliach") return ownerId === user.id;
+  return true;
+}
+
 export function dueInfo(
   intervalDays: number | null,
   createdAt: string,

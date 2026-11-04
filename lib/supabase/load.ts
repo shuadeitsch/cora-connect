@@ -91,6 +91,8 @@ export async function loadSupabase(actor: User): Promise<Database> {
   const org = orgRes.data as unknown as Row;
 
   const contactVisitLoad = await optionalTable("contact_visits");
+  const pairLoad = await supabase.from("not_duplicate_pairs").select("a_id, b_id");
+  const notDuplicatePairs = pairLoad.error ? [] : ((pairLoad.data ?? []) as { a_id: string; b_id: string }[]).map((row) => `${row.a_id}|${row.b_id}`);
   const [profiles, projects, categories, fields, householdRows, peopleRows, categoryLinks, visitRows, routeRows, stopRows, assignmentRows, notifications, reads] =
     await Promise.all([
       rows("profiles"),
@@ -341,6 +343,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     visits,
     contactVisits,
     contactVisitsReady: contactVisitLoad.ready,
+    notDuplicatePairs,
     removedVisitIds: contactVisitLoad.rows.filter((row) => !alive(row)).map((row) => text(row, "id")),
     routes,
     notifications: notes,

@@ -195,6 +195,8 @@ export interface Database {
   visits: Visit[];
   contactVisits: ContactVisit[];
   contactVisitsReady: boolean;
+  /** Pairs confirmed "not a duplicate", each as "lowId|highId". */
+  notDuplicatePairs?: string[];
   removedVisitIds?: string[];
   routes: Route[];
   notifications: AppNotification[];
@@ -271,6 +273,8 @@ export interface HouseholdView {
   duplicateMatchId: string | null;
   /** Plain reason, e.g. "Same address and phone as". Worked out on load, not stored. */
   duplicateReason: string;
+  /** May press "Not a duplicate" (admins, editors; a shliach only on his own contacts; never a bochur). */
+  canMarkNotDuplicate: boolean;
   contactVisits: ContactVisitView[];
   latestVisited: string;
   latestReaction: HouseholdReaction | null;
@@ -494,7 +498,7 @@ export type UndoPayload =
   | { type: "restore-contact-visit"; id: string; history?: boolean; log?: boolean }
   | { type: "restore-legacy-visit"; householdId: string; projectId: string | null; visitReaction: HouseholdReaction | null; notes: string }
   | { type: "import"; batchId: string; householdIds: string[]; visitIds: string[] }
-  | { type: "flags"; id: string; possibleDuplicate: boolean; duplicateOf: string | null }
+  | { type: "flags"; id: string; possibleDuplicate: boolean; duplicateOf: string | null; pair?: [string, string] }
   | { type: "merge"; source: ContactSnapshot; target: ContactSnapshot };
 
 export interface RouteInput {

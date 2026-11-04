@@ -50,6 +50,8 @@ export function ImportContacts({ open, data, onClose }: { open: boolean; data: A
       name: household.name,
       phone: household.people[0]?.phone ?? "",
       email: household.people[0]?.email ?? "",
+      street: household.street,
+      city: household.city,
       visited: household.contactVisits.map((visit) => visit.visited).filter(Boolean),
     }));
     return planImport(rows, existing, {

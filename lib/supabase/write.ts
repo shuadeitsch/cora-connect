@@ -329,6 +329,16 @@ export async function patchHouseholdFlags(
   return true;
 }
 
+/** Record (or forget, for Undo) that two contacts are confirmed not the same. */
+export async function setNotDuplicatePair(orgId: string, a: string, b: string, on: boolean) {
+  const [low, high] = a < b ? [a, b] : [b, a];
+  const supabase = await createClient();
+  const result = on
+    ? await supabase.from("not_duplicate_pairs").upsert({ a_id: low, b_id: high, org_id: orgId }, { onConflict: "a_id,b_id", ignoreDuplicates: true })
+    : await supabase.from("not_duplicate_pairs").delete().eq("a_id", low).eq("b_id", high);
+  if (result.error) throw new Error(`Not a duplicate: ${result.error.message}`);
+}
+
 export async function writeRoute(route: Route, isNew: boolean) {
   const supabase = await createClient();
   const row = {

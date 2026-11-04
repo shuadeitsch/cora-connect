@@ -8,7 +8,7 @@ import { DEMO_PASSWORD } from "@/lib/demo-accounts";
 import { todayIso } from "@/lib/format";
 import { geocodeAddress } from "@/lib/geo";
 import { newId } from "@/lib/ids";
-import { allowedHouseholdIds, canEditContact, viewerPermissions } from "@/lib/model";
+import { allowedHouseholdIds, canEditContact, canMarkNotDuplicate, viewerPermissions } from "@/lib/model";
 import { hashPassword } from "@/lib/password";
 import { loadDatabase } from "@/lib/session";
 import { loadDemo, persistDemo, resetDemo } from "@/lib/store";
@@ -47,6 +47,7 @@ import {
   softDeleteVisits,
   undoImportRows,
   patchHouseholdFlags,
+  setNotDuplicatePair,
   householdExists,
 } from "@/lib/supabase/write";
 import type {
@@ -904,9 +905,11 @@ export async function importContacts(
         name: person?.name || household.name,
         phone: person?.phone ?? "",
         email: person?.email ?? "",
+        street: household.street,
+        city: household.city,
         visited: visits.length ? visits : project ? [project] : [],
       };
-    }), { territory, fallbackVisited: fallback });
+    }), { territory, fallbackVisited: fallback, notDuplicatePairs: db.notDuplicatePairs });
     assert(prepared.rowsRead > 0, "Nothing to import.");
     const batchId = newId();
     const householdIds: string[] = [];
@@ -1163,6 +1166,7 @@ export async function applyUndo(actor: User, undo: UndoPayload): Promise<ActionR
       } else if (undo.type === "import") {
         await undoImportRows(undo.batchId, undo.householdIds, undo.visitIds);
       } else if (undo.type === "flags") {
+        if (undo.pair) await setNotDuplicatePair("", undo.pair[0], undo.pair[1], false);
         await patchHouseholdFlags(undo.id, { possible_duplicate: undo.possibleDuplicate, duplicate_of: undo.duplicateOf });
       } else if (undo.type === "merge") {
         const exists = await householdExists(undo.source.household.id);
@@ -1233,16 +1237,24 @@ export async function applyUndo(actor: User, undo: UndoPayload): Promise<ActionR
   }
 }
 
-export async function dismissDuplicate(actor: User, id: string): Promise<ActionResult> {
+export async function dismissDuplicate(actor: User, id: string, otherId?: string | null): Promise<ActionResult> {
   try {
     assert(perms(actor).canEdit, "You don't have permission to edit contacts.");
     const db = await loadDatabase();
     const household = db.households.find((item) => item.id === id);
     assert(household, "That contact is no longer here.");
+    const self = db.users.find((user) => user.id === actor.id) ?? actor;
+    assert(
+      canMarkNotDuplicate(self, household.ownerId, db.users, todayIso(), household.sharedWithCora, household.state, household.city),
+      self.role === "shliach" ? "You can only do this on your own contacts." : "You don't have permission to change this contact.",
+    );
+    const other = otherId || household.duplicateOf;
+    const pair: [string, string] | undefined = other && other !== id && db.households.some((item) => item.id === other) ? [id, other] : undefined;
     const previous = { possibleDuplicate: household.possibleDuplicate, duplicateOf: household.duplicateOf };
     if (isSupabaseMode()) {
       const stored = await patchHouseholdFlags(id, { possible_duplicate: false, duplicate_of: null });
       if (!stored) return { ok: true, warning: "Duplicate flags are stored after migration 008 is applied." };
+      if (pair) await setNotDuplicatePair(household.orgId, pair[0], pair[1], true);
     } else applyDemo((draft) => {
       const row = draft.households.find((item) => item.id === id);
       if (row) {
@@ -1250,7 +1262,7 @@ export async function dismissDuplicate(actor: User, id: string): Promise<ActionR
         row.duplicateOf = null;
       }
     });
-    return { ok: true, undo: { type: "flags", id, possibleDuplicate: previous.possibleDuplicate, duplicateOf: previous.duplicateOf } };
+    return { ok: true, undo: { type: "flags", id, possibleDuplicate: previous.possibleDuplicate, duplicateOf: previous.duplicateOf, pair } };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not clear that flag." };
   }

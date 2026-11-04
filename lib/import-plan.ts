@@ -26,6 +26,8 @@ export interface ExistingContact {
   name: string;
   phone: string;
   email: string;
+  street?: string;
+  city?: string;
   visited: string[];
 }
 
@@ -113,22 +115,40 @@ function samePerson(name: string, phone: string, email: string, otherName: strin
   return phoneSame || emailSame;
 }
 
-function looseReason(name: string, phone: string, email: string, otherName: string, otherPhone: string, otherEmail: string) {
+interface LooseSide { name: string; phone: string; email: string; street?: string; city?: string }
+
+/**
+ * Why two contacts might be the same, or "" when they shouldn't be flagged.
+ * A name match alone never flags when both have an address and the addresses differ.
+ */
+function looseReason(a: LooseSide, b: LooseSide) {
+  const { name, phone, email } = a;
+  const { name: otherName, phone: otherPhone, email: otherEmail } = b;
   if (samePerson(name, phone, email, otherName, otherPhone, otherEmail)) return "";
+  const aStreet = normName(a.street ?? "");
+  const bStreet = normName(b.street ?? "");
+  const bothAddressed = Boolean(aStreet && bStreet);
+  const sameAddress = bothAddressed && aStreet === bStreet && normName(a.city ?? "") === normName(b.city ?? "");
   if (phoneKey(phone) && phoneKey(phone) === phoneKey(otherPhone) && normName(name) !== normName(otherName)) {
     return "Same phone, different name";
   }
   if (emailKey(email) && emailKey(email) === emailKey(otherEmail) && normName(name) !== normName(otherName)) {
     return "Same email, different name";
   }
-  if (normName(name) && normName(name) === normName(otherName)) return "Same name, different phone or email";
-  if (namesNearlyMatch(name, otherName)) return "Name is almost the same";
+  const nameMatch = Boolean(normName(name) && normName(name) === normName(otherName));
+  const nearName = !nameMatch && namesNearlyMatch(name, otherName);
+  if (sameAddress) return nameMatch || nearName ? "Same name and address" : "Same address, different name";
+  if (bothAddressed) return "";
+  if (nameMatch) return "Same name, no address to compare";
+  if (nearName) return "Name is almost the same, no address to compare";
   return "";
 }
 
 function looseScore(reason: string) {
   if (reason.startsWith("Same phone")) return 80;
   if (reason.startsWith("Same email")) return 70;
+  if (reason.startsWith("Same name and address")) return 75;
+  if (reason.startsWith("Same address")) return 50;
   if (reason.startsWith("Same name")) return 60;
   if (reason.startsWith("Name is almost")) return 40;
   return 0;
@@ -204,8 +224,10 @@ function attachVisit(anchor: Anchor, visit: PlannedVisit, contacts: PlannedConta
 export function planImport(
   rows: ImportRow[],
   existing: ExistingContact[],
-  options?: { territory?: { state: string; area: string }[]; fallbackVisited?: string },
+  options?: { territory?: { state: string; area: string }[]; fallbackVisited?: string; notDuplicatePairs?: string[] },
 ): ImportPlan {
+  const notDup = new Set(options?.notDuplicatePairs ?? []);
+  const confirmedApart = (a: string, b: string) => notDup.has(a < b ? `${a}|${b}` : `${b}|${a}`);
   const warnings: string[] = [];
   const dataRows = rows.filter(rowHasCells);
   const anchors: Anchor[] = existing.map((item) => ({
@@ -309,7 +331,7 @@ export function planImport(
       warnings: rowWarnings,
       fromRows: 1,
     };
-    if (same) {
+    if (same && !confirmedApart(id, same.id)) {
       contact.possibleDuplicate = true;
       contact.duplicateOfId = same.id;
       contact.duplicateReason = same.signatures.has(signature)
@@ -336,7 +358,8 @@ export function planImport(
     let bestId = "";
     let bestReason = "";
     for (const item of existing) {
-      const reason = looseReason(contact.name, contact.phone, contact.email, item.name, item.phone, item.email);
+      if (confirmedApart(contact.id, item.id)) continue;
+      const reason = looseReason(contact, item);
       const score = looseScore(reason);
       if (score > bestScore) {
         bestScore = score;
@@ -346,8 +369,8 @@ export function planImport(
     }
     for (const other of contacts) {
       if (other.id === contact.id) break;
-      if (other.existingId) continue;
-      const reason = looseReason(contact.name, contact.phone, contact.email, other.name, other.phone, other.email);
+      if (other.existingId || confirmedApart(contact.id, other.id)) continue;
+      const reason = looseReason(contact, other);
       const score = looseScore(reason);
       if (score > bestScore) {
         bestScore = score;

@@ -1,4 +1,4 @@
-import { matchParts, matchScore, reasonLead } from "@/lib/duplicate-reason";
+import { matchParts, matchScore, reasonLead, worthFlagging } from "@/lib/duplicate-reason";
 import { isListedProject, listedProjects, parseHouseholdReaction, projectLabel } from "@/lib/constants";
 import { isRealVisit } from "@/lib/visited";
 import { monthKey, fullAddress } from "@/lib/format";
@@ -7,6 +7,8 @@ import {
   allowedHouseholdIds,
   buildActivity,
   canEditContact,
+  canMarkNotDuplicate,
+  pairKey,
   categoryCounts,
   checklistFor,
   dueInfo,
@@ -110,6 +112,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
   }
   const visibleIds = new Set(visibleHouseholds.map((household) => household.id));
   const hideContact = !perms.canViewContact;
+  const notDup = new Set(db.notDuplicatePairs ?? []);
   const hideHistory = !perms.canViewHistory;
 
   const households: HouseholdView[] = visibleHouseholds
@@ -153,8 +156,10 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         } else {
           let best = 0;
           for (const other of visibleHouseholds) {
-            if (other.id === household.id) continue;
-            const score = matchScore(matchParts(side(household), side(other)));
+            if (other.id === household.id || notDup.has(pairKey(household.id, other.id))) continue;
+            const parts = matchParts(side(household), side(other));
+            if (!worthFlagging(parts, side(household), side(other))) continue;
+            const score = matchScore(parts);
             if (score > best) { best = score; duplicateMatchId = other.id; }
           }
           duplicateReason = duplicateMatchId ? "Flagged on import · closest match:" : "Flagged on import";
@@ -194,6 +199,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         duplicateOf: household.duplicateOf,
         duplicateOfName,
         duplicateMatchId,
+        canMarkNotDuplicate: household.possibleDuplicate && canMarkNotDuplicate(user, household.ownerId, db.users, today, household.sharedWithCora, household.state, household.city),
         duplicateReason,
         contactVisits,
         latestVisited: realVisits[0]?.visited ?? "",

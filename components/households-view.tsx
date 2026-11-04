@@ -557,7 +557,29 @@ function DuplicateNote({ household, onOpen, className }: { household: HouseholdV
           ) : <span className="font-medium">{household.duplicateOfName}</span>}
         </>
       ) : null}
+      {household.canMarkNotDuplicate ? <NotDuplicateButton household={household} /> : null}
     </span>
+  );
+}
+
+/** Clears the flag and remembers the pair so imports and matching skip it. Undo in the toast. */
+function NotDuplicateButton({ household }: { household: HouseholdView }) {
+  const announce = useUndoToast();
+  const [pending, start] = useTransition();
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      className="ml-2 inline-flex items-center gap-1 rounded-full border border-amber-700/30 bg-background/70 px-2 py-0.5 align-middle font-medium text-foreground hover:bg-background disabled:opacity-50"
+      onClick={(event) => {
+        event.stopPropagation();
+        start(async () => {
+          announce(await dismissDuplicateAction(household.id, household.duplicateMatchId), `${household.name} marked not a duplicate`);
+        });
+      }}
+    >
+      <Check className="size-3" /> Not a duplicate
+    </button>
   );
 }
 
@@ -1064,18 +1086,6 @@ function ContactDialog({
                     })}
                   >
                     Merge into…
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-full"
-                    disabled={pending}
-                    onClick={() => start(async () => {
-                      const result = await dismissDuplicateAction(household.id);
-                      if (announce(result, "Not a duplicate")) onClose();
-                    })}
-                  >
-                    Not a duplicate
                   </Button>
                 </div>
               </section>

@@ -35,6 +35,16 @@ export function matchParts(a: DupSide, b: DupSide): string[] {
   return parts;
 }
 
+/**
+ * Mendel's rule (1.8.1): flag only on same address, phone or email. A name or similar name
+ * alone flags only when one side has no address to compare.
+ */
+export function worthFlagging(parts: string[], a: DupSide, b: DupSide) {
+  if (parts.some((part) => part === "address" || part === "phone" || part === "email")) return true;
+  if (!parts.length) return false;
+  return !normName(a.household.street) || !normName(b.household.street);
+}
+
 const WEIGHT: Record<string, number> = { address: 50, phone: 80, email: 70, name: 60, "similar name": 40 };
 
 export function matchScore(parts: string[]) {

@@ -150,11 +150,11 @@ export async function mergeContactsAction(sourceId: string, targetId: string) {
   }
 }
 
-export async function dismissDuplicateAction(id: string) {
+export async function dismissDuplicateAction(id: string, otherId?: string | null) {
   try {
     const user = await actor();
     if (!user) return { ok: false as const, error: "Sign in again." };
-    return refresh(await dismissDuplicate(user, id));
+    return refresh(await dismissDuplicate(user, id, otherId));
   } catch (error) {
     return actionError(error, "Could not clear that flag.");
   }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.1
+
+- Possible duplicates now have a Not a duplicate button. It's on the badge in the list, in the table, in the Possible duplicates sort and on the contact page. Pressing it clears the flag and remembers that the two contacts are different. Future imports and the duplicate matching skip that pair. The toast has Undo.
+- The link to the other contact stays on the note.
+- Admins can use it, and so can anyone who can edit the contact. A shliach can use it only on his own contacts. Bochurim can't. The database enforces this.
+- New duplicate rule: two contacts are flagged only if they share an address (street and city), a phone or an email. A matching or similar name alone no longer flags them when both have different addresses. A name match still flags when one of them has no address. This applies to imports and to the suggested closest match.
+- Cleaned up existing flags: cleared the possible-duplicate flag on 7 contacts whose only match was the name, with different addresses. Every flag that shares an address, phone or email was kept.
+
 ## 1.8.0
 
 - New account types: Shliach and Bochur. The database enforces the rules, not just the screens.
