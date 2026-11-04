@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.14
+- Daily planner: when adding a route to a day (or changing an item to a different route), routes already planned on another day say so in the picker ("Already planned · Fri, Dec 4"). Picking one shows "This route is already on Fri, Dec 4" with Add anyway or Cancel. It never blocks you.
+- The route picker no longer makes the page scroll sideways on phones.
+
 ## 1.8.13
 - Behind the scenes: the AI check can now be reached without signing in (it only reports whether AI is available). Nothing changes for users.
 

@@ -5,7 +5,7 @@ import { RouteCities } from "@/components/route-cities";
 import { useToast } from "@/components/toast";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { createContext, useContext, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, Clock, MapPin, Pencil, Plus, Route as RouteIcon, Trash2, X } from "lucide-react";
 import { AddressLink } from "@/components/address-link";
@@ -16,6 +16,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, removePlannerItemAction, updatePlannerItemAction } from "@/lib/planner-actions";
 import type { PlannerDay, PlannerItem } from "@/lib/planner";
 import type { AppData } from "@/lib/types";
+
+type Planned = { dayId: string; itemId: string; date: string };
+const PlannedContext = createContext<Map<string, Planned[]>>(new Map());
+
+function plannedLabel(date: string) {
+  return noon(date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+/** Other days this route is already planned on (ignoring this day and the item being edited). */
+function usePlannedElsewhere(dayId: string, itemId?: string) {
+  const planned = useContext(PlannedContext);
+  return (routeId: string) => (planned.get(routeId) ?? []).filter((entry) => entry.dayId !== dayId && entry.itemId !== itemId);
+}
 
 function noon(date: string) {
   const [y, m, d] = date.split("-").map(Number);
@@ -72,6 +85,16 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
   const [newDate, setNewDate] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const planned = useMemo(() => {
+    const map = new Map<string, Planned[]>();
+    for (const day of [...days].sort((a, b) => a.date.localeCompare(b.date))) {
+      for (const item of day.items) {
+        if (!item.routeId) continue;
+        map.set(item.routeId, [...(map.get(item.routeId) ?? []), { dayId: day.id, itemId: item.id, date: day.date }]);
+      }
+    }
+    return map;
+  }, [days]);
   const dates = days.map((day) => day.date).sort();
   const before = dates.length ? shiftDate(dates[0]!, -1) : "";
   const after = dates.length ? shiftDate(dates[dates.length - 1]!, 1) : "";
@@ -102,6 +125,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
   }
 
   return (
+    <PlannedContext.Provider value={planned}>
     <div className="mx-auto max-w-3xl p-4 sm:p-6">
       <PageHeader title="Daily planner" crumb="Daily planner" />
       {loadError ? <div className="mb-3"><Notice>{loadError}</Notice></div> : null}
@@ -127,6 +151,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
         {!days.length && !loadError ? <p className="panel rounded-3xl px-4 py-10 text-center text-sm text-muted-foreground">No days in the planner.</p> : null}
       </div>
     </div>
+    </PlannedContext.Provider>
   );
 }
 
@@ -169,7 +194,7 @@ function DayCard({
         ) : null}
       </div>
       <ul className="mt-3 grid gap-2">
-        {day.items.map((item) => <ItemRow key={item.id} data={data} item={item} canEdit={canEdit} pending={pending} run={run} />)}
+        {day.items.map((item) => <ItemRow key={item.id} data={data} dayId={day.id} item={item} canEdit={canEdit} pending={pending} run={run} />)}
         {!day.items.length ? <li className="text-sm text-muted-foreground">Nothing planned.</li> : null}
       </ul>
       {canEdit && !adding ? (
@@ -182,6 +207,7 @@ function DayCard({
         <ItemForm
           data={data}
           kind={adding}
+          dayId={day.id}
           pending={pending}
           onCancel={() => setAdding("")}
           onSave={(values) => run(() => addPlannerItemAction({ dayId: day.id, kind: adding, ...values }), () => setAdding(""))}
@@ -198,6 +224,7 @@ function ItemForm({
   data,
   kind,
   item,
+  dayId,
   pending,
   onSave,
   onCancel,
@@ -205,10 +232,13 @@ function ItemForm({
   data: AppData;
   kind: "route" | "event";
   item?: PlannerItem;
+  dayId: string;
   pending: boolean;
   onSave: (values: ItemValues) => void;
   onCancel: () => void;
 }) {
+  const elsewhere = usePlannedElsewhere(dayId, item?.id);
+  const [confirmFor, setConfirmFor] = useState("");
   const [routeId, setRouteId] = useState(item?.routeId ?? "");
   const [title, setTitle] = useState(item?.title ?? "");
   const [time, setTime] = useState(item?.time ? item.time.slice(0, 5) : "");
@@ -217,10 +247,12 @@ function ItemForm({
   const editing = Boolean(item);
   return (
     <form
-      className="mt-3 grid gap-2 rounded-2xl bg-muted/50 p-3"
+      className="mt-3 grid min-w-0 grid-cols-1 gap-2 rounded-2xl bg-muted/50 p-3"
       onSubmit={(event) => {
         event.preventDefault();
         const route = data.routes.find((entry) => entry.id === routeId);
+        const changed = kind === "route" && routeId !== (item?.routeId ?? "");
+        if (changed && elsewhere(routeId).length && confirmFor !== routeId) { setConfirmFor(`ask:${routeId}`); return; }
         onSave({ routeId, title: kind === "route" ? route?.name ?? title : title, time, notes, address });
       }}
     >
@@ -231,9 +263,12 @@ function ItemForm({
         <button type="button" aria-label="Cancel" onClick={onCancel}><X className="size-4" /></button>
       </div>
       {kind === "route" ? (
-        <select className="h-10 rounded-lg border bg-card px-2 text-sm" value={routeId} onChange={(event) => setRouteId(event.target.value)} aria-label="Route">
+        <select className="h-10 w-full min-w-0 max-w-full truncate rounded-lg border bg-card px-2 text-sm" value={routeId} onChange={(event) => { setRouteId(event.target.value); setConfirmFor(""); }} aria-label="Route">
           <option value="">Pick a saved route</option>
-          {data.routes.map((route) => <option key={route.id} value={route.id}>{route.name} ({route.stopCount} stops)</option>)}
+          {data.routes.map((route) => {
+            const on = route.id === item?.routeId ? [] : elsewhere(route.id);
+            return <option key={route.id} value={route.id}>{route.name} ({route.stopCount} stops){on.length ? ` · Already planned · ${on.map((entry) => plannedLabel(entry.date)).join(", ")}` : ""}</option>;
+          })}
         </select>
       ) : (
         <Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title" aria-label="Title" />
@@ -241,10 +276,21 @@ function ItemForm({
       {kind === "event" ? (
         <Input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Address (optional)" aria-label="Address (optional)" autoComplete="street-address" />
       ) : null}
+      {kind === "route" && routeId && routeId !== (item?.routeId ?? "") && elsewhere(routeId).length ? (
+        <div role="alert" className="grid gap-2 rounded-xl bg-amber-50 p-2.5 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-800">
+          <p>This route is already on {elsewhere(routeId).map((entry) => plannedLabel(entry.date)).join(", ")}.</p>
+          {confirmFor !== routeId ? (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" className="rounded-full" disabled={pending} onClick={() => { setConfirmFor(routeId); const route = data.routes.find((entry) => entry.id === routeId); onSave({ routeId, title: route?.name ?? title, time, notes, address }); }}>{editing ? "Save anyway" : "Add anyway"}</Button>
+              <Button type="button" size="sm" variant="outline" className="rounded-full" onClick={() => { setRouteId(item?.routeId ?? ""); setConfirmFor(""); }}>Cancel</Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <Input type="time" value={time} onChange={(event) => setTime(event.target.value)} aria-label="Time (optional)" className="w-auto" />
       <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes (optional)" aria-label="Notes" rows={2} />
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" className="rounded-full" disabled={pending || (kind === "route" ? !routeId : !title.trim())}>
+        <Button type="submit" className="rounded-full" disabled={pending || (kind === "route" ? !routeId || (routeId !== (item?.routeId ?? "") && elsewhere(routeId).length > 0 && confirmFor !== routeId) : !title.trim())}>
           {pending ? "Saving…" : editing ? "Save" : "Add"}
         </Button>
         {editing ? <Button type="button" variant="outline" className="rounded-full" onClick={onCancel}>Cancel</Button> : null}
@@ -255,12 +301,14 @@ function ItemForm({
 
 function ItemRow({
   data,
+  dayId,
   item,
   canEdit,
   pending,
   run,
 }: {
   data: AppData;
+  dayId: string;
   item: PlannerItem;
   canEdit: boolean;
   pending: boolean;
@@ -275,6 +323,7 @@ function ItemRow({
           data={data}
           kind={item.kind}
           item={item}
+          dayId={dayId}
           pending={pending}
           onCancel={() => setEditing(false)}
           onSave={(values) => run(() => updatePlannerItemAction({ id: item.id, kind: item.kind, ...values }), () => setEditing(false))}
