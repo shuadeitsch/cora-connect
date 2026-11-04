@@ -11,7 +11,17 @@ import { fullAddress } from "@/lib/format";
 import { quickestOrder } from "@/lib/geo";
 import type { RouteStopView } from "@/lib/types";
 
-const GOOGLE_LEG = 10; // origin + up to 9 waypoints + destination works on phones.
+// Google's documented ?api=1 links keep only 9 waypoints (and 3 in phone browsers), dropping the
+// rest without warning. The /maps/dir/A/B/C path form kept every stop in our tests, so we use it:
+// 10 stops per part (plus where the part starts), and one whole-route link up to 25 points for computers.
+const GOOGLE_LEG = 10;
+const GOOGLE_WHOLE_MAX = 25;
+const dirLink = (points: string[]) => {
+  const kept = points.filter((point, index) => point && point !== points[index - 1]);
+  // A single place means "go here from where I am": an empty start keeps it as the destination.
+  const path = (kept.length === 1 ? ["", ...kept] : kept).map((point) => encodeURIComponent(point).replace(/%20/g, "+"));
+  return `https://www.google.com/maps/dir/${path.join("/")}/data=!4m2!4m1!3e0`;
+};
 
 type Start = { lat: number; lng: number; param: string };
 
@@ -60,9 +70,10 @@ export function StartRoute({
   const legs = Math.ceil(ordered.length / GOOGLE_LEG);
   const chunk = ordered.slice(leg * GOOGLE_LEG, (leg + 1) * GOOGLE_LEG);
   const legOrigin = leg === 0 ? start?.param ?? "" : place(ordered[leg * GOOGLE_LEG - 1]!);
-  const google = chunk.length
-    ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(legOrigin)}&destination=${encodeURIComponent(place(chunk[chunk.length - 1]!))}${chunk.length > 1 ? `&waypoints=${chunk.slice(0, -1).map((stop) => encodeURIComponent(place(stop))).join("%7C")}` : ""}&travelmode=driving`
-    : "";
+  const google = chunk.length ? dirLink([legOrigin, ...chunk.map(place)]) : "";
+  const firstStop = leg * GOOGLE_LEG + 1;
+  const lastStop = leg * GOOGLE_LEG + chunk.length;
+  const whole = legs > 1 && ordered.length + 1 <= GOOGLE_WHOLE_MAX ? dirLink([start?.param ?? "", ...ordered.map(place)]) : "";
   const appleTo = ordered[appleStop];
   const appleFrom = appleStop === 0 ? start?.param ?? "" : ordered[appleStop - 1] ? place(ordered[appleStop - 1]!) : "";
   const apple = appleTo ? `https://maps.apple.com/?saddr=${encodeURIComponent(appleFrom)}&daddr=${encodeURIComponent(place(appleTo))}&dirflg=d` : "";
@@ -118,16 +129,29 @@ export function StartRoute({
             ))}
           </ol>
           <div className="mt-3 grid gap-2">
+            {legs > 1 ? (
+              <p className="text-sm font-medium text-foreground">
+                Part {leg + 1} of {legs}: {lastStop > firstStop ? `stops ${firstStop}–${lastStop}` : `stop ${firstStop}`}
+                <span className="block text-xs font-normal text-muted-foreground">
+                  {leg === 0 ? "Starts where you start." : `Starts at stop ${firstStop - 1}, where part ${leg} ended.`} Google Maps takes about 10 stops at a time on a phone.
+                </span>
+              </p>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
               <a href={google} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground">
-                <Navigation className="size-4" /> Open in Google Maps{legs > 1 ? ` (part ${leg + 1} of ${legs})` : ""}
+                <Navigation className="size-4" /> {legs > 1 ? `Open part ${leg + 1} in Google Maps` : "Open in Google Maps"}
               </a>
               {legs > 1 ? (
                 <Button type="button" variant="outline" className="rounded-full" onClick={() => setLeg((leg + 1) % legs)}>
-                  {leg + 1 < legs ? "Next leg" : "Back to part 1"}
+                  {leg + 1 < legs ? `Next: part ${leg + 2}` : "Back to part 1"}
                 </Button>
               ) : null}
             </div>
+            {whole ? (
+              <a href={whole} target="_blank" rel="noopener noreferrer" className="justify-self-start text-sm text-primary underline underline-offset-2">
+                On a computer: whole route in one Google Maps link
+              </a>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
               <a href={apple} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-1.5 rounded-full border bg-card px-4 text-sm font-medium text-foreground">
                 <Navigation className="size-4" /> Open in Apple Maps: stop {appleStop + 1}{appleTo ? `, ${appleTo.name}` : ""}

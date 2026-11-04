@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.6
+
+- Start route: Google Maps links now keep every stop. The old link style quietly dropped stops past 9 (and past 3 in a phone browser). Long routes are split into parts of 10 stops, shown as "Part 1 of 3: stops 1–10". Each part starts at the last stop of the part before, and a Next button moves on to the following part. On a computer there is also one link for the whole route (up to 25 places). Apple Maps works the same as before.
+
 ## 1.8.5
 
 - New route by city: the starting-city menu (shown for By distance and Nearest-next chain) now has Type a city or address…. You can type any town or address, like Portland, ME or a street address, even if it isn't in the list. The cities are sorted by miles from that place. If the place can't be found, a message says so. Your last 5 typed places are kept under Recent on this device.
