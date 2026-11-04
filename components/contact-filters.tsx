@@ -174,7 +174,7 @@ export function ContactFilterControls({ ctl, onChange }: { ctl: ContactFilterSta
         value={filters.mode}
         onChange={(event) => { chooseMode(event.target.value as SortMode); onChange?.(); }}
       >
-        <option value="">Sort by</option>
+        <option value="">All</option>
         <option value="tags">Tags</option>
         <option value="visits">Visits</option>
         <option value="duplicates">Possible duplicates</option>

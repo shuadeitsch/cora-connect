@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.2
+
+- Contacts filters: the sort menu now reads All instead of Sort by when nothing is picked. Choosing All clears that filter. Tags, Visits and Possible duplicates work the same as before. This applies on desktop and in the phone filters.
+
 ## 1.8.1
 
 - Possible duplicates now have a Not a duplicate button. It's on the badge in the list, in the table, in the Possible duplicates sort and on the contact page. Pressing it clears the flag and remembers that the two contacts are different. Future imports and the duplicate matching skip that pair. The toast has Undo.
