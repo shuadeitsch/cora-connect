@@ -12,6 +12,7 @@ import type { MapPin } from "@/components/map-canvas";
 import { useMapPoints } from "@/components/map-points";
 import { ContactFilterControls, ContactStateTabs, filterPill, useContactFilters } from "@/components/contact-filters";
 import { cn } from "@/lib/utils";
+import { RouteLegend, useRouteColoring } from "@/components/route-colors";
 import type { AppData, HouseholdView } from "@/lib/types";
 
 const MapCanvas = dynamic(() => import("@/components/map-canvas").then((mod) => mod.MapCanvas), {
@@ -31,7 +32,8 @@ export function MapView({ data }: { data: AppData }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const matched = filterCtl.matched;
-  const filtered = matched.filter((household) => pointFor(household));
+  const coloring = useRouteColoring(data);
+  const filtered = matched.filter((household) => pointFor(household) && coloring.keep(household));
   const unplaced = matched.length - filtered.length;
 
   const active = data.routes.find((route) => route.id === activeRoute);
@@ -52,7 +54,20 @@ export function MapView({ data }: { data: AppData }) {
     lng: pointFor(household)!.lng,
     due: household.dueState === "overdue" ? "overdue" : household.dueState === "due" ? "due" : "ok",
     schedule: household.scheduleName,
+    ...(active ? {} : coloring.pinStyle(household.id)),
   }));
+  const shownIds = new Set(filtered.map((household) => household.id));
+  const routeLines = coloring.on && coloring.lines && !active
+    ? coloring.visible.map((route) => ({
+        color: coloring.colors.get(route.id)!,
+        points: route.stops.flatMap((stop) => {
+          if (!shownIds.has(stop.householdId)) return [];
+          const household = data.households.find((item) => item.id === stop.householdId);
+          const point = household ? pointFor(household) : null;
+          return point ? [{ lat: point.lat, lng: point.lng }] : [];
+        }),
+      }))
+    : [];
 
   const contact = data.households.find((household) => household.id === contactId) ?? null;
 
@@ -77,7 +92,7 @@ export function MapView({ data }: { data: AppData }) {
       {!locating && unplaced > 0 ? <span className="glass rounded-full px-3 py-2 text-xs text-muted-foreground">{unplaced} without a map spot</span> : null}
     </>
   );
-  const legend = (
+  const legend = coloring.on ? null : (
     <>
       <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#0f766e]" /> On schedule</div>
       <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#f59e0b]" /> Due</div>
@@ -94,6 +109,7 @@ export function MapView({ data }: { data: AppData }) {
         numbers={numbers}
         start={data.org.startLat != null && data.org.startLng != null ? { lat: data.org.startLat, lng: data.org.startLng } : null}
         routeLine={line}
+        routeLines={routeLines}
         onOpen={setContactId}
         onVisit={(id) => router.push(`/reports?new=1&household=${id}`)}
       />
@@ -119,7 +135,12 @@ export function MapView({ data }: { data: AppData }) {
             {status}
           </div>
         )}
-        {phone ? null : <div className="glass pointer-events-auto absolute bottom-28 left-3 rounded-2xl px-3 py-2 text-[11px] lg:bottom-4">{legend}</div>}
+        {phone ? null : (
+          <div className="glass pointer-events-auto absolute bottom-28 left-16 w-72 rounded-2xl px-3 py-2 text-[11px] lg:bottom-4">
+            <RouteLegend ctl={coloring} />
+            {legend ? <div className="mt-2 grid gap-0.5">{legend}</div> : null}
+          </div>
+        )}
         <button
           type="button"
           className="glass pointer-events-auto absolute bottom-48 left-3 inline-flex size-11 items-center justify-center rounded-2xl lg:bottom-24"
@@ -152,10 +173,11 @@ export function MapView({ data }: { data: AppData }) {
         {contact ? <ContactCard household={contact} point={pointFor(contact)} onClose={() => setContactId("")} /> : null}
       </div>
       {phone ? (
-        <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Filters">
+        <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Filters and routes">
           <div className="grid gap-4 pb-1">
             <div className="flex flex-wrap items-center gap-2 [&_select]:h-11 [&_[role=tab]]:h-11 [&>button]:h-11">{filterBar}</div>
-            <div className="grid grid-cols-2 gap-2 text-sm text-foreground" aria-label="Map key">{legend}</div>
+            <RouteLegend ctl={coloring} className="text-sm [&_select]:h-11 [&_button]:py-2" />
+            {legend ? <div className="grid grid-cols-2 gap-2 text-sm text-foreground" aria-label="Map key">{legend}</div> : null}
           </div>
         </BottomSheet>
       ) : null}

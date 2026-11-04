@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.11
+- Map: new "Color by route" mode (on by default). Each saved route you can see gets its own color; its pins take that color and show the stop number. Contacts on no route are gray. A contact on more than one route takes the newest route's color with a "+1" badge.
+- Map key lists every route with its color, project and stop count, with checkboxes to show or hide each, a project filter, "Only routes" and "Not on a route" toggles, and optional light lines joining each route's stops in order. On phones it's in the ⋯ sheet.
+- Pin popups list the routes the contact is on, with links.
+
 ## 1.8.10
 - Each route now shows the cities it covers as small chips under its name (for example "York 11"), in stop order with a stop count. Shown on the Saved routes list (desktop and phone), the route page header, and planner route items. Long lists show the first few plus "+N more"; tap it to see all, or hover for the full list.
 - Route page: after saving an edit, the new name and project show right away.

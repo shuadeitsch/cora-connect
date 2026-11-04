@@ -14,6 +14,12 @@ export interface MapPin {
   schedule: string;
   /** Set when the contact is already on another route for the chosen project: drawn with a violet dashed ring. */
   taken?: string;
+  /** Color by route: fill color, a short label (stop number) and a "+N" badge for extra routes. */
+  color?: string;
+  label?: string;
+  extra?: number;
+  /** Routes this contact is on, listed with links in the popup. */
+  routes?: { id: string; name: string; color: string; project: string }[];
 }
 
 export function MapCanvas({
@@ -29,7 +35,9 @@ export function MapCanvas({
   onPick,
   boxMode = false,
   onBox,
+  routeLines = [],
 }: {
+  routeLines?: { color: string; points: { lat: number; lng: number }[] }[];
   pins: MapPin[];
   selected: string[];
   numbers: Record<string, number>;
@@ -131,8 +139,8 @@ export function MapCanvas({
       }
       const showAdd = Boolean(callbacks.current.onAdd);
       for (const pin of pins) {
-        const color = selected.includes(pin.id) ? "#042f2e" : pin.due === "overdue" ? "#e11d48" : pin.due === "due" ? "#f59e0b" : "#0f766e";
-        const number = numbers[pin.id];
+        const color = selected.includes(pin.id) ? "#042f2e" : pin.color ? pin.color : pin.due === "overdue" ? "#e11d48" : pin.due === "due" ? "#f59e0b" : "#0f766e";
+        const number = numbers[pin.id] ?? pin.label;
         if (pickMode) {
           const on = selected.includes(pin.id);
           const pickIcon = L.divIcon({
@@ -150,7 +158,7 @@ export function MapCanvas({
         }
         const icon = L.divIcon({
           className: "",
-          html: `<div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${color};color:white;border:${pin.taken ? "3px dashed #7c3aed" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:600 10px sans-serif;display:flex;align-items:center;justify-content:center">${number ?? ""}</div>`,
+          html: `<div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${color};color:white;border:${pin.taken ? "3px dashed #7c3aed" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:600 10px sans-serif;display:flex;align-items:center;justify-content:center;position:relative">${number ?? ""}${pin.extra ? `<span style="position:absolute;top:-8px;right:-10px;background:#111827;color:white;border:1px solid white;border-radius:999px;font:700 8px sans-serif;padding:0 3px;line-height:11px">+${pin.extra}</span>` : ""}</div>`,
           iconSize: [18, 18],
           iconAnchor: [9, 9],
         });
@@ -158,10 +166,13 @@ export function MapCanvas({
         const safeAddress = escapeHtml(pin.address);
         L.marker([pin.lat, pin.lng], { icon })
           .bindPopup(
-            `<div style="min-width:180px"><strong>${safeName}</strong><div style="color:#667;font-size:12px;margin:4px 0">${safeAddress}</div><div style="font-size:12px;margin-bottom:8px">${escapeHtml(pin.schedule)}</div>${pin.taken ? `<div style="font-size:12px;margin-bottom:8px;color:#6d28d9">${escapeHtml(pin.taken)}</div>` : ""}${showAdd ? `<button type="button" data-act="add" data-id="${pin.id}" style="margin-right:6px">Add to route</button>` : ""}<button type="button" data-act="open" data-id="${pin.id}" style="margin-right:6px">Details</button><button type="button" data-act="visit" data-id="${pin.id}">Log visit</button></div>`,
+            `<div style="min-width:180px"><strong>${safeName}</strong><div style="color:#667;font-size:12px;margin:4px 0">${safeAddress}</div><div style="font-size:12px;margin-bottom:8px">${escapeHtml(pin.schedule)}</div>${pin.taken ? `<div style="font-size:12px;margin-bottom:8px;color:#6d28d9">${escapeHtml(pin.taken)}</div>` : ""}${pin.routes?.length ? `<div style="font-size:12px;margin-bottom:8px">${pin.routes.map((route) => `<div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:8px;height:8px;border-radius:999px;background:${route.color};flex:none"></span><a href="/saved-routes/${route.id}" style="color:#0f766e;text-decoration:underline">${escapeHtml(route.name)}</a><span style="color:#889">· ${escapeHtml(route.project)}</span></div>`).join("")}</div>` : ""}${showAdd ? `<button type="button" data-act="add" data-id="${pin.id}" style="margin-right:6px">Add to route</button>` : ""}<button type="button" data-act="open" data-id="${pin.id}" style="margin-right:6px">Details</button><button type="button" data-act="visit" data-id="${pin.id}">Log visit</button></div>`,
           )
           .addTo(layer);
         bounds.push([pin.lat, pin.lng]);
+      }
+      for (const line of routeLines) {
+        if (line.points.length > 1) L.polyline(line.points.map((point) => [point.lat, point.lng]), { color: line.color, weight: 2.5, opacity: 0.45, dashArray: "4 6", interactive: false }).addTo(layer);
       }
       if (routeLine.length > 1) {
         L.polyline(routeLine.map((point) => [point.lat, point.lng]), { color: "#0f766e", weight: 4, opacity: 0.85 }).addTo(layer);
@@ -174,7 +185,7 @@ export function MapCanvas({
     return () => {
       cancelled = true;
     };
-  }, [ready, filterKey, selected, numbers, start, routeLine, pins, pickMode]);
+  }, [ready, filterKey, selected, numbers, start, routeLine, pins, pickMode, routeLines]);
 
   // Click pins: a tap or click that barely moves picks the nearest pin under it; a drag still pans the map.
   useEffect(() => {
