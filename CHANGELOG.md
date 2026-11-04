@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.12
+- Behind the scenes: a small check that tells us whether the app can use AI (for the upcoming "Ask AI for a route"). Nothing changes for users yet.
+
 ## 1.8.11
 - Map: new "Color by route" mode (on by default). Each saved route you can see gets its own color; its pins take that color and show the stop number. Contacts on no route are gray. A contact on more than one route takes the newest route's color with a "+1" badge.
 - Map key lists every route with its color, project and stop count, with checkboxes to show or hide each, a project filter, "Only routes" and "Not on a route" toggles, and optional light lines joining each route's stops in order. On phones it's in the ⋯ sheet.
