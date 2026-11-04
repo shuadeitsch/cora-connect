@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ContactFilterControls, ContactStateTabs, cityKey, useContactFilters } from "@/components/contact-filters";
-import { buildRouteAction } from "@/lib/actions";
+import { buildRouteAction, geocodeStartAction } from "@/lib/actions";
 import { cityCentersAction } from "@/lib/city-actions";
 import { byDistance, haversineMiles, nearestChain, type Point } from "@/lib/city-order";
 import { stateLabel } from "@/lib/constants";
@@ -96,6 +96,10 @@ export function CreateRouteDialog({ data, ids, open, onClose }: { data: AppData;
   );
 }
 
+const RECENT_KEY = "cora.cityRoute.recentStarts";
+const CUSTOM = "__custom__";
+const TYPE = "__type__";
+
 /** Pick a city (in the open state tab); the route gets every contact there that shows on the contact list. */
 export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: boolean; onClose: () => void }) {
   const ctl = useContactFilters(data, "");
@@ -116,6 +120,32 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
   const [startKey, setStartKey] = useState("");
   const [centers, setCenters] = useState<Record<string, Point | null>>({});
   const [looking, setLooking] = useState(false);
+  // Written-in starting place ("Portland, ME" or a street address), geocoded on demand.
+  const [custom, setCustom] = useState<{ label: string; point: Point } | null>(null);
+  const [typing, setTyping] = useState(false);
+  const [placeText, setPlaceText] = useState("");
+  const [placeError, setPlaceError] = useState("");
+  const [placePending, setPlacePending] = useState(false);
+  const [recent, setRecent] = useState<{ label: string; point: Point }[]>([]);
+  useEffect(() => {
+    try { setRecent(JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]").slice(0, 5)); } catch { setRecent([]); }
+  }, []);
+  async function findPlace(text: string) {
+    const label = text.trim().replace(/\s+/g, " ");
+    if (!label) return;
+    setPlacePending(true);
+    setPlaceError("");
+    const result = await geocodeStartAction(label);
+    setPlacePending(false);
+    if (!result.ok) { setPlaceError(`Couldn't find “${label}”. Try adding the town and state.`); return; }
+    const entry = { label, point: { lat: result.data.lat, lng: result.data.lng } };
+    setCustom(entry);
+    setTyping(false);
+    setPlaceText("");
+    const next = [entry, ...recent.filter((item) => item.label.toLowerCase() !== label.toLowerCase())].slice(0, 5);
+    setRecent(next);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+  }
   // Fallback: the average of that city's contacts' saved coordinates.
   const averages = useMemo(() => {
     const out: Record<string, Point | null> = {};
@@ -168,17 +198,20 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
     }
     return cities[0]?.key ?? "";
   }, [cities, points, origin?.lat, origin?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
-  const start = cities.some((city) => city.key === startKey) ? startKey : defaultStart;
+  const start = custom ? CUSTOM : cities.some((city) => city.key === startKey) ? startKey : defaultStart;
   const sorted = useMemo(() => {
     if (order === "az") return cities;
     const keys = cities.map((city) => city.key);
-    const ranked = order === "chain" ? nearestChain(keys, points, start) : byDistance(keys, points, start);
+    const all = custom ? { ...points, [CUSTOM]: custom.point } : points;
+    const withStart = custom ? [CUSTOM, ...keys] : keys;
+    const ranked = order === "chain" ? nearestChain(withStart, all, start) : byDistance(withStart, all, start);
     const byKey = new Map(cities.map((city) => [city.key, city]));
-    return ranked.map((key) => byKey.get(key)!);
-  }, [order, cities, points, start]);
+    return ranked.filter((key) => key !== CUSTOM).map((key) => byKey.get(key)!);
+  }, [order, cities, points, start, custom]);
   const milesFrom = (key: string, index: number) => {
     if (order === "az") return null;
-    const from = order === "chain" ? (index > 0 ? points[sorted[index - 1]!.key] : null) : points[start];
+    const startPoint = custom ? custom.point : points[start];
+    const from = order === "chain" ? (index > 0 ? points[sorted[index - 1]!.key] : custom ? custom.point : null) : startPoint;
     const to = points[key];
     if (!to) return "location unknown";
     if (key === start && order === "distance") return "start";
@@ -199,7 +232,7 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
         ) : (
           <div className="grid gap-3">
             <ContactStateTabs ctl={ctl} />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search cities" aria-label="Search cities" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search or type a city" aria-label="Search cities" />
             <div className="flex flex-wrap items-center gap-2">
               <select className="h-9 rounded-full border bg-card px-3 text-sm" value={order} onChange={(event) => setOrder(event.target.value as typeof order)} aria-label="Sort cities">
                 <option value="az">A–Z</option>
@@ -207,12 +240,54 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
                 <option value="chain">Nearest-next chain</option>
               </select>
               {order !== "az" ? (
-                <select className="h-9 min-w-0 max-w-full rounded-full border bg-card px-3 text-sm" value={start} onChange={(event) => setStartKey(event.target.value)} aria-label="Starting city">
+                <select
+                  className="h-9 min-w-0 max-w-full rounded-full border bg-card px-3 text-sm"
+                  value={typing ? TYPE : custom ? `recent:${custom.label}` : start}
+                  aria-label="Starting city"
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setPlaceError("");
+                    if (value === TYPE) { setTyping(true); return; }
+                    setTyping(false);
+                    if (value.startsWith("recent:")) {
+                      const hit = recent.find((item) => `recent:${item.label}` === value);
+                      if (hit) setCustom(hit);
+                      return;
+                    }
+                    setCustom(null);
+                    setStartKey(value);
+                  }}
+                >
                   {cities.map((city) => <option key={city.key} value={city.key}>From {city.label}</option>)}
+                  {recent.length ? (
+                    <optgroup label="Recent">
+                      {recent.map((item) => <option key={item.label} value={`recent:${item.label}`}>From {item.label}</option>)}
+                    </optgroup>
+                  ) : null}
+                  {custom && !recent.some((item) => item.label === custom.label) ? <option value={`recent:${custom.label}`}>From {custom.label}</option> : null}
+                  <option value={TYPE}>Type a city or address…</option>
                 </select>
               ) : null}
               {looking ? <span className="text-xs text-muted-foreground">Finding city locations…</span> : null}
             </div>
+            {order !== "az" && typing ? (
+              <form
+                className="flex flex-wrap gap-2"
+                onSubmit={(event) => { event.preventDefault(); void findPlace(placeText); }}
+              >
+                <Input
+                  autoFocus
+                  value={placeText}
+                  onChange={(event) => setPlaceText(event.target.value)}
+                  placeholder="e.g. Portland, ME or 12 Main St, Saco, ME"
+                  aria-label="Starting place"
+                  className="h-9 min-w-0 flex-1 rounded-full"
+                />
+                <Button type="submit" className="h-9 rounded-full" disabled={placePending || !placeText.trim()}>{placePending ? "Finding…" : "Use"}</Button>
+                <Button type="button" variant="outline" className="h-9 rounded-full" onClick={() => { setTyping(false); setPlaceError(""); }}>Cancel</Button>
+              </form>
+            ) : null}
+            {placeError ? <p role="alert" className="text-sm text-red-600">{placeError}</p> : null}
             <ul className="max-h-[50vh] divide-y overflow-auto rounded-xl border">
               {shown.map((city) => {
                 const miles = milesFrom(city.key, sorted.indexOf(city));
@@ -225,7 +300,7 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
                 </li>
                 );
               })}
-              {!shown.length ? <li className="px-3 py-6 text-center text-sm text-muted-foreground">No contacts{ctl.filters.state ? ` in ${stateLabel(ctl.filters.state)}` : ""}.</li> : null}
+              {!shown.length ? <li className="px-3 py-6 text-center text-sm text-muted-foreground">No contacts in {search.trim() || (ctl.filters.state ? stateLabel(ctl.filters.state) : "this list")}.</li> : null}
             </ul>
           </div>
         )}

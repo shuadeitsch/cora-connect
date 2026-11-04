@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.5
+
+- New route by city: the starting-city menu (shown for By distance and Nearest-next chain) now has Type a city or address…. You can type any town or address, like Portland, ME or a street address, even if it isn't in the list. The cities are sorted by miles from that place. If the place can't be found, a message says so. Your last 5 typed places are kept under Recent on this device.
+- In the city picker, typing a city with no contacts now shows No contacts in [city].
+
 ## 1.8.4
 
 - Routes > New route by city has a new sort menu: A–Z, By distance and Nearest-next chain. By distance sorts the cities by straight-line miles from a starting city you pick, showing the miles next to each one (for example Kennebunk · 4 mi). Nearest-next chain orders the cities so each one is the closest to the one before it.
