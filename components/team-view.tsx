@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar } from "@/components/avatar";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Search } from "lucide-react";
@@ -195,7 +196,7 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
                 const access = accessLabel(member.expiresAt);
                 return (
                   <tr key={member.id} className="border-b last:border-0">
-                    <td className="px-3 py-2 font-semibold text-foreground">{member.name}</td>
+                    <td className="px-3 py-2 font-semibold text-foreground"><span className="flex items-center gap-2"><Avatar name={member.name} src={member.avatarUrl} className="size-7 text-[10px]" />{member.name}</span></td>
                     <td className="px-3 py-2 text-mutedink">{member.email}</td>
                     <td className="px-3 py-2">
                       <div>{ROLE_LABEL[member.role] ?? member.role}</div>

@@ -146,6 +146,9 @@ export function Shell({
             <Search className="size-[18px]" />
           </button>
           <ThemeToggle />
+          <Link href="/settings?tab=account" aria-label="Your account" className="inline-flex size-11 items-center justify-center rounded-full hover:bg-muted lg:hidden">
+            <Avatar name={viewer.name} src={viewer.avatarUrl} className="size-8 text-[10px]" />
+          </Link>
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -182,7 +185,7 @@ export function Shell({
           </Link>
           <NavLinks items={navItems} canManage={viewer.canManage} bochur={bochur} />
           <Link href="/settings?tab=account" className="mx-3 mt-auto flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
-            <Avatar name={viewer.name} className="size-9" />
+            <Avatar name={viewer.name} src={viewer.avatarUrl} className="size-9" />
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium text-foreground">{viewer.name}</span>
               <span className="block text-[11px] text-muted-foreground">{scopeLabel(viewer.role, viewer.territory, viewingState)}</span>

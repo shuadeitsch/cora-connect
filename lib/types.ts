@@ -48,6 +48,8 @@ export interface User {
   assignedRouteIds: string[];
   leaderId: string | null;
   territory: Territory[];
+  /** Public URL of his profile picture, if he set one. */
+  avatarUrl?: string | null;
   /** Bochur: step one (a Cora admin) and the final step (his shliach). */
   adminApprovedAt?: string | null;
   finalApprovedAt?: string | null;
@@ -223,6 +225,7 @@ export interface Viewer {
   canShare: boolean;
   leaderId: string | null;
   territory: Territory[];
+  avatarUrl: string | null;
 }
 
 export interface TeamMember {
@@ -240,6 +243,7 @@ export interface TeamMember {
   territory: Territory[];
   adminApprovedAt: string | null;
   finalApprovedAt: string | null;
+  avatarUrl: string | null;
   kind: "member" | "invite";
 }
 

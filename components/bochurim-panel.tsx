@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar } from "@/components/avatar";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Notice } from "@/components/page-header";
@@ -58,7 +59,9 @@ export function BochurimPanel({ data }: { data: AppData }) {
             const canAct = admin || member.leaderId === data.viewer.id;
             return (
               <li key={member.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-start gap-2">
+                  <Avatar name={member.name} src={member.avatarUrl} className="mt-0.5 size-8 text-[10px]" />
+                  <div className="min-w-0">
                   <p className="font-semibold text-foreground">{member.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {stateOf(member, today)}
@@ -79,6 +82,7 @@ export function BochurimPanel({ data }: { data: AppData }) {
                       </select>
                     </label>
                   ) : null}
+                  </div>
                 </div>
                 {canAct ? (
                   <div className="flex flex-wrap gap-1.5">

@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar } from "@/components/avatar";
 import { ChevronDown } from "lucide-react";
 import { ACCOUNT_STATUS_LABEL, ROLE_LABEL } from "@/lib/constants";
 import { formatMedium } from "@/lib/format";
@@ -53,6 +54,7 @@ export function ShluchimSection({ data }: { data: AppData }) {
                 <details className="group py-2">
                   <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-xl px-1 hover:bg-muted/60">
                     <ChevronDown className="size-4 shrink-0 text-muted-foreground transition group-open:rotate-180" />
+                    <Avatar name={shliach.name} src={shliach.avatarUrl} className="size-8 text-[10px]" />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-foreground">{shliach.name}</span>
                       <span className="block truncate text-xs text-muted-foreground">{shliach.email}{states ? ` · ${states}` : " · No states yet"}</span>

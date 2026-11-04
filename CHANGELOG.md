@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.17
+
+- Settings > Account: add, change or remove your profile picture. It is cropped to a square and shows in the side bar, the top bar on phones, and My Team. Each person can only change their own picture.
+
 ## 1.8.16
 - Saved routes: a "Plan a trip" button. "Delete all" is gone. Tick routes (on phones, tap Select first) and use "Delete selected (N)"; it asks first and lists the route names. There is no select-all. The main buttons are all the same green.
 - Reports: the Scheduled column is gone. A new Visited column shows the projects each contact was visited for (completed visits), and it's in the download too.
