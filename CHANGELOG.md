@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.3
+
+- Daily planner: each day now shows its Jewish holidays next to the date and Hebrew date, using diaspora rules and Chabad wording. Saturdays say Shabbos.
+- A holiday that starts at night shows on the day its evening begins. For example, Friday Dec 4 shows First night of Chanukah, and Shabbos Dec 5 shows 1st day of Chanukah · 2nd night.
+- Chabad dates are included: Yud Kislev, Yud Tes Kislev, Chof Kislev, Hei Teves, Chof Daled Teves, Yud Shvat, Yud Alef Nissan, Gimmel Tammuz, Yud Beis and Yud Gimmel Tammuz, Chof Av and Chai Elul.
+- Planner items can now be edited. Tap the pencil on any item to open the same form, already filled in: title, time, address and notes, or the chosen route for a route item. Save keeps the item in its place, and Cancel closes the form. If saving fails, you'll see an error message. Only admins can change the planner, as before.
+
 ## 1.8.2
 
 - Contacts filters: the sort menu now reads All instead of Sort by when nothing is picked. Choosing All clears that filter. Tags, Visits and Possible duplicates work the same as before. This applies on desktop and in the phone filters.

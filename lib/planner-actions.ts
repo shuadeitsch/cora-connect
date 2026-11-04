@@ -80,3 +80,36 @@ export async function removePlannerItemAction(id: string): Promise<Result> {
   const { error } = await supabase.from("planner_items").delete().eq("id", id);
   return error ? fail(error.message, "Couldn't remove it.") : done();
 }
+
+export async function updatePlannerItemAction(input: {
+  id: string;
+  kind: "route" | "event";
+  routeId?: string;
+  title: string;
+  time?: string;
+  notes?: string;
+  address?: string;
+}): Promise<Result> {
+  const who = await admin();
+  if (typeof who === "string") return { ok: false, error: who };
+  const title = input.title.trim().slice(0, 200);
+  if (input.kind === "route" && !input.routeId) return { ok: false, error: "Pick a route." };
+  if (input.kind === "event" && !title) return { ok: false, error: "Give the event a title." };
+  const time = input.time && /^\d{2}:\d{2}/.test(input.time) ? input.time.slice(0, 5) : null;
+  const supabase = await createClient();
+  // Same id, day and sort, so the item keeps its place.
+  const { data, error } = await supabase
+    .from("planner_items")
+    .update({
+      route_id: input.kind === "route" ? input.routeId : null,
+      title,
+      time,
+      notes: (input.notes ?? "").trim().slice(0, 2000),
+      address: input.kind === "event" ? (input.address ?? "").trim().slice(0, 300) : "",
+    })
+    .eq("id", input.id)
+    .select("id");
+  if (error) return fail(error.message, "Couldn't save your changes.");
+  if (!data?.length) return { ok: false, error: "Your account isn't allowed to change the planner." };
+  return done();
+}

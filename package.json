@@ -1,6 +1,6 @@
 {
   "name": "cora",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 43123",
@@ -14,6 +14,7 @@
     "seed:supabase": "tsx scripts/seed-supabase.ts"
   },
   "dependencies": {
+    "@hebcal/core": "^6.14.7",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "class-variance-authority": "^0.7.1",

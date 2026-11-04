@@ -1,21 +1,37 @@
 "use client";
 
+import { holidayLabels } from "@/lib/holidays";
+import { useToast } from "@/components/toast";
+
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Clock, MapPin, Plus, Route as RouteIcon, Trash2, X } from "lucide-react";
+import { CalendarPlus, Clock, MapPin, Pencil, Plus, Route as RouteIcon, Trash2, X } from "lucide-react";
 import { AddressLink } from "@/components/address-link";
 import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, removePlannerItemAction } from "@/lib/planner-actions";
+import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, removePlannerItemAction, updatePlannerItemAction } from "@/lib/planner-actions";
 import type { PlannerDay, PlannerItem } from "@/lib/planner";
 import type { AppData } from "@/lib/types";
 
 function noon(date: string) {
   const [y, m, d] = date.split("-").map(Number);
   return new Date(Date.UTC(y!, m! - 1, d!, 12));
+}
+
+/** Jewish holiday chips for a day (diaspora, Chabad wording). */
+function HolidayChips({ date }: { date: string }) {
+  const labels = holidayLabels(date);
+  if (!labels.length) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {labels.map((label) => (
+        <span key={label} className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-medium text-sky-900 dark:text-sky-200">{label}</span>
+      ))}
+    </div>
+  );
 }
 
 export function gregorianLabel(date: string) {
@@ -70,11 +86,13 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
     </Button>
   );
 
+  const toast = useToast();
+
   function run(task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) {
     setError("");
     start(async () => {
       const result = await task();
-      if (!result.ok) setError(result.error);
+      if (!result.ok) { setError(result.error); toast({ title: result.error, tone: "error" }); }
       else {
         after?.();
         router.refresh();
@@ -125,12 +143,6 @@ function DayCard({
   run: (task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) => void;
 }) {
   const [adding, setAdding] = useState<"" | "route" | "event">("");
-  const [routeId, setRouteId] = useState("");
-  const [title, setTitle] = useState("");
-  const [time, setTime] = useState("");
-  const [notes, setNotes] = useState("");
-  const [address, setAddress] = useState("");
-  const reset = () => { setAdding(""); setRouteId(""); setTitle(""); setTime(""); setNotes(""); setAddress(""); };
 
   return (
     <section className="panel rounded-3xl p-4">
@@ -138,6 +150,7 @@ function DayCard({
         <div>
           <h2 className="font-heading text-lg font-semibold text-foreground">{gregorianLabel(day.date)}</h2>
           <p className="text-sm text-muted-foreground">{hebrewLabel(day.date)}</p>
+          <HolidayChips date={day.date} />
         </div>
         {canEdit ? (
           <button
@@ -165,40 +178,77 @@ function DayCard({
         </div>
       ) : null}
       {adding ? (
-        <form
-          className="mt-3 grid gap-2 rounded-2xl bg-muted/50 p-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const route = data.routes.find((item) => item.id === routeId);
-            run(
-              () => addPlannerItemAction({ dayId: day.id, kind: adding, routeId, title: adding === "route" ? route?.name ?? "" : title, time, notes, address }),
-              reset,
-            );
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-foreground">{adding === "route" ? "Add a route" : "Add an event"}</p>
-            <button type="button" aria-label="Cancel" onClick={reset}><X className="size-4" /></button>
-          </div>
-          {adding === "route" ? (
-            <select className="h-10 rounded-lg border bg-card px-2 text-sm" value={routeId} onChange={(event) => setRouteId(event.target.value)} aria-label="Route">
-              <option value="">Pick a saved route</option>
-              {data.routes.map((route) => <option key={route.id} value={route.id}>{route.name} ({route.stopCount} stops)</option>)}
-            </select>
-          ) : (
-            <Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title" aria-label="Title" />
-          )}
-          {adding === "event" ? (
-            <Input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Address (optional)" aria-label="Address (optional)" autoComplete="street-address" />
-          ) : null}
-          <Input type="time" value={time} onChange={(event) => setTime(event.target.value)} aria-label="Time (optional)" className="w-auto" />
-          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes (optional)" aria-label="Notes" rows={2} />
-          <Button type="submit" className="justify-self-start rounded-full" disabled={pending || (adding === "route" ? !routeId : !title.trim())}>
-            {pending ? "Saving…" : "Add"}
-          </Button>
-        </form>
+        <ItemForm
+          data={data}
+          kind={adding}
+          pending={pending}
+          onCancel={() => setAdding("")}
+          onSave={(values) => run(() => addPlannerItemAction({ dayId: day.id, kind: adding, ...values }), () => setAdding(""))}
+        />
       ) : null}
     </section>
+  );
+}
+
+type ItemValues = { routeId: string; title: string; time: string; notes: string; address: string };
+
+/** The add form, also used prefilled for Edit. */
+function ItemForm({
+  data,
+  kind,
+  item,
+  pending,
+  onSave,
+  onCancel,
+}: {
+  data: AppData;
+  kind: "route" | "event";
+  item?: PlannerItem;
+  pending: boolean;
+  onSave: (values: ItemValues) => void;
+  onCancel: () => void;
+}) {
+  const [routeId, setRouteId] = useState(item?.routeId ?? "");
+  const [title, setTitle] = useState(item?.title ?? "");
+  const [time, setTime] = useState(item?.time ? item.time.slice(0, 5) : "");
+  const [notes, setNotes] = useState(item?.notes ?? "");
+  const [address, setAddress] = useState(item?.address ?? "");
+  const editing = Boolean(item);
+  return (
+    <form
+      className="mt-3 grid gap-2 rounded-2xl bg-muted/50 p-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const route = data.routes.find((entry) => entry.id === routeId);
+        onSave({ routeId, title: kind === "route" ? route?.name ?? title : title, time, notes, address });
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-foreground">
+          {editing ? (kind === "route" ? "Edit route" : "Edit event") : kind === "route" ? "Add a route" : "Add an event"}
+        </p>
+        <button type="button" aria-label="Cancel" onClick={onCancel}><X className="size-4" /></button>
+      </div>
+      {kind === "route" ? (
+        <select className="h-10 rounded-lg border bg-card px-2 text-sm" value={routeId} onChange={(event) => setRouteId(event.target.value)} aria-label="Route">
+          <option value="">Pick a saved route</option>
+          {data.routes.map((route) => <option key={route.id} value={route.id}>{route.name} ({route.stopCount} stops)</option>)}
+        </select>
+      ) : (
+        <Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title" aria-label="Title" />
+      )}
+      {kind === "event" ? (
+        <Input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Address (optional)" aria-label="Address (optional)" autoComplete="street-address" />
+      ) : null}
+      <Input type="time" value={time} onChange={(event) => setTime(event.target.value)} aria-label="Time (optional)" className="w-auto" />
+      <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes (optional)" aria-label="Notes" rows={2} />
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" className="rounded-full" disabled={pending || (kind === "route" ? !routeId : !title.trim())}>
+          {pending ? "Saving…" : editing ? "Save" : "Add"}
+        </Button>
+        {editing ? <Button type="button" variant="outline" className="rounded-full" onClick={onCancel}>Cancel</Button> : null}
+      </div>
+    </form>
   );
 }
 
@@ -213,9 +263,24 @@ function ItemRow({
   item: PlannerItem;
   canEdit: boolean;
   pending: boolean;
-  run: (task: () => Promise<{ ok: true } | { ok: false; error: string }>) => void;
+  run: (task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) => void;
 }) {
+  const [editing, setEditing] = useState(false);
   const route = item.routeId ? data.routes.find((entry) => entry.id === item.routeId) : undefined;
+  if (editing) {
+    return (
+      <li>
+        <ItemForm
+          data={data}
+          kind={item.kind}
+          item={item}
+          pending={pending}
+          onCancel={() => setEditing(false)}
+          onSave={(values) => run(() => updatePlannerItemAction({ id: item.id, kind: item.kind, ...values }), () => setEditing(false))}
+        />
+      </li>
+    );
+  }
   return (
     <li className="flex items-start gap-3 rounded-2xl bg-card p-3 ring-1 ring-foreground/8">
       <span className="mt-0.5 text-primary">{item.kind === "route" ? <RouteIcon className="size-4" /> : <Clock className="size-4" />}</span>
@@ -234,6 +299,17 @@ function ItemRow({
         ) : null}
         {item.notes ? <p className="mt-1 text-sm whitespace-pre-wrap text-foreground">{item.notes}</p> : null}
       </div>
+      {canEdit ? (
+        <button
+          type="button"
+          aria-label="Edit"
+          className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          disabled={pending}
+          onClick={() => setEditing(true)}
+        >
+          <Pencil className="size-4" />
+        </button>
+      ) : null}
       {canEdit ? (
         <button
           type="button"
