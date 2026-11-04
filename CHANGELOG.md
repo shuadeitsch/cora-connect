@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.8
+
+- Edit a saved route: the route page has an Edit button. You can rename the route, change its project, add stops (search by name, street or city, or Add a city to add all of a town's contacts, skipping ones already on the route), remove stops, move them with the arrows (or drag on a computer), and press Re-optimize order. Nothing changes until you press Save; Cancel leaves the route as it was. Saving checks the database and shows Route saved, or an error. If someone else deletes the route while you edit, you get an error instead of a new copy. Stops on contacts you can't see are left on the route as they were.
+- After you save a new route (Build on map, Pick contacts, New route by city, or from the contact list), you stay where you are. The selection clears, and the Route saved message has a View link.
+- New route by city: tick as many cities as you want (Select all and Clear are there). The sort and miles work as before. It shows "N cities · M contacts", and Create route makes one route with all of them, in a quick driving order across the cities.
+- Already on a route: once a project is chosen (it starts with the project of your newest route, and every builder has a Project menu), contacts already on another route for that project are marked "Already on “route” · project". On Build on map they have a violet dashed ring. Before saving you see "N contacts are already on another … route" and can choose Skip them (the default) or Include anyway. Routes for other projects, Unsorted routes and routes you can't see don't count.
+
 ## 1.8.7
 
 - On phones, the bottom menu bar no longer covers the end of a page. Pages now leave room for the bar and the phone's home-bar area, so the last items on a route (like the Google Maps parts and the map) can be scrolled fully into view.

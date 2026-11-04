@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useMapPoints } from "@/components/map-points";
 import { StartRoute } from "@/components/start-route";
+import { RouteEditor } from "@/components/route-editor";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { ArrowLeft, Navigation, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, Navigation, Pencil, Play, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TaggedRouteNotice } from "@/components/tagged-route-notice";
 import type { MapPin } from "@/components/map-canvas";
@@ -23,6 +24,7 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
   const [pending, start] = useTransition();
   const { pointFor } = useMapPoints(data.households);
   const [starting, setStarting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [order, setOrder] = useState<string[] | null>(null);
   const pointOf = (stop: RouteStopView) => {
     const household = data.households.find((item) => item.id === stop.householdId);
@@ -51,7 +53,12 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
           />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button className="rounded-full" onClick={() => setStarting(true)} disabled={!route.stops.length}><Play className="size-4" /> Start route</Button>
+          <Button className="rounded-full" onClick={() => { setEditing(false); setStarting(true); }} disabled={!route.stops.length}><Play className="size-4" /> Start route</Button>
+          {data.viewer.canCreateRoute ? (
+            <Button variant="outline" className="rounded-full" disabled={pending || editing} onClick={() => { setStarting(false); setOrder(null); setEditing(true); }}>
+              <Pencil className="size-4" /> Edit
+            </Button>
+          ) : null}
           {data.viewer.canCreateRoute ? (
             <Button
               variant="outline"
@@ -91,6 +98,20 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
             </Button>
           ) : null}
         </div>
+        {editing ? (
+          <RouteEditor
+            key={`${route.id}-${route.name}-${route.stops.map((stop) => stop.householdId).join()}`}
+            data={data}
+            route={route}
+            pointOf={(id) => {
+              const stop = route.stops.find((item) => item.householdId === id);
+              const household = data.households.find((item) => item.id === id);
+              const point = household ? pointFor(household) : stop && stop.lat != null && stop.lng != null ? { lat: stop.lat, lng: stop.lng } : null;
+              return point ? { lat: point.lat, lng: point.lng } : null;
+            }}
+            onDone={() => setEditing(false)}
+          />
+        ) : null}
         {starting ? (
           <StartRoute
             stops={route.stops}

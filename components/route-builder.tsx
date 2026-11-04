@@ -24,6 +24,8 @@ import {
   useContactFilters,
 } from "@/components/contact-filters";
 import { CreateRouteDialog } from "@/components/create-route";
+import { overlapBadge, useOverlap, useRouteProject } from "@/lib/route-overlap";
+import { OverlapBadge, RouteProjectSelect } from "@/components/route-project";
 import { useMapPoints } from "@/components/map-points";
 import type { AppData } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -96,6 +98,8 @@ export function RouteBuilder({ data }: { data: AppData }) {
     if (window.matchMedia("(min-width: 1024px)").matches) setListOpen(true);
   }, []);
 
+  const { projectId: routeProject, projectName: routeProjectName } = useRouteProject(data);
+  const overlap = useOverlap(data, routeProject);
   const shown = ctl.matched.filter((household) => pointFor(household));
   const pins: MapPin[] = shown.map((household) => {
     const point = pointFor(household)!;
@@ -112,6 +116,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
             ? "due"
             : "ok",
       schedule: household.scheduleName,
+      taken: overlap.has(household.id) ? overlapBadge(overlap.get(household.id)!, routeProjectName) : undefined,
     };
   });
   const allShownPicked =
@@ -190,6 +195,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
                 <span className="block truncate text-xs text-muted-foreground">
                   {household.address}
                 </span>
+                <OverlapBadge text={overlap.has(household.id) ? overlapBadge(overlap.get(household.id)!, routeProjectName) : undefined} />
               </span>
             </label>
           </li>
@@ -210,6 +216,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
       ids={picked}
       open={naming}
       onClose={() => setNaming(false)}
+      onSaved={() => setPicked([])}
     />
   );
 
@@ -388,6 +395,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
                 <div className="flex flex-wrap items-center gap-2 [&_select]:h-11 [&_[role=tab]]:h-11 [&>button]:h-11">
                   <ContactStateTabs ctl={ctl} />
                   <ContactFilterControls ctl={ctl} />
+                  <RouteProjectSelect data={data} />
                   <button
                     type="button"
                     className={cn(
@@ -480,6 +488,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
           </Link>
           <ContactStateTabs ctl={ctl} />
           <ContactFilterControls ctl={ctl} />
+                  <RouteProjectSelect data={data} />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}

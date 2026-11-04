@@ -12,6 +12,8 @@ export interface MapPin {
   lng: number;
   due: "overdue" | "due" | "ok";
   schedule: string;
+  /** Set when the contact is already on another route for the chosen project: drawn with a violet dashed ring. */
+  taken?: string;
 }
 
 export function MapCanvas({
@@ -135,20 +137,20 @@ export function MapCanvas({
           const on = selected.includes(pin.id);
           const pickIcon = L.divIcon({
             className: "",
-            html: `<div style="width:28px;height:28px;border-radius:999px;background:${on ? "#042f2e" : color};color:white;border:${on ? "3px solid #fbbf24" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 12px sans-serif;display:flex;align-items:center;justify-content:center">${on ? "&#10003;" : ""}</div>`,
+            html: `<div style="width:28px;height:28px;border-radius:999px;background:${on ? "#042f2e" : color};color:white;border:${on ? "3px solid #fbbf24" : pin.taken ? "3px dashed #7c3aed" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 12px sans-serif;display:flex;align-items:center;justify-content:center">${on ? "&#10003;" : ""}</div>`,
             iconSize: [28, 28],
             iconAnchor: [14, 14],
           });
           // Not interactive: taps and clicks are read off the map container (see the pick effect below),
           // so a pin redrawn mid-click, or a browser that sends two click events, can't drop or undo a pick.
-          L.marker([pin.lat, pin.lng], { icon: pickIcon, title: pin.name, zIndexOffset: on ? 500 : 0, interactive: false, keyboard: false })
+          L.marker([pin.lat, pin.lng], { icon: pickIcon, title: pin.taken ? `${pin.name} (${pin.taken})` : pin.name, zIndexOffset: on ? 500 : 0, interactive: false, keyboard: false })
             .addTo(layer);
           bounds.push([pin.lat, pin.lng]);
           continue;
         }
         const icon = L.divIcon({
           className: "",
-          html: `<div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${color};color:white;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35);font:600 10px sans-serif;display:flex;align-items:center;justify-content:center">${number ?? ""}</div>`,
+          html: `<div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${color};color:white;border:${pin.taken ? "3px dashed #7c3aed" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:600 10px sans-serif;display:flex;align-items:center;justify-content:center">${number ?? ""}</div>`,
           iconSize: [18, 18],
           iconAnchor: [9, 9],
         });
@@ -156,7 +158,7 @@ export function MapCanvas({
         const safeAddress = escapeHtml(pin.address);
         L.marker([pin.lat, pin.lng], { icon })
           .bindPopup(
-            `<div style="min-width:180px"><strong>${safeName}</strong><div style="color:#667;font-size:12px;margin:4px 0">${safeAddress}</div><div style="font-size:12px;margin-bottom:8px">${escapeHtml(pin.schedule)}</div>${showAdd ? `<button type="button" data-act="add" data-id="${pin.id}" style="margin-right:6px">Add to route</button>` : ""}<button type="button" data-act="open" data-id="${pin.id}" style="margin-right:6px">Details</button><button type="button" data-act="visit" data-id="${pin.id}">Log visit</button></div>`,
+            `<div style="min-width:180px"><strong>${safeName}</strong><div style="color:#667;font-size:12px;margin:4px 0">${safeAddress}</div><div style="font-size:12px;margin-bottom:8px">${escapeHtml(pin.schedule)}</div>${pin.taken ? `<div style="font-size:12px;margin-bottom:8px;color:#6d28d9">${escapeHtml(pin.taken)}</div>` : ""}${showAdd ? `<button type="button" data-act="add" data-id="${pin.id}" style="margin-right:6px">Add to route</button>` : ""}<button type="button" data-act="open" data-id="${pin.id}" style="margin-right:6px">Details</button><button type="button" data-act="visit" data-id="${pin.id}">Log visit</button></div>`,
           )
           .addTo(layer);
         bounds.push([pin.lat, pin.lng]);

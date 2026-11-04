@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 type Toast = {
@@ -8,6 +9,8 @@ type Toast = {
   title: string;
   tone?: "ok" | "error";
   undo?: () => void | Promise<void>;
+  /** Optional link shown at the right, like View. */
+  action?: { label: string; href: string };
 };
 
 type ToastInput = Omit<Toast, "id">;
@@ -34,7 +37,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const push = useCallback((toast: ToastInput) => {
     const id = Date.now() + Math.random();
     setToasts((current) => [...current.slice(-3), { ...toast, id }]);
-    window.setTimeout(() => dismiss(id), toast.undo ? 10000 : 3200);
+    window.setTimeout(() => dismiss(id), toast.undo || toast.action ? 10000 : 3200);
   }, [dismiss]);
 
   const runUndo = useCallback((toast: Toast) => {
@@ -73,6 +76,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <button type="button" className="font-semibold text-primary" onClick={() => runUndo(toast)}>
                 Undo
               </button>
+            ) : toast.action ? (
+              <Link href={toast.action.href} className="font-semibold text-primary" onClick={() => dismiss(toast.id)}>
+                {toast.action.label}
+              </Link>
             ) : null}
           </div>
         ))}

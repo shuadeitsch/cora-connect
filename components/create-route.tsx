@@ -14,6 +14,8 @@ import { byDistance, haversineMiles, nearestChain, type Point } from "@/lib/city
 import { stateLabel } from "@/lib/constants";
 import type { AppData } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { overlapBadge, useOverlap, useRouteProject } from "@/lib/route-overlap";
+import { OverlapBadge, RouteProjectSelect } from "@/components/route-project";
 
 function suggestedName(data: AppData, ids: string[]) {
   const picked = data.households.filter((household) => ids.includes(household.id));
@@ -22,11 +24,15 @@ function suggestedName(data: AppData, ids: string[]) {
   return cities.length === 1 ? `${cities[0]} route` : `Route ${day}`;
 }
 
-/** Name the route, save it (ordered nearest-first), then open it. */
-export function NameRouteForm({ data, ids, name: startName, onBack }: { data: AppData; ids: string[]; name?: string; onBack?: () => void }) {
+/** Name the route and save it (ordered nearest-first). Stays put afterwards; the toast has a View link. */
+export function NameRouteForm({ data, ids, name: startName, onBack, onSaved }: { data: AppData; ids: string[]; name?: string; onBack?: () => void; onSaved?: () => void }) {
   const router = useRouter();
   const [name, setName] = useState(() => startName ?? suggestedName(data, ids));
-  const [projectId, setProjectId] = useState("");
+  const { projectId, projectName, setProjectId } = useRouteProject(data);
+  const overlap = useOverlap(data, projectId);
+  const taken = ids.filter((id) => overlap.has(id));
+  const [includeTaken, setIncludeTaken] = useState(false);
+  const saveIds = includeTaken ? ids : ids.filter((id) => !overlap.has(id));
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const toast = useToast();
@@ -45,7 +51,7 @@ export function NameRouteForm({ data, ids, name: startName, onBack }: { data: Ap
           // Stay on this step until the database confirms the route; any failure is shown here and as a toast.
           let result: Awaited<ReturnType<typeof buildRouteAction>>;
           try {
-            result = await buildRouteAction({ name, projectId, householdIds: ids });
+            result = await buildRouteAction({ name, projectId, householdIds: saveIds });
           } catch {
             fail("The route didn't save. Check your connection, press Reload, and try again.");
             return;
@@ -58,13 +64,13 @@ export function NameRouteForm({ data, ids, name: startName, onBack }: { data: Ap
             fail("The route didn't save. Try again.");
             return;
           }
-          toast({ title: `Route saved: ${name.trim()}` });
-          router.push(`/saved-routes/${result.data.id}`);
+          toast({ title: `Route saved: ${name.trim()}`, action: { label: "View", href: `/saved-routes/${result.data.id}` } });
+          onSaved?.();
           router.refresh();
         });
       }}
     >
-      <p className="text-sm text-muted-foreground">{ids.length} stop{ids.length === 1 ? "" : "s"}, put in order from your start point.</p>
+      <p className="text-sm text-muted-foreground">{saveIds.length} stop{saveIds.length === 1 ? "" : "s"}, put in order from your start point.</p>
       <Input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Route name" aria-label="Route name" className="max-md:h-11 max-md:text-base" />
       {data.projects.length ? (
         <select className="h-10 rounded-lg border bg-card px-2 text-sm max-md:h-11 max-md:text-base" value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Project">
@@ -72,10 +78,23 @@ export function NameRouteForm({ data, ids, name: startName, onBack }: { data: Ap
           {data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select>
       ) : null}
+      {taken.length ? (
+        <fieldset className="grid gap-1.5 rounded-xl bg-violet-50 p-3 text-sm text-violet-950 dark:bg-violet-950/40 dark:text-violet-100">
+          <legend className="sr-only">Contacts already on a route</legend>
+          <p className="font-medium" role="status">{taken.length} contact{taken.length === 1 ? " is" : "s are"} already on another {projectName} route</p>
+          <ul className="max-h-24 overflow-y-auto text-xs">
+            {taken.slice(0, 8).map((id) => <li key={id}>{data.households.find((h) => h.id === id)?.name ?? "Contact"}: {overlap.get(id)}</li>)}
+            {taken.length > 8 ? <li>and {taken.length - 8} more</li> : null}
+          </ul>
+          <label className="flex items-center gap-2"><input type="radio" name="taken" checked={!includeTaken} onChange={() => setIncludeTaken(false)} /> Skip them</label>
+          <label className="flex items-center gap-2"><input type="radio" name="taken" checked={includeTaken} onChange={() => setIncludeTaken(true)} /> Include anyway</label>
+          {!saveIds.length ? <p className="text-xs">All of them are on another route. Choose Include anyway to save.</p> : null}
+        </fieldset>
+      ) : null}
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex justify-end gap-2">
         {onBack ? <Button type="button" variant="outline" className="rounded-full max-md:h-11" onClick={onBack}>Back</Button> : null}
-        <Button type="submit" className="rounded-full max-md:h-11 max-md:flex-1" disabled={pending || !ids.length || !name.trim()}>{pending ? "Saving…" : "Save route"}</Button>
+        <Button type="submit" className="rounded-full max-md:h-11 max-md:flex-1" disabled={pending || !saveIds.length || !name.trim()}>{pending ? "Saving…" : "Save route"}</Button>
       </div>
     </form>
   );
@@ -85,12 +104,12 @@ export function NameRouteForm({ data, ids, name: startName, onBack }: { data: Ap
 const phoneSheet =
   "sm:max-w-none md:max-w-md max-md:[&_[data-slot=dialog-close]]:size-11 max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-b-none max-md:p-5 max-md:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-md:data-open:slide-in-from-bottom-10 max-md:data-open:zoom-in-100";
 
-export function CreateRouteDialog({ data, ids, open, onClose }: { data: AppData; ids: string[]; open: boolean; onClose: () => void }) {
+export function CreateRouteDialog({ data, ids, open, onClose, onSaved }: { data: AppData; ids: string[]; open: boolean; onClose: () => void; onSaved?: () => void }) {
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className={phoneSheet}>
         <DialogHeader><DialogTitle className="font-heading text-foreground">New route</DialogTitle></DialogHeader>
-        {open ? <NameRouteForm data={data} ids={ids} /> : null}
+        {open ? <NameRouteForm data={data} ids={ids} onSaved={() => { onClose(); onSaved?.(); }} /> : null}
       </DialogContent>
     </Dialog>
   );
@@ -220,15 +239,22 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
   };
   const shown = sorted.filter((city) => city.label.toLowerCase().includes(search.trim().toLowerCase()));
   const current = chosen;
+  const [checked, setChecked] = useState<string[]>([]);
+  const { projectId: cityProject, projectName: cityProjectName } = useRouteProject(data);
+  const cityOverlap = useOverlap(data, cityProject);
+  const picked = sorted.filter((city) => checked.includes(city.key));
+  const pickedIds = [...new Set(picked.flatMap((city) => city.ids))];
+  const toggleCity = (key: string) => setChecked((list) => (list.includes(key) ? list.filter((item) => item !== key) : [...list, key]));
+  const routeName = picked.length === 1 ? `${picked[0]!.label} route` : picked.length <= 3 ? `${picked.map((city) => city.label.split(",")[0]).join(", ")} route` : `${picked.length} cities route`;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) { setChosen(null); setSearch(""); onClose(); } }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) { setChosen(null); setChecked([]); setSearch(""); onClose(); } }}>
       <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-heading text-foreground">{current ? current.label : "New route by city"}</DialogTitle>
         </DialogHeader>
         {current ? (
-          <NameRouteForm key={current.key} data={data} ids={current.ids} name={`${current.label} route`} onBack={() => setChosen(null)} />
+          <NameRouteForm key={current.key} data={data} ids={current.ids} name={`${current.label} route`} onBack={() => setChosen(null)} onSaved={() => { setChosen(null); setChecked([]); setSearch(""); onClose(); }} />
         ) : (
           <div className="grid gap-3">
             <ContactStateTabs ctl={ctl} />
@@ -268,6 +294,7 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
                   <option value={TYPE}>Type a city or address…</option>
                 </select>
               ) : null}
+              <RouteProjectSelect data={data} />
               {looking ? <span className="text-xs text-muted-foreground">Finding city locations…</span> : null}
             </div>
             {order !== "az" && typing ? (
@@ -293,15 +320,28 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
                 const miles = milesFrom(city.key, sorted.indexOf(city));
                 return (
                 <li key={city.key}>
-                  <button type="button" className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-muted" onClick={() => setChosen(city)}>
-                    <span className="font-medium text-foreground">{city.label}{miles ? <span className="font-normal text-muted-foreground"> · {miles}</span> : null}</span>
+                  <label className="flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted">
+                    <input type="checkbox" className="size-4 shrink-0 accent-[#0f766e]" checked={checked.includes(city.key)} onChange={() => toggleCity(city.key)} aria-label={city.label} />
+                    <span className="min-w-0 flex-1 font-medium text-foreground">
+                      {city.label}{miles ? <span className="font-normal text-muted-foreground"> · {miles}</span> : null}
+                      {(() => {
+                        const n = city.ids.filter((id) => cityOverlap.has(id)).length;
+                        return n ? <span className="block"><OverlapBadge text={`${n} already on another ${cityProjectName} route`} /></span> : null;
+                      })()}
+                    </span>
                     <span className="text-xs text-muted-foreground">{city.ids.length}</span>
-                  </button>
+                  </label>
                 </li>
                 );
               })}
               {!shown.length ? <li className="px-3 py-6 text-center text-sm text-muted-foreground">No contacts in {search.trim() || (ctl.filters.state ? stateLabel(ctl.filters.state) : "this list")}.</li> : null}
             </ul>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-foreground" aria-live="polite">{picked.length} cit{picked.length === 1 ? "y" : "ies"} · {pickedIds.length} contact{pickedIds.length === 1 ? "" : "s"}</span>
+              <Button type="button" variant="outline" className="h-9 rounded-full" disabled={!shown.length} onClick={() => setChecked((list) => [...new Set([...list, ...shown.map((city) => city.key)])])}>Select all</Button>
+              {picked.length ? <Button type="button" variant="outline" className="h-9 rounded-full" onClick={() => setChecked([])}>Clear</Button> : null}
+              <Button type="button" className="ml-auto h-9 rounded-full" disabled={!pickedIds.length} onClick={() => setChosen({ key: picked.map((city) => city.key).join("+"), label: routeName.replace(/ route$/, ""), ids: pickedIds })}>Create route</Button>
+            </div>
           </div>
         )}
       </DialogContent>
@@ -315,6 +355,8 @@ export function PickContactsDialog({ data, open, onClose }: { data: AppData; ope
   const ctl = useContactFilters(data, query);
   const [picked, setPicked] = useState<string[]>([]);
   const [naming, setNaming] = useState(false);
+  const { projectId, projectName } = useRouteProject(data);
+  const overlap = useOverlap(data, projectId);
   const shown = ctl.matched;
   const allShown = shown.length > 0 && shown.every((household) => picked.includes(household.id));
   const toggle = (id: string) => setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
@@ -324,13 +366,14 @@ export function PickContactsDialog({ data, open, onClose }: { data: AppData; ope
       <DialogContent className="flex max-h-[92dvh] flex-col sm:max-w-2xl">
         <DialogHeader><DialogTitle className="font-heading text-foreground">{naming ? "New route" : "Pick contacts"}</DialogTitle></DialogHeader>
         {naming ? (
-          <NameRouteForm data={data} ids={picked} onBack={() => setNaming(false)} />
+          <NameRouteForm data={data} ids={picked} onBack={() => setNaming(false)} onSaved={() => { setNaming(false); setPicked([]); setQuery(""); onClose(); }} />
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
               <ContactStateTabs ctl={ctl} />
               <ContactFilterControls ctl={ctl} />
               <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search contacts" aria-label="Search contacts" className="h-10 w-44 rounded-full" />
+              <RouteProjectSelect data={data} />
             </div>
             <ul className="min-h-40 flex-1 divide-y overflow-auto rounded-xl border">
               {shown.map((household) => {
@@ -342,6 +385,7 @@ export function PickContactsDialog({ data, open, onClose }: { data: AppData; ope
                       <span className="min-w-0">
                         <span className="block text-sm font-medium text-foreground">{household.name}</span>
                         <span className="block truncate text-xs text-muted-foreground">{household.address || "No address"}</span>
+                        <OverlapBadge text={overlap.has(household.id) ? overlapBadge(overlap.get(household.id)!, projectName) : undefined} />
                       </span>
                     </label>
                   </li>

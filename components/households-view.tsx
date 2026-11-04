@@ -460,7 +460,7 @@ export function HouseholdsView({
         households={data.households.map((household) => ({ id: household.id, name: household.name }))}
         initial={visitFor ? { householdId: visitFor.id, visitDate: "", status: "", reaction: "", details: "" } : undefined}
       />
-      <CreateRouteDialog data={data} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} />
+      <CreateRouteDialog data={data} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
       <Dialog open={Boolean(pendingDelete?.length)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

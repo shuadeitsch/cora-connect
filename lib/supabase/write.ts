@@ -339,7 +339,11 @@ export async function setNotDuplicatePair(orgId: string, a: string, b: string, o
   if (result.error) throw new Error(`Not a duplicate: ${result.error.message}`);
 }
 
-export async function writeRoute(route: Route, isNew: boolean) {
+/**
+ * `replaceIds` (updates only): the stops this person may change. Other stops on the route (contacts they
+ * can't see) are left exactly as they are, so editing never drops someone else's stops.
+ */
+export async function writeRoute(route: Route, isNew: boolean, replaceIds?: string[]) {
   const supabase = await createClient();
   const row = {
     org_id: route.orgId,
@@ -359,7 +363,14 @@ export async function writeRoute(route: Route, isNew: boolean) {
     await done(updated, "Save route");
     if (!updated.data?.length) throw new Error("Save route: that route is no longer available to you.");
   }
-  await done(await supabase.from("route_stops").delete().eq("route_id", route.id).select("id"), "Replace stops");
+  if (isNew || !replaceIds) {
+    await done(await supabase.from("route_stops").delete().eq("route_id", route.id).select("id"), "Replace stops");
+  } else {
+    const remove = [...new Set([...replaceIds, ...route.stops.map((stop) => stop.householdId)])];
+    if (remove.length) {
+      await done(await supabase.from("route_stops").delete().eq("route_id", route.id).in("household_id", remove).select("id"), "Replace stops");
+    }
+  }
   if (route.stops.length) {
     await done(
       await supabase
@@ -376,11 +387,14 @@ export async function writeRoute(route: Route, isNew: boolean) {
     );
   }
   // Read the route back so a save is only reported once the database really has it with every stop.
-  const saved = await supabase.from("routes").select("id, route_stops(count)").eq("id", route.id).maybeSingle();
+  const saved = await supabase.from("routes").select("id, name, route_stops(household_id, position)").eq("id", route.id).maybeSingle();
   await done(saved, "Check route");
-  const stops = (saved.data as { route_stops?: { count: number }[] } | null)?.route_stops?.[0]?.count;
   if (!saved.data) throw new Error("Check route: the route didn't save.");
-  if (stops != null && stops !== route.stops.length) throw new Error(`Check route: only ${stops} of ${route.stops.length} stops saved.`);
+  const back = (saved.data as { name: string; route_stops?: { household_id: string; position: number }[] }).route_stops ?? [];
+  const position = new Map(back.map((stop) => [stop.household_id, stop.position]));
+  const missing = route.stops.filter((stop) => position.get(stop.householdId) !== stop.position).length;
+  if (missing) throw new Error(`Check route: only ${route.stops.length - missing} of ${route.stops.length} stops saved.`);
+  if ((saved.data as { name: string }).name !== route.name) throw new Error("Check route: the new name didn't save.");
 }
 
 export async function removeRoute(id: string) {

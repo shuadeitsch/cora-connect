@@ -634,6 +634,8 @@ export async function saveRoute(actor: User, input: RouteInput): Promise<ActionR
     assert(input.householdIds.length, "Add at least one stop.");
     const db = await loadDatabase();
     const existing = input.id ? db.routes.find((route) => route.id === input.id) : undefined;
+    // Editing a route that was deleted (or hidden) meanwhile must fail, not quietly make a new one.
+    assert(!input.id || existing, "That route is no longer available. It may have been deleted.");
     const ids = input.householdIds.filter((id) => db.households.some((household) => household.id === id && canSeeHousehold(db, actor, id)));
     assert(ids.length, "Those households aren't available to you.");
     const route = {
@@ -646,7 +648,9 @@ export async function saveRoute(actor: User, input: RouteInput): Promise<ActionR
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       stops: ids.map((householdId, position) => ({ householdId, position })),
     };
-    if (isSupabaseMode()) await writeRoute(route, !existing);
+    // Only the stops this person can see are replaced; stops on contacts hidden from them stay put.
+    const mine = existing?.stops.map((stop) => stop.householdId).filter((id) => canSeeHousehold(db, actor, id));
+    if (isSupabaseMode()) await writeRoute(route, !existing, mine);
     else applyDemo((draft) => {
       const index = draft.routes.findIndex((item) => item.id === route.id);
       if (index >= 0) draft.routes[index] = route;
