@@ -255,7 +255,13 @@ export function Shell({
               Your access expired{viewer.expiresAt ? ` on ${formatMedium(viewer.expiresAt)}` : ""}. You can review records, and editing is turned off.
             </div>
           ) : null}
-          <main className={cn("min-h-0 flex-1", mapPage ? "overflow-hidden" : "overflow-auto pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-4")}>{children}</main>
+          <main className={cn("min-h-0 flex-1", mapPage ? "overflow-hidden" : "overflow-auto")}>
+            {mapPage ? children : (
+              // Padding lives on an inner block: some browsers drop a scroll container's own bottom padding.
+              // Room = bottom bar (~4.25rem) + its gap above the safe area + a little breathing space.
+              <div className="pb-[calc(5.5rem+max(0.75rem,env(safe-area-inset-bottom)))] lg:pb-4">{children}</div>
+            )}
+          </main>
         </div>
       </div>
       <nav className="glass fixed inset-x-3 z-40 grid rounded-3xl px-1 py-1 bottom-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden" style={{ gridTemplateColumns: `repeat(${primary.length + 1}, minmax(0, 1fr))` }}>

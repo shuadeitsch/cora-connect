@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.7
+
+- On phones, the bottom menu bar no longer covers the end of a page. Pages now leave room for the bar and the phone's home-bar area, so the last items on a route (like the Google Maps parts and the map) can be scrolled fully into view.
+
 ## 1.8.6
 
 - Start route: Google Maps links now keep every stop. The old link style quietly dropped stops past 9 (and past 3 in a phone browser). Long routes are split into parts of 10 stops, shown as "Part 1 of 3: stops 1–10". Each part starts at the last stop of the part before, and a Next button moves on to the following part. On a computer there is also one link for the whole route (up to 25 places). Apple Maps works the same as before.
