@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.15
+- New "Plan a trip" (Saved routes → Plan a trip): pick cities (sorted by distance, plus nearby stops within a slider distance), 1–5 days with dates, a start place (the Chabad House or the last place you used, or type one), return to start, minutes per visit, and a start or finish time per day.
+- Add extra stops or events (like a menorah lighting) with an address and an optional fixed time and day. The day is planned around the fixed time.
+- Pick a project; contacts already on another route in that project are skipped unless you choose "Include anyway".
+- Each day shows when to leave, arrival times, miles, driving time, sunset, and warnings, with a small map. Move a stop to another day or remove it and the day is recalculated. Save a day as a route, add it to a planner day, or open it in Google Maps (in parts).
+
 ## 1.8.14
 - Daily planner: when adding a route to a day (or changing an item to a different route), routes already planned on another day say so in the picker ("Already planned · Fri, Dec 4"). Picking one shows "This route is already on Fri, Dec 4" with Add anyway or Cancel. It never blocks you.
 - The route picker no longer makes the page scroll sideways on phones.
