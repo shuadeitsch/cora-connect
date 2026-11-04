@@ -4,7 +4,9 @@ import { AddressLink } from "@/components/address-link";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LocateFixed, X } from "lucide-react";
+import { Ellipsis, LocateFixed, X } from "lucide-react";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { useIsPhone } from "@/lib/use-phone";
 import { Input } from "@/components/ui/input";
 import type { MapPin } from "@/components/map-canvas";
 import { useMapPoints } from "@/components/map-points";
@@ -25,6 +27,8 @@ export function MapView({ data }: { data: AppData }) {
   const [activeRoute, setActiveRoute] = useState("");
   const [routesOpen, setRoutesOpen] = useState(false);
   const [contactId, setContactId] = useState("");
+  const phone = useIsPhone();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const matched = filterCtl.matched;
   const filtered = matched.filter((household) => pointFor(household));
@@ -52,6 +56,36 @@ export function MapView({ data }: { data: AppData }) {
 
   const contact = data.households.find((household) => household.id === contactId) ?? null;
 
+  const filtersUnset = !filterCtl.filters.mode && !filterCtl.filters.cities.length && !query;
+  const filterBar = (
+    <>
+      <ContactStateTabs ctl={filterCtl} />
+      <ContactFilterControls ctl={filterCtl} />
+      <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search contacts" aria-label="Search contacts" className={cn("h-10 w-44 rounded-full bg-card", phone && "h-11 w-full text-base")} />
+      <button
+        type="button"
+        className={cn(filterPill, filtersUnset && "bg-primary text-primary-foreground")}
+        onClick={() => { filterCtl.resetFilters(); setQuery(""); }}
+      >
+        All contacts
+      </button>
+    </>
+  );
+  const status = (
+    <>
+      {locating ? <span className="glass rounded-full px-3 py-2 text-xs text-muted-foreground">Finding addresses…</span> : null}
+      {!locating && unplaced > 0 ? <span className="glass rounded-full px-3 py-2 text-xs text-muted-foreground">{unplaced} without a map spot</span> : null}
+    </>
+  );
+  const legend = (
+    <>
+      <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#0f766e]" /> On schedule</div>
+      <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#f59e0b]" /> Due</div>
+      <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#e11d48]" /> Overdue</div>
+      <div className="flex items-center gap-2"><span className="size-2 rounded-sm bg-[#c4841d]" /> Start</div>
+    </>
+  );
+
   return (
     <div className="relative isolate h-full min-h-[70dvh]">
       <MapCanvas
@@ -64,26 +98,28 @@ export function MapView({ data }: { data: AppData }) {
         onVisit={(id) => router.push(`/reports?new=1&household=${id}`)}
       />
       <div className="pointer-events-none absolute inset-0 z-[500]">
-        <div className="pointer-events-auto m-3 flex flex-wrap items-center gap-2">
-          <ContactStateTabs ctl={filterCtl} />
-          <ContactFilterControls ctl={filterCtl} />
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search contacts" aria-label="Search contacts" className="h-10 w-44 rounded-full bg-card" />
-          <button
-            type="button"
-            className={cn(filterPill, !filterCtl.filters.mode && !filterCtl.filters.cities.length && !query && "bg-primary text-primary-foreground")}
-            onClick={() => { filterCtl.resetFilters(); setQuery(""); }}
-          >
-            All contacts
-          </button>
-          {locating ? <span className="glass rounded-full px-3 py-2 text-xs text-muted-foreground">Finding addresses…</span> : null}
-          {!locating && unplaced > 0 ? <span className="glass rounded-full px-3 py-2 text-xs text-muted-foreground">{unplaced} without a map spot</span> : null}
-        </div>
-        <div className="glass pointer-events-auto absolute bottom-28 left-3 rounded-2xl px-3 py-2 text-[11px] lg:bottom-4">
-          <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#0f766e]" /> On schedule</div>
-          <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#f59e0b]" /> Due</div>
-          <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#e11d48]" /> Overdue</div>
-          <div className="flex items-center gap-2"><span className="size-2 rounded-sm bg-[#c4841d]" /> Start</div>
-        </div>
+        {phone ? (
+          <div className="flex items-start justify-between gap-2 p-3">
+            <div className="flex min-w-0 flex-wrap gap-2">
+              {!filtersUnset ? <span className="glass rounded-full px-3 py-2 text-xs font-medium text-foreground">Filtered · {filtered.length}</span> : null}
+              {status}
+            </div>
+            <button
+              type="button"
+              aria-label="Filters and map key"
+              className="glass pointer-events-auto inline-flex size-11 shrink-0 items-center justify-center rounded-full text-foreground"
+              onClick={() => setSheetOpen(true)}
+            >
+              <Ellipsis className="size-5" />
+            </button>
+          </div>
+        ) : (
+          <div className="pointer-events-auto m-3 flex flex-wrap items-center gap-2">
+            {filterBar}
+            {status}
+          </div>
+        )}
+        {phone ? null : <div className="glass pointer-events-auto absolute bottom-28 left-3 rounded-2xl px-3 py-2 text-[11px] lg:bottom-4">{legend}</div>}
         <button
           type="button"
           className="glass pointer-events-auto absolute bottom-48 left-3 inline-flex size-11 items-center justify-center rounded-2xl lg:bottom-24"
@@ -115,6 +151,14 @@ export function MapView({ data }: { data: AppData }) {
         </div>
         {contact ? <ContactCard household={contact} point={pointFor(contact)} onClose={() => setContactId("")} /> : null}
       </div>
+      {phone ? (
+        <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Filters">
+          <div className="grid gap-4 pb-1">
+            <div className="flex flex-wrap items-center gap-2 [&_select]:h-11 [&_[role=tab]]:h-11 [&>button]:h-11">{filterBar}</div>
+            <div className="grid grid-cols-2 gap-2 text-sm text-foreground" aria-label="Map key">{legend}</div>
+          </div>
+        </BottomSheet>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.8
+
+- Phones: Routes > Build on map now uses the whole screen for the map. The page header and the bottom menu are hidden on this screen. Use the back arrow to leave.
+- One small bar at the bottom has Tap pins / Draw box, how many are selected, Create route (once you pick someone), and a ⋯ button.
+- ⋯ opens a sheet with search, state, Sort by, tags, cities, List (contacts with checkboxes), Select shown, Undo last, Clear selection, and Show hints. Close it with the X, a swipe down, or a tap on the map. Picking Tap pins or Draw box there closes it right away.
+- The hint is now a short line at the top that you can close with its X.
+- The New route box opens at the bottom of the screen with big buttons.
+- Map page on phones: the filters and the map key moved behind a ⋯ button, so the map is not covered.
+- Computers, tablets and Chromebooks look the same as before.
+
 ## 1.7.7
 
 - Fixed: on Build on map, pressing Create route opened the "New route" box behind the map, so you could not see it. The next tap closed it and nothing was saved. The box now shows on top of the map on phones, Chromebooks and computers.

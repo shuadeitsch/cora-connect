@@ -298,6 +298,13 @@
   }
 }
 
+/* Full-screen phone map: pinch to zoom, and keep the map credit above the bottom bar. */
+.phone-map .leaflet-control-zoom {
+  display: none;
+}
+.phone-map .leaflet-bottom {
+  bottom: calc(env(safe-area-inset-bottom) + 4.75rem);
+}
 .leaflet-container {
   /* Leaflet panes use z-index 200-700; keep them inside the map so dialogs and toasts stay on top. */
   isolation: isolate;

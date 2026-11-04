@@ -63,26 +63,30 @@ export function NameRouteForm({ data, ids, name: startName, onBack }: { data: Ap
       }}
     >
       <p className="text-sm text-muted-foreground">{ids.length} stop{ids.length === 1 ? "" : "s"}, put in order from your start point.</p>
-      <Input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Route name" aria-label="Route name" />
+      <Input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Route name" aria-label="Route name" className="max-md:h-11 max-md:text-base" />
       {data.projects.length ? (
-        <select className="h-10 rounded-lg border bg-card px-2 text-sm" value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Project">
+        <select className="h-10 rounded-lg border bg-card px-2 text-sm max-md:h-11 max-md:text-base" value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Project">
           <option value="">Unsorted</option>
           {data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select>
       ) : null}
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex justify-end gap-2">
-        {onBack ? <Button type="button" variant="outline" className="rounded-full" onClick={onBack}>Back</Button> : null}
-        <Button type="submit" className="rounded-full" disabled={pending || !ids.length || !name.trim()}>{pending ? "Saving…" : "Save route"}</Button>
+        {onBack ? <Button type="button" variant="outline" className="rounded-full max-md:h-11" onClick={onBack}>Back</Button> : null}
+        <Button type="submit" className="rounded-full max-md:h-11 max-md:flex-1" disabled={pending || !ids.length || !name.trim()}>{pending ? "Saving…" : "Save route"}</Button>
       </div>
     </form>
   );
 }
 
+/** On phones the dialog is a full-width sheet pinned to the bottom, above the map and the keyboard-safe area. */
+const phoneSheet =
+  "sm:max-w-none md:max-w-md max-md:[&_[data-slot=dialog-close]]:size-11 max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-b-none max-md:p-5 max-md:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-md:data-open:slide-in-from-bottom-10 max-md:data-open:zoom-in-100";
+
 export function CreateRouteDialog({ data, ids, open, onClose }: { data: AppData; ids: string[]; open: boolean; onClose: () => void }) {
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={phoneSheet}>
         <DialogHeader><DialogTitle className="font-heading text-foreground">New route</DialogTitle></DialogHeader>
         {open ? <NameRouteForm data={data} ids={ids} /> : null}
       </DialogContent>
