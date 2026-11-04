@@ -18,6 +18,9 @@ import {
   Trash2,
   Upload,
   Route as RouteIcon,
+  Check,
+  CircleSlash,
+  Minus,
 } from "lucide-react";
 import { AddressLink } from "@/components/address-link";
 import { Avatar } from "@/components/avatar";
@@ -49,7 +52,7 @@ import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { CONTACT_TAGS, officialTags } from "@/lib/contact-tags";
 import { ContactFilterControls, ContactStateTabs, useContactFilters } from "@/components/contact-filters";
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
-import { visitStatusLabel } from "@/lib/visit-status";
+import { visitStatusChip, visitStatusLabel } from "@/lib/visit-status";
 import { TOWNS } from "@/lib/geo";
 import type { AppData, HouseholdInput, HouseholdReaction, HouseholdView } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -322,7 +325,7 @@ export function HouseholdsView({
                     <DueBadge state={household.dueState} />
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <span>{household.latestVisited || "Not visited"}{household.visitCount > 1 ? ` · ${household.visitCount} visits` : household.visitCount === 1 ? " · 1 visit" : ""}</span>
+                    <VisitChips visits={household.contactVisits ?? []} />
                     <ReactionBadge reaction={household.latestReaction} />
                     {household.possibleDuplicate ? <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-900">Possible duplicate</span> : null}
                     <TagBadges tags={household.tags} />
@@ -479,15 +482,23 @@ function visitChipLabel(visit: HouseholdView["contactVisits"][number]) {
   return name || date || "Visit";
 }
 
-function VisitChip({ visit }: { visit: HouseholdView["contactVisits"][number] }) {
-  const meta = visitReactionMeta(visit.reaction);
+function VisitStatusIcon({ status }: { status: HouseholdView["contactVisits"][number]["status"] }) {
+  const Icon = status === "completed" ? Check : status === "deferred" ? CircleSlash : Minus;
+  return <Icon aria-hidden className="size-3 shrink-0" strokeWidth={2.75} />;
+}
+
+/** Color = visit status only (green visited, red deferred, gray no status); the icon and label say the same thing. */
+function VisitChip({ visit, wide }: { visit: HouseholdView["contactVisits"][number]; wide?: boolean }) {
+  const chip = visitStatusChip(visit.status);
   const label = visitChipLabel(visit);
   const full = visitNoteLabel(visit.visited, visit.visitDate, formatMedium);
   return (
     <span
-      title={meta ? `${full} · ${meta.label}` : full}
-      className={cn("inline-flex max-w-[8.5rem] shrink-0 items-center truncate rounded-full px-2 py-0.5 text-[11px] leading-4 font-medium whitespace-nowrap", meta ? meta.className : "bg-muted text-foreground")}
+      title={`${full} · ${chip.label}`}
+      aria-label={`${full}: ${chip.label}`}
+      className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] leading-4 font-medium whitespace-nowrap", wide ? "max-w-full" : "max-w-[8.5rem]", chip.className)}
     >
+      <VisitStatusIcon status={visit.status} />
       <span className="truncate">{label}</span>
     </span>
   );
@@ -515,11 +526,10 @@ function VisitChips({ visits: all }: { visits: HouseholdView["contactVisits"] })
           </PopoverTrigger>
           <PopoverContent align="start" className="w-64 gap-1 p-2">
             {visits.map((visit) => {
-              const meta = visitReactionMeta(visit.reaction);
               return (
                 <div key={visit.id} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="min-w-0 truncate text-foreground">{visitNoteLabel(visit.visited, visit.visitDate, formatMedium)}</span>
-                  {meta ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", meta.className)}>{meta.label}</span> : null}
+                  <VisitChip visit={visit} wide />
+                  <ReactionBadge reaction={visit.reaction} />
                 </div>
               );
             })}
@@ -625,7 +635,7 @@ function fromHousehold(household: HouseholdView, data: AppData): HouseholdInput 
         reaction: visit.reaction ?? "",
         notes: visit.notes,
         visitDate: visit.visitDate ?? "",
-        status: visit.status,
+        status: visit.status ?? "",
       })),
     people: [{
       id: household.people[0]?.id,
@@ -779,7 +789,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                     <button
                       key={status}
                       type="button"
-                      className={cn("rounded-full px-2.5 py-1 text-xs font-medium", (visit.status || "completed") === status ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}
+                      className={cn("rounded-full px-2.5 py-1 text-xs font-medium", visit.status === status ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}
                       onClick={() => {
                         const visits = form.visits.map((item, at) => at === index ? { ...item, status } : item);
                         setForm({ ...form, visits });
@@ -920,7 +930,7 @@ function ContactDialog({
               <div className="mt-2 flex flex-wrap gap-2">
                 <ReactionBadge reaction={household.latestReaction} />
                 <TagBadges tags={household.tags} />
-                <span className="text-sm text-muted-foreground">{household.latestVisited || "Not visited"}{household.visitCount ? ` · ${household.visitCount} visit${household.visitCount === 1 ? "" : "s"}` : ""}</span>
+                <VisitChips visits={household.contactVisits ?? []} />
               </div>
               <div className="mt-3">
                 <NotePreview notes={notesFor(household, canHistory)} />
@@ -1029,7 +1039,7 @@ function HistoryDialog({ household, canHistory, onClose }: { household: Househol
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-medium text-foreground">{label}</p>
-                      <p className="text-xs text-mutedink">{visitStatusLabel(visit.status)}</p>
+                      <p className="mt-1"><VisitChip visit={visit} wide /></p>
                     </div>
                     {visit.canRemove && confirming !== visit.id ? (
                       <button
@@ -1043,7 +1053,7 @@ function HistoryDialog({ household, canHistory, onClose }: { household: Househol
                       </button>
                     ) : null}
                   </div>
-                  {reaction ? <p className="mt-2 text-xs">{reaction.label}</p> : null}
+                  {reaction ? <p className="mt-2"><ReactionBadge reaction={visit.reaction} /></p> : null}
                   {visit.notes ? (
                     <div className="mt-2">
                       <p className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Notes from {label}</p>

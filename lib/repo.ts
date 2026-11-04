@@ -237,7 +237,7 @@ function visitsFromForm(actor: User, householdId: string, orgId: string, input: 
       reaction,
       notes: visit.notes.trim(),
       visitDate: date || null,
-      status: parseVisitStatus(visit.status ?? "").status,
+      status: visit.status?.trim() ? parseVisitStatus(visit.status).status : null,
       arrived: prior?.arrived ?? "",
       createdBy: prior?.createdBy ?? actor.id,
       createdAt: prior?.createdAt ?? new Date().toISOString(),

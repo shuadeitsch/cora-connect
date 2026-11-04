@@ -132,7 +132,8 @@ export interface ContactVisit {
   reaction: HouseholdReaction | null;
   notes: string;
   visitDate: string | null;
-  status: "completed" | "deferred";
+  /** null when the visit has no Completed/Deferred status stored. */
+  status: "completed" | "deferred" | null;
   arrived: string;
   createdBy: string | null;
   createdAt: string;
@@ -277,7 +278,8 @@ export interface ContactVisitView {
   reaction: HouseholdReaction | null;
   notes: string;
   visitDate: string | null;
-  status: "completed" | "deferred";
+  /** null when the visit has no Completed/Deferred status stored. */
+  status: "completed" | "deferred" | null;
   createdAt: string;
   canRemove: boolean;
 }

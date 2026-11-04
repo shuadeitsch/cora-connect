@@ -235,7 +235,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     reaction: parseHouseholdReaction(text(row, "reaction")) as HouseholdReaction | null,
     notes: text(row, "notes"),
     visitDate: nullableText(row, "visit_date")?.slice(0, 10) ?? null,
-    status: parseVisitStatus(text(row, "status")).status,
+    status: text(row, "status").trim() ? parseVisitStatus(text(row, "status")).status : null,
     arrived: text(row, "arrived"),
     createdBy: nullableText(row, "created_by"),
     createdAt: text(row, "created_at"),

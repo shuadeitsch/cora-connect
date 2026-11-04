@@ -55,11 +55,11 @@ export const FOCUS_STATES = [
 ] as const;
 
 export const VISIT_REACTIONS: { id: HouseholdReaction; label: string; hint: string; className: string }[] = [
-  { id: "very_happy", label: "Very happy", hint: "", className: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200" },
+  { id: "very_happy", label: "Very happy", hint: "", className: "bg-violet-500/15 text-violet-800 dark:text-violet-200" },
   { id: "warm", label: "Warm", hint: "", className: "bg-amber-500/15 text-amber-900 dark:text-amber-100" },
   { id: "neutral", label: "Neutral", hint: "nisht ahin nisht aher", className: "bg-slate-500/15 text-slate-700 dark:text-slate-200" },
   { id: "cold", label: "Cold", hint: "", className: "bg-sky-500/15 text-sky-900 dark:text-sky-100" },
-  { id: "very_cold", label: "Very cold / angry", hint: "", className: "bg-rose-500/15 text-rose-800 dark:text-rose-200" },
+  { id: "very_cold", label: "Very cold / angry", hint: "", className: "bg-fuchsia-500/15 text-fuchsia-800 dark:text-fuchsia-200" },
 ];
 
 export function visitReactionMeta(id: HouseholdReaction | null | undefined) {

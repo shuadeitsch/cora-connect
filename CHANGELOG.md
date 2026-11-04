@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.9
+
+- Contacts: the color of a visit chip (like "Summer 5786") now shows only how the visit went, for every project. Green with a check means the visit was completed. Red with a crossed circle means it was deferred. Gray with a dash means no status was saved. The same colors are used in the Visited column, the phone cards, the contact page, and Visit history.
+- Reactions keep their own colors, so they never look like a visit status. Very happy is now purple, and Very cold / angry is now pink.
+- Editing a contact no longer changes a visit with no status into Completed.
+
 ## 1.7.8
 
 - Phones: Routes > Build on map now uses the whole screen for the map. The page header and the bottom menu are hidden on this screen. Use the back arrow to leave.
