@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.10
+- Each route now shows the cities it covers as small chips under its name (for example "York 11"), in stop order with a stop count. Shown on the Saved routes list (desktop and phone), the route page header, and planner route items. Long lists show the first few plus "+N more"; tap it to see all, or hover for the full list.
+- Route page: after saving an edit, the new name and project show right away.
+
 ## 1.8.9
 - Saved routes list: every route now has a pencil Edit button (desktop rows and phone cards) that opens a quick edit to rename the route and change its project, with an "Edit stops" link to the full editor. Saves are read back and confirmed with a toast.
 - The ⋯ menu on each row also has "Edit name or project" and "Edit stops".

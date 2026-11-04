@@ -23,11 +23,13 @@ export function RouteEditor({
   route,
   pointOf,
   onDone,
+  onSaved,
 }: {
   data: AppData;
   route: RouteView;
   pointOf: (householdId: string) => Point;
   onDone: () => void;
+  onSaved?: (name: string, projectId: string) => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -123,6 +125,7 @@ export function RouteEditor({
         return;
       }
       toast({ title: `Route saved: ${name.trim()}` });
+      onSaved?.(name, projectId);
       router.refresh();
       onDone();
     });

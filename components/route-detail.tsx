@@ -15,6 +15,7 @@ import { deleteRouteAction, saveRouteAction } from "@/lib/actions";
 import { AddressLink } from "@/components/address-link";
 import { fullAddress } from "@/lib/format";
 import { nearestNeighbor } from "@/lib/geo";
+import { RouteCities } from "@/components/route-cities";
 import type { AppData, RouteStopView, RouteView } from "@/lib/types";
 
 const MapCanvas = dynamic(() => import("@/components/map-canvas").then((mod) => mod.MapCanvas), { ssr: false });
@@ -26,6 +27,9 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
   const [starting, setStarting] = useState(false);
   const params = useSearchParams();
   const [editing, setEditing] = useState(() => params.get("edit") === "1" && data.viewer.canCreateRoute);
+  const [saved, setSaved] = useState<{ key: string; name: string; projectName: string } | null>(null);
+  const routeKey = `${route.id}|${route.name}|${route.projectId ?? ""}`;
+  const head = saved && saved.key === routeKey ? saved : { name: route.name, projectName: route.projectName };
   const [order, setOrder] = useState<string[] | null>(null);
   const pointOf = (stop: RouteStopView) => {
     const household = data.households.find((item) => item.id === stop.householdId);
@@ -45,8 +49,9 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
     <div className="grid gap-4 p-4 lg:grid-cols-[380px_1fr] lg:p-6">
       <div>
         <Link href="/saved-routes" className="inline-flex items-center gap-1 text-sm text-link"><ArrowLeft className="size-4" /> Saved routes</Link>
-        <h1 className="mt-2 font-heading text-2xl font-semibold text-foreground">{route.name}</h1>
-        <p className="text-sm text-mutedink">{route.projectName} · {route.stopCount} stops{route.miles != null ? ` · ${route.miles} miles` : ""}{route.optimized ? " · optimized" : ""}</p>
+        <h1 className="mt-2 font-heading text-2xl font-semibold text-foreground">{head.name}</h1>
+        <p className="text-sm text-mutedink">{head.projectName} · {route.stopCount} stops{route.miles != null ? ` · ${route.miles} miles` : ""}{route.optimized ? " · optimized" : ""}</p>
+        <RouteCities stops={route.stops} max={6} />
         <div className="mt-3">
           <TaggedRouteNotice
             households={data.households}
@@ -110,6 +115,7 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
               const point = household ? pointFor(household) : stop && stop.lat != null && stop.lng != null ? { lat: stop.lat, lng: stop.lng } : null;
               return point ? { lat: point.lat, lng: point.lng } : null;
             }}
+            onSaved={(name, projectId) => setSaved({ key: routeKey, name: name.trim(), projectName: data.projects.find((p) => p.id === projectId)?.name ?? "Unsorted" })}
             onDone={() => setEditing(false)}
           />
         ) : null}

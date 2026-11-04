@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, ListChecks, Map as MapIcon, MoreHorizontal, Pencil, Search } from "lucide-react";
+import { RouteCities } from "@/components/route-cities";
 import { RouteQuickEdit } from "@/components/route-quick-edit";
 import { CityRouteDialog, PickContactsDialog } from "@/components/create-route";
 import { Notice, PageHeader } from "@/components/page-header";
@@ -116,6 +117,7 @@ export function RoutesView({ data }: { data: AppData }) {
                   <td className="px-2 py-2">
                     <Link href={`/saved-routes/${route.id}`} className="font-semibold text-foreground hover:text-link">{route.name}</Link>
                     <div className="text-[11px] text-mutedink">{route.stopCount} stops{route.optimized ? " · optimized" : ""}{route.miles != null ? ` · ${route.miles} mi` : ""}</div>
+                    <RouteCities stops={route.stops} />
                   </td>
                   <td className="px-2 py-2"><span className="rounded-full bg-accent px-2 py-0.5 text-[11px] text-accent-foreground">{route.projectName}</span></td>
                   <td className="px-2 py-2 text-mutedink">{formatDots(route.createdAt)}</td>
@@ -141,10 +143,13 @@ export function RoutesView({ data }: { data: AppData }) {
         <div className="divide-y md:hidden">
           {slice.map((route) => (
             <div key={route.id} className="flex items-center gap-2 px-3 py-2">
-              <Link href={`/saved-routes/${route.id}`} className="block min-w-0 flex-1 py-1">
-                <p className="font-semibold text-foreground">{route.name}</p>
-                <p className="text-xs text-mutedink">{route.stopCount} stops · {route.projectName} · {formatDots(route.createdAt)}</p>
-              </Link>
+              <div className="min-w-0 flex-1 py-1">
+                <Link href={`/saved-routes/${route.id}`} className="block">
+                  <p className="font-semibold text-foreground">{route.name}</p>
+                  <p className="text-xs text-mutedink">{route.stopCount} stops · {route.projectName} · {formatDots(route.createdAt)}</p>
+                </Link>
+                <RouteCities stops={route.stops} />
+              </div>
               {canEdit ? (
                 <button type="button" aria-label={`Edit ${route.name}`} className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-primary hover:bg-muted" onClick={() => setEditingId(route.id)}><Pencil className="size-5" /></button>
               ) : null}

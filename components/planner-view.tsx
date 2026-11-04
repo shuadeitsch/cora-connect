@@ -1,6 +1,7 @@
 "use client";
 
 import { holidayLabels } from "@/lib/holidays";
+import { RouteCities } from "@/components/route-cities";
 import { useToast } from "@/components/toast";
 
 import Link from "next/link";
@@ -291,6 +292,7 @@ function ItemRow({
           {item.kind === "route" && !route ? <span className="ml-2 text-xs font-normal text-muted-foreground">(route removed)</span> : null}
         </p>
         {route ? <p className="text-xs text-muted-foreground">{route.stopCount} stops</p> : null}
+        {route ? <RouteCities stops={route.stops} /> : null}
         {item.kind === "event" && item.address ? (
           <p className="mt-0.5 flex items-center gap-1 text-sm">
             <MapPin className="size-3.5 shrink-0 text-muted-foreground" />
