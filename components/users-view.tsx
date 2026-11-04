@@ -36,11 +36,13 @@ export function UsersView({ data }: { data: AppData }) {
   const pendingCount = accounts.filter((member) => member.status === "pending").length;
   const rows = filter === "pending" ? accounts.filter((member) => member.status === "pending") : accounts;
 
-  function decide(id: string, decision: ApprovalDecision, territory?: { states: string[]; areas: string[] }) {
+  const shluchim = accounts.filter((member) => member.role === "shliach" && member.status === "approved");
+
+  function decide(id: string, decision: ApprovalDecision, territory?: { states: string[]; areas: string[] }, leaderId?: string) {
     setError("");
     setPendingId(id);
     start(async () => {
-      const result = await setAccountApprovalAction(id, decision, territory);
+      const result = await setAccountApprovalAction(id, decision, territory, leaderId);
       setPendingId("");
       if (!result.ok) setError(result.error);
       else router.refresh();
@@ -51,7 +53,7 @@ export function UsersView({ data }: { data: AppData }) {
     <div className="p-4 sm:p-6">
       <PageHeader title="Users" crumb="Users" />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        New accounts wait here. Approve a Cora Connect admin, who sees every shared contact, or a shliach with the states he covers. A shliach only sees his own people, plus shared contacts in that territory.
+        New accounts wait here. Approve a Cora Connect admin, a shliach with the state he covers, or a bochur with his shliach. A bochur then also needs his shliach to approve him in My Team.
       </p>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Button type="button" variant={filter === "pending" ? "default" : "outline"} className="rounded-full" onClick={() => setFilter("pending")}>
@@ -96,13 +98,21 @@ export function UsersView({ data }: { data: AppData }) {
                     </td>
                     <td className="hidden px-3 py-3 text-muted-foreground md:table-cell">{expiryText(member)}</td>
                     <td className="px-3 py-3">
-                      {locked ? <span className="text-xs text-muted-foreground">Always Cora Connect admin</span> : member.status === "pending" ? (
+                      {locked ? <span className="text-xs text-muted-foreground">Always Cora Connect admin</span> : member.status === "pending" && member.role === "bochur" && member.adminApprovedAt ? (
+                        <div className="grid justify-end gap-2 text-right text-xs text-muted-foreground">
+                          <span>Waiting for {accounts.find((item) => item.id === member.leaderId)?.name ?? "his shliach"} to approve in My Team</span>
+                          <div className="flex justify-end">
+                            <Button type="button" variant="outline" className="h-8 rounded-full px-3" disabled={busy} onClick={() => decide(member.id, "reject")}>Reject</Button>
+                          </div>
+                        </div>
+                      ) : member.status === "pending" ? (
                         <div className="grid justify-end gap-2">
                           <RoleChooser
                             member={member}
                             busy={busy}
-                            submitLabel={(role) => role === "admin" ? "Approve as Cora Connect admin" : "Approve as Shliach"}
-                            onApply={(role, territory) => decide(member.id, role, territory)}
+                            shluchim={shluchim}
+                            submitLabel={(role) => role === "admin" ? "Approve as Cora Connect admin" : role === "bochur" ? "Approve as Bochur" : "Approve as Shliach"}
+                            onApply={(role, territory, leaderId) => decide(member.id, role, territory, leaderId)}
                           />
                           <div className="flex justify-end">
                             <Button type="button" variant="outline" className="h-8 rounded-full px-3" disabled={busy} onClick={() => decide(member.id, "reject")}>Reject</Button>
@@ -110,7 +120,7 @@ export function UsersView({ data }: { data: AppData }) {
                         </div>
                       ) : (
                         <div className="flex flex-wrap justify-end gap-1.5">
-                          <ChangeRole member={member} busy={busy} onApply={(role, territory) => decide(member.id, role, territory)} />
+                          <ChangeRole member={member} busy={busy} shluchim={shluchim} onApply={(role, territory, leaderId) => decide(member.id, role, territory, leaderId)} />
                           {member.status === "approved" ? (
                             <Button type="button" variant="outline" className="h-8 rounded-full px-3" disabled={busy} onClick={() => decide(member.id, "disable")}>Disable</Button>
                           ) : null}
@@ -145,7 +155,8 @@ function RoleBadge({ member }: { member: TeamMember }) {
   return <span className={cn("inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ring-1", tone)}>{label}</span>;
 }
 
-type ChosenRole = "admin" | "shliach";
+type ChosenRole = "admin" | "shliach" | "bochur";
+type Apply = (role: ApprovalDecision, territory?: { states: string[]; areas: string[] }, leaderId?: string) => void;
 
 /** Pick Cora Connect admin or Shliach (with his states). With confirm, a second tap applies it. */
 function RoleChooser({
@@ -153,23 +164,27 @@ function RoleChooser({
   busy,
   confirm = false,
   submitLabel,
+  shluchim,
   onApply,
 }: {
   member: TeamMember;
   busy: boolean;
   confirm?: boolean;
   submitLabel: (role: ChosenRole) => string;
-  onApply: (role: ApprovalDecision, territory?: { states: string[]; areas: string[] }) => void;
+  shluchim: TeamMember[];
+  onApply: Apply;
 }) {
-  const [role, setRole] = useState<ChosenRole>(member.role === "shliach" ? "shliach" : "admin");
+  const [role, setRole] = useState<ChosenRole>(member.role === "shliach" ? "shliach" : member.role === "bochur" ? "bochur" : "admin");
+  const [leaderId, setLeaderId] = useState(member.leaderId ?? "");
   const [draft, setDraft] = useState(() => territoryText(member));
   const [asking, setAsking] = useState(false);
   const parts = splitList(draft.states);
-  const roleName = role === "admin" ? "Cora Connect admin" : "Shliach";
+  const roleName = role === "admin" ? "Cora Connect admin" : role === "bochur" ? "Bochur" : "Shliach";
   const where = role === "shliach" && parts.length ? ` (${parts.join(", ")})` : "";
 
   function apply() {
     if (role === "admin") onApply("admin");
+    else if (role === "bochur") onApply("bochur", undefined, leaderId);
     else onApply("shliach", { states: parts, areas: splitList(draft.areas) });
     setAsking(false);
   }
@@ -177,7 +192,7 @@ function RoleChooser({
   return (
     <div className="grid gap-2">
       <div className="inline-flex rounded-full bg-muted p-1" role="radiogroup" aria-label={`Role for ${member.name}`}>
-        {(["admin", "shliach"] as const).map((value) => (
+        {(["admin", "shliach", "bochur"] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -189,10 +204,21 @@ function RoleChooser({
             )}
             onClick={() => { setRole(value); setAsking(false); }}
           >
-            {value === "admin" ? "Cora Connect admin" : "Shliach"}
+            {value === "admin" ? "Cora Connect admin" : value === "bochur" ? "Bochur" : "Shliach"}
           </button>
         ))}
       </div>
+      {role === "bochur" ? (
+        <select
+          aria-label={`Shliach for ${member.name}`}
+          className="h-10 rounded-lg border border-input bg-card px-3 text-sm"
+          value={leaderId}
+          onChange={(event) => { setLeaderId(event.target.value); setAsking(false); }}
+        >
+          <option value="">Pick his shliach</option>
+          {shluchim.map((item) => <option key={item.id} value={item.id}>{item.name}{memberStates(item) ? ` · ${memberStates(item)}` : ""}</option>)}
+        </select>
+      ) : null}
       {role === "shliach" ? (
         <div className="grid gap-1 sm:grid-cols-2">
           <div className="flex flex-wrap gap-1 sm:col-span-2">
@@ -239,7 +265,7 @@ function RoleChooser({
         </div>
       ) : (
         <div className="flex justify-end">
-          <Button type="button" className="h-8 rounded-full px-3" disabled={busy} onClick={() => (confirm ? setAsking(true) : apply())}>
+          <Button type="button" className="h-8 rounded-full px-3" disabled={busy || (role === "bochur" && !leaderId) || (role === "shliach" && !parts.length)} onClick={() => (confirm ? setAsking(true) : apply())}>
             {submitLabel(role)}
           </Button>
         </div>
@@ -251,11 +277,13 @@ function RoleChooser({
 function ChangeRole({
   member,
   busy,
+  shluchim,
   onApply,
 }: {
   member: TeamMember;
   busy: boolean;
-  onApply: (role: ApprovalDecision, territory?: { states: string[]; areas: string[] }) => void;
+  shluchim: TeamMember[];
+  onApply: Apply;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -270,7 +298,8 @@ function ChangeRole({
           busy={busy}
           confirm
           submitLabel={() => "Apply"}
-          onApply={(role, territory) => { onApply(role, territory); setOpen(false); }}
+          shluchim={shluchim}
+          onApply={(role, territory, leaderId) => { onApply(role, territory, leaderId); setOpen(false); }}
         />
       </PopoverContent>
     </Popover>

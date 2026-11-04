@@ -1,3 +1,4 @@
+import { sameState } from "@/lib/constants";
 import { addDays, monthKey, weekStart } from "@/lib/format";
 import { miles } from "@/lib/geo";
 import type {
@@ -18,27 +19,35 @@ export function viewerPermissions(user: User, today: string) {
   const expired = approved && Boolean(user.expiresAt && user.expiresAt < today);
   const admin = approved && user.role === "admin" && !expired;
   const shliach = approved && user.role === "shliach" && !expired;
+  const bochur = user.role === "bochur";
   const active = approved && !expired;
+  // A bochur only ever reaches contacts shared with him (the database enforces it); on those he sees everything.
+  const canEdit = active && !bochur && (admin || shliach || user.canEdit);
   return {
     expired,
-    canViewHistory: active && (admin || shliach || user.canViewHistory),
-    canViewContact: active && (admin || shliach || user.canViewContact),
-    canEdit: active && (admin || shliach || user.canEdit),
+    canViewHistory: active && (admin || shliach || bochur || user.canViewHistory),
+    canViewContact: active && (admin || shliach || bochur || user.canViewContact),
+    canEdit,
     canManage: admin,
-    canLogVisit: active && (admin || shliach || user.role === "visitor" || user.canEdit),
-    canCreateRoute: active && (admin || shliach || user.role === "visitor"),
+    canLogVisit: active && (admin || shliach || bochur || user.role === "visitor" || user.canEdit),
+    canCreateRoute: active && (admin || shliach || bochur || user.role === "visitor"),
     canDeleteRoute: admin,
+    // Shliach: view, edit and visits only. No delete, import or export.
+    canDeleteContacts: canEdit && !shliach,
+    canImport: canEdit && !shliach,
+    canShare: admin || shliach,
   };
 }
 
 // Mirrors public.can_edit_household so the app only offers what the database allows.
-export function canEditContact(user: User, ownerId: string | null, users: User[], today: string) {
+export function canEditContact(user: User, ownerId: string | null, users: User[], today: string, shared = false, state = "", city = "") {
   const perms = viewerPermissions(user, today);
   if (!perms.canEdit) return false;
   if (user.role === "admin") return true;
   if (!ownerId) return false;
   if (ownerId === user.id) return true;
   if (user.leaderId && ownerId === user.leaderId) return true;
+  if (user.role === "shliach" && shared && state && inTerritory(state, city, user.territory ?? [])) return true;
   return users.some((member) => member.id === ownerId && member.leaderId === user.id);
 }
 
@@ -58,6 +67,10 @@ export function dueInfo(
   if (nextDue < today) return { nextDue, dueState: "overdue" };
   if (nextDue <= addDays(today, 7)) return { nextDue, dueState: "due" };
   return { nextDue, dueState: "upcoming" };
+}
+
+function inTerritory(state: string, city: string, territory: { state: string; area: string }[]) {
+  return territory.some((row) => sameState(row.state, state) && (!row.area.trim() || row.area.trim().toLowerCase() === city.trim().toLowerCase()));
 }
 
 export function allowedHouseholdIds(user: User, routes: Route[]): Set<string> | null {
@@ -102,6 +115,7 @@ export function roleCounts(users: Pick<User, "role">[]): Record<Role, number> {
   return {
     admin: users.filter((user) => user.role === "admin").length,
     shliach: users.filter((user) => user.role === "shliach").length,
+    bochur: users.filter((user) => user.role === "bochur").length,
     visitor: users.filter((user) => user.role === "visitor").length,
     limited: users.filter((user) => user.role === "limited").length,
   };

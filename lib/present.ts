@@ -123,7 +123,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       const last = householdVisits[0] ?? null;
       const people = peopleFor(db, household.id, hideContact);
       const displayName = people.map((person) => person.name.trim()).find(Boolean) || household.name;
-      const editsContact = canEditContact(user, household.ownerId, db.users, today);
+      const editsContact = canEditContact(user, household.ownerId, db.users, today, household.sharedWithCora, household.state, household.city);
       const contactVisits = outreachFor(db, household).map((visit) => ({
         id: visit.id,
         visited: visit.visited,
@@ -132,9 +132,10 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         visitDate: visit.visitDate,
         status: visit.status,
         createdAt: visit.createdAt,
+        // A shliach or bochur can remove only a visit he logged himself.
         canRemove: visit.id.startsWith("legacy-")
-          ? editsContact
-          : editsContact || (perms.canLogVisit && visit.createdBy === user.id),
+          ? editsContact && perms.canDeleteContacts
+          : (editsContact && perms.canDeleteContacts) || (perms.canLogVisit && visit.createdBy === user.id),
       }));
       const latest = contactVisits[0] ?? null;
       const realVisits = contactVisits.filter((visit) => isRealVisit(visit.visited));
@@ -305,7 +306,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
     }));
 
   const roster: TeamMember[] =
-    user.role === "limited"
+    user.role === "limited" || user.role === "bochur"
       ? []
       : db.users.map((member) => ({
           id: member.id,
@@ -320,6 +321,8 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
           assignedRouteIds: member.assignedRouteIds,
           leaderId: member.leaderId,
           territory: member.territory ?? [],
+          adminApprovedAt: member.adminApprovedAt ?? null,
+          finalApprovedAt: member.finalApprovedAt ?? null,
           kind: "member" as const,
         }));
 
@@ -339,6 +342,8 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         assignedRouteIds: invite.assignedRouteIds,
         leaderId: null,
         territory: invite.territory ?? [],
+        adminApprovedAt: null,
+        finalApprovedAt: null,
         kind: "invite",
       });
     }

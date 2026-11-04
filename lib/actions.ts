@@ -92,10 +92,11 @@ export async function setAccountApprovalAction(
   id: string,
   decision: ApprovalDecision,
   territory?: { states: string[]; areas: string[] },
+  leaderId?: string,
 ) {
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
-  return refresh(await setAccountApproval(user, id, decision, territory));
+  return refresh(await setAccountApproval(user, id, decision, territory, leaderId));
 }
 
 export async function googleSignInAction() {

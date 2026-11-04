@@ -1,4 +1,4 @@
-export type Role = "admin" | "shliach" | "visitor" | "limited";
+export type Role = "admin" | "shliach" | "bochur" | "visitor" | "limited";
 export type VisitStatus = "completed" | "deferred";
 export type Reaction = "happy" | "warm" | "neutral" | "cold" | "not_interested";
 export type HouseholdReaction = "very_happy" | "warm" | "neutral" | "cold" | "very_cold";
@@ -6,7 +6,7 @@ export type Gender = "him" | "her";
 export type CategoryKind = "regular" | "scheduled";
 export type FieldType = "text" | "number" | "date" | "select";
 export type MemberStatus = "invited" | "pending" | "approved" | "rejected" | "disabled";
-export type ApprovalDecision = "admin" | "shliach" | "reject" | "disable";
+export type ApprovalDecision = "admin" | "shliach" | "bochur" | "reject" | "disable";
 
 export interface Territory {
   state: string;
@@ -48,6 +48,9 @@ export interface User {
   assignedRouteIds: string[];
   leaderId: string | null;
   territory: Territory[];
+  /** Bochur: step one (a Cora admin) and the final step (his shliach). */
+  adminApprovedAt?: string | null;
+  finalApprovedAt?: string | null;
 }
 
 export interface Invite {
@@ -213,6 +216,9 @@ export interface Viewer {
   canLogVisit: boolean;
   canCreateRoute: boolean;
   canDeleteRoute: boolean;
+  canDeleteContacts: boolean;
+  canImport: boolean;
+  canShare: boolean;
   leaderId: string | null;
   territory: Territory[];
 }
@@ -230,6 +236,8 @@ export interface TeamMember {
   assignedRouteIds: string[];
   leaderId: string | null;
   territory: Territory[];
+  adminApprovedAt: string | null;
+  finalApprovedAt: string | null;
   kind: "member" | "invite";
 }
 

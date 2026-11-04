@@ -171,6 +171,8 @@ export async function loadSupabase(actor: User): Promise<Database> {
     canEdit: Boolean(profile.can_edit),
     assignedRouteIds: assignmentsByUser.get(text(profile, "id")) ?? [],
     leaderId: nullableText(profile, "leader_id"),
+    adminApprovedAt: nullableText(profile, "admin_approved_at"),
+    finalApprovedAt: nullableText(profile, "final_approved_at"),
     territory: territoryByUser.get(text(profile, "id")) ?? [],
   }));
 

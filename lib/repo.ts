@@ -14,6 +14,7 @@ import { loadDatabase } from "@/lib/session";
 import { loadDemo, persistDemo, resetDemo } from "@/lib/store";
 import { isSupabaseMode } from "@/lib/supabase/server";
 import {
+  setBochurAdminApproval,
   markAllRead,
   patchHousehold,
   removeAllRoutes,
@@ -308,7 +309,7 @@ export async function saveHousehold(actor: User, input: HouseholdInput): Promise
 
 export async function deleteHouseholds(actor: User, ids: string[]): Promise<ActionResult> {
   try {
-    assert(perms(actor).canEdit, "You don't have permission to delete households.");
+    assert(perms(actor).canDeleteContacts, "You don't have permission to delete contacts.");
     assert(ids.length, "Select a contact first.");
     const db = await loadDatabase();
     const snapshots = ids.map((id) => snapshotContact(db, id)).filter((item): item is ContactSnapshot => Boolean(item));
@@ -373,7 +374,7 @@ export async function setHouseholdCategories(actor: User, householdId: string, c
 
 export async function importHouseholds(actor: User, rows: CsvHouseholdRow[]): Promise<ActionResult<{ created: number; updated: number; skipped: string[] }>> {
   try {
-    assert(perms(actor).canEdit, "You don't have permission to import households.");
+    assert(perms(actor).canImport, "You don't have permission to import contacts.");
     assert(rows.length <= 2000, "Import 2,000 rows or fewer at a time.");
     const db = await loadDatabase();
     let created = 0;
@@ -570,7 +571,7 @@ export async function removeContactVisitFromContact(actor: User, id: string): Pr
       const householdId = id.slice("legacy-".length);
       const household = db.households.find((item) => item.id === householdId);
       assert(household, "That visit is already gone.");
-      assert(canEditContact(actor, household.ownerId, db.users, todayIso()), "You can't remove this visit.");
+      assert(allowed.canDeleteContacts && canEditContact(actor, household.ownerId, db.users, todayIso()), "You can't remove this visit.");
       const undo: UndoPayload = {
         type: "restore-legacy-visit",
         householdId,
@@ -601,7 +602,7 @@ export async function removeContactVisitFromContact(actor: User, id: string): Pr
     const household = db.households.find((item) => item.id === householdId);
     const creator = history?.createdBy ?? log?.visitorId ?? null;
     assert(
-      canEditContact(actor, household?.ownerId ?? null, db.users, todayIso()) || (allowed.canLogVisit && creator === actor.id),
+      (allowed.canDeleteContacts && canEditContact(actor, household?.ownerId ?? null, db.users, todayIso())) || (allowed.canLogVisit && creator === actor.id),
       "You can't remove this visit.",
     );
     if (isSupabaseMode()) {
@@ -832,6 +833,7 @@ export async function setAccountApproval(
   id: string,
   decision: ApprovalDecision,
   territory?: { states: string[]; areas: string[] },
+  leaderId?: string,
 ): Promise<ActionResult> {
   try {
     assert(perms(actor).canManage, "Only an approved admin can approve accounts.");
@@ -841,6 +843,17 @@ export async function setAccountApproval(
     assert(target, "That account is not on this team.");
     assert(target.email.toLowerCase() !== OWNER_EMAIL, "That login stays a Cora Connect admin.");
     const rows = decision === "shliach" ? territoryRows(territory?.states ?? [], territory?.areas ?? []) : [];
+    if (decision === "bochur") {
+      const leader = db.users.find((user) => user.id === leaderId);
+      assert(leader && leader.role === "shliach", "Pick the shliach for this bochur.");
+      // The database keeps him pending until that shliach approves him in My Team.
+      if (isSupabaseMode()) await setBochurAdminApproval(id, leader.id);
+      else applyDemo((draft) => {
+        const index = draft.users.findIndex((user) => user.id === id);
+        if (index >= 0) draft.users[index] = { ...draft.users[index]!, role: "bochur", status: "pending", leaderId: leader.id, adminApprovedAt: new Date().toISOString() };
+      });
+      return { ok: true };
+    }
     const patch =
       decision === "admin"
         ? { role: "admin" as const, status: "approved" as const, canViewHistory: true, canViewContact: true, canEdit: true }
@@ -873,7 +886,7 @@ export async function importContacts(
   plan: ContactImport,
 ): Promise<ActionResult<{ rowsRead: number; created: number; visitsMerged: number; possible: number; errors: string[]; warnings: string[] }>> {
   try {
-    assert(perms(actor).canEdit, "You don't have permission to import contacts.");
+    assert(perms(actor).canImport, "You don't have permission to import contacts.");
     assert(plan.rows.length > 0, "Nothing to import.");
     assert(plan.rows.length <= 2000, "Import 2,000 rows or fewer at a time.");
     const db = await loadDatabase();

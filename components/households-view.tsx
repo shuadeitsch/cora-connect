@@ -21,6 +21,7 @@ import {
   Check,
   CircleSlash,
   Minus,
+  Share2,
 } from "lucide-react";
 import { AddressLink } from "@/components/address-link";
 import { Avatar } from "@/components/avatar";
@@ -43,6 +44,8 @@ import {
   saveHouseholdAction,
 } from "@/lib/actions";
 import { useUndoToast } from "@/components/undo-toast";
+import { useRouter } from "next/navigation";
+import { shareWithBochurAction } from "@/lib/bochur-actions";
 import { CANONICAL_HEADERS, toCsv } from "@/lib/csv";
 import { VisitedPicker } from "@/components/visited-picker";
 import { isRealVisit } from "@/lib/visited";
@@ -233,9 +236,11 @@ export function HouseholdsView({
               ) : null}
               {data.viewer.canEdit ? (
                 <>
-                  <Button variant="outline" className="rounded-full" onClick={() => setImportOpen(true)}>
-                    <Upload /> Import
-                  </Button>
+                  {data.viewer.canImport ? (
+                    <Button variant="outline" className="rounded-full" onClick={() => setImportOpen(true)}>
+                      <Upload /> Import
+                    </Button>
+                  ) : null}
                   <Button className="rounded-full" onClick={() => setCreating(true)}>
                     <Plus /> New Contact
                   </Button>
@@ -273,7 +278,10 @@ export function HouseholdsView({
             <RouteIcon className="size-3.5" /> Build route ({selected.length})
           </button>
         ) : null}
-        {selected.length && data.viewer.canEdit ? (
+        {selected.length && data.viewer.canShare ? (
+          <ShareWithBochur data={data} ids={selected} className={pill} />
+        ) : null}
+        {selected.length && data.viewer.canDeleteContacts ? (
           <button type="button" className={`${pill} text-red-600`} onClick={() => setPendingDelete(selected)}>
             <Trash2 className="size-3.5" /> Delete {selected.length} contact{selected.length === 1 ? "" : "s"}
           </button>
@@ -407,7 +415,7 @@ export function HouseholdsView({
                   </td>
                   <td className="px-2"><ReactionBadge reaction={household.latestReaction} /></td>
                   <td className="px-2">
-                    <button type="button" aria-label={`Delete ${household.name}`} disabled={!data.viewer.canEdit} className="text-muted-foreground hover:text-red-600 disabled:opacity-30" onClick={() => setPendingDelete([household.id])}>
+                    <button type="button" aria-label={`Delete ${household.name}`} disabled={!data.viewer.canDeleteContacts} className="text-muted-foreground hover:text-red-600 disabled:opacity-30" onClick={() => setPendingDelete([household.id])}>
                       <Trash2 className="size-4" />
                     </button>
                   </td>
@@ -485,6 +493,48 @@ function visitChipLabel(visit: HouseholdView["contactVisits"][number]) {
   const name = visit.visited.trim() ? projectLabel(visit.visited) : "";
   const date = visit.visitDate ? formatMedium(visit.visitDate) : "";
   return name || date || "Visit";
+}
+
+/** Share the picked contacts with one of your bochurim, or take them back. */
+function ShareWithBochur({ data, ids, className }: { data: AppData; ids: string[]; className: string }) {
+  const router = useRouter();
+  const bochurim = data.members.filter((member) => member.kind === "member" && member.role === "bochur" && member.status === "approved" && (data.viewer.canManage || member.leaderId === data.viewer.id));
+  const [open, setOpen] = useState(false);
+  const [bochurId, setBochurId] = useState("");
+  const [note, setNote] = useState("");
+  const [pending, start] = useTransition();
+  const chosen = bochurId || bochurim[0]?.id || "";
+  function go(share: boolean) {
+    setNote("");
+    start(async () => {
+      const result = await shareWithBochurAction(ids, chosen, share);
+      if (!result.ok) { setNote(result.error); return; }
+      const name = bochurim.find((member) => member.id === chosen)?.name ?? "the bochur";
+      setNote(share ? `Shared ${ids.length} with ${name}.` : `${name} no longer sees ${result.count ?? 0} of these.`);
+      router.refresh();
+    });
+  }
+  return (
+    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setNote(""); }}>
+      <PopoverTrigger asChild>
+        <button type="button" className={className}><Share2 className="size-3.5" /> Share with bochur ({ids.length})</button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="grid w-[min(20rem,calc(100vw-1.5rem))] gap-2">
+        {bochurim.length ? (
+          <>
+            <select aria-label="Bochur" className="h-11 rounded-lg border border-input bg-card px-3 text-sm" value={chosen} onChange={(event) => setBochurId(event.target.value)}>
+              {bochurim.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <Button type="button" className="min-h-11 flex-1 rounded-full" disabled={pending || !chosen} onClick={() => go(true)}>Share {ids.length}</Button>
+              <Button type="button" variant="outline" className="min-h-11 flex-1 rounded-full" disabled={pending || !chosen} onClick={() => go(false)}>Unshare</Button>
+            </div>
+          </>
+        ) : <p className="text-sm text-muted-foreground">No active bochurim yet.</p>}
+        {note ? <p role="status" className="text-sm text-foreground">{note}</p> : null}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /** "Possible duplicate" with the plain reason and a link to the matching contact. */

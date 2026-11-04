@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.0
+
+- New account types: Shliach and Bochur. The database enforces the rules, not just the screens.
+- Shliach: sees and edits contacts in his own state, plus his own contacts and his bochurim's. He can add and update visits. He can't delete contacts, import or export. Routes and map pins show only his contacts. He sees his own routes and his bochurim's.
+- Bochur: a Cora Connect admin approves him first and picks his shliach. Then the shliach approves him in My Team. His access lasts one month from that approval. In My Team his shliach can tap Extend 1 month or Disable at any time.
+- A bochur starts with nothing. His shliach selects contacts in the list and taps Share with bochur. On a shared contact the bochur sees everything, including earlier visits by others, and can log visits. He can't edit contact info. Unsharing hides that contact from him again. He can build routes only from shared contacts.
+- Expired or disabled accounts can't see anything.
+- Cora Connect admins keep the same access as before.
+
 ## 1.7.10
 
 - Map, Routes and Daily planner are now main items in the side bar, above More, so you no longer have to open More to find them. On phones, the bottom bar reads Contacts, Map, Routes, Planner, More.

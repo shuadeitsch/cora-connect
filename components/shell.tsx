@@ -41,6 +41,9 @@ const PRIMARY: { href: string; label: string; short?: string; icon: typeof House
   { href: "/users", desktopOnly: true, label: "Users", icon: ShieldCheck, adminOnly: true },
 ];
 
+/** A bochur only works with contacts shared with him. */
+const BOCHUR_HIDDEN = new Set(["/planner", "/team", "/dashboard"]);
+
 const MORE_NAV: { href: string; label: string; icon: typeof House; adminOnly?: boolean }[] = [
   { href: "/reports", label: "Reports", icon: ClipboardList },
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
@@ -52,13 +55,15 @@ function NavLinks({
   items,
   onNavigate,
   canManage,
+  bochur = false,
 }: {
   items: { href: string; label: string; icon: typeof House; adminOnly?: boolean }[];
   onNavigate?: () => void;
   canManage: boolean;
+  bochur?: boolean;
 }) {
   const pathname = usePathname();
-  const visible = items.filter((item) => canManage || !item.adminOnly);
+  const visible = items.filter((item) => (canManage || !item.adminOnly) && !(bochur && BOCHUR_HIDDEN.has(item.href)));
   return (
     <nav className="flex flex-col gap-1 px-3">
       {visible.map((item) => {
@@ -102,7 +107,7 @@ export function Shell({
   const [search, setSearch] = useState(false);
   const unread = notifications.filter((note) => !note.read).length;
   const mapPage = pathname.startsWith("/map") || pathname === "/saved-routes/new";
-  const primary = PRIMARY.filter((item) => (viewer.canManage || !item.adminOnly) && !item.desktopOnly);
+  const primary = PRIMARY.filter((item) => (viewer.canManage || !item.adminOnly) && !item.desktopOnly && !(viewer.role === "bochur" && BOCHUR_HIDDEN.has(item.href)));
 
   useEffect(() => {
     setMore(false);
@@ -219,9 +224,9 @@ export function Shell({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/crm-logo.jpeg" alt="Cora Connect" className="block h-auto w-full object-contain" />
           </Link>
-          <NavLinks items={PRIMARY} canManage={viewer.canManage} />
+          <NavLinks items={PRIMARY} canManage={viewer.canManage} bochur={viewer.role === "bochur"} />
           <p className="mt-4 px-5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">More</p>
-          <NavLinks items={MORE_NAV} canManage={viewer.canManage} />
+          <NavLinks items={MORE_NAV} canManage={viewer.canManage} bochur={viewer.role === "bochur"} />
           <Link href="/settings?tab=account" className="mx-3 mt-auto flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
             <Avatar name={viewer.name} className="size-9" />
             <span className="min-w-0">
@@ -234,7 +239,7 @@ export function Shell({
           <SheetContent side="bottom" className="rounded-t-3xl pb-6">
             <SheetTitle className="sr-only">More</SheetTitle>
             <div className="px-2 pt-2">
-              <NavLinks items={[...PRIMARY.filter((item) => item.desktopOnly), ...MORE_NAV]} canManage={viewer.canManage} onNavigate={() => setMore(false)} />
+              <NavLinks items={[...PRIMARY.filter((item) => item.desktopOnly), ...MORE_NAV]} canManage={viewer.canManage} bochur={viewer.role === "bochur"} onNavigate={() => setMore(false)} />
               <form action={logoutAction} className="px-3 pt-2">
                 <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-2xl px-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
                   <span className="flex size-8 items-center justify-center rounded-xl"><LogOut className="size-4" /></span>

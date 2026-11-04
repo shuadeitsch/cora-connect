@@ -498,6 +498,20 @@ export async function setProfileAccess(
   );
 }
 
+/** Step one for a bochur: a Cora admin picks his shliach. The database keeps him pending until that shliach approves. */
+export async function setBochurAdminApproval(id: string, leaderId: string) {
+  const supabase = await createClient();
+  await done(
+    await supabase
+      .from("profiles")
+      .update({ role: "bochur", status: "approved", leader_id: leaderId, can_view_history: true, can_view_contact: true, can_edit: false })
+      .eq("id", id)
+      .select("id")
+      .single(),
+    "Approve bochur",
+  );
+}
+
 export async function replaceTerritories(userId: string, rows: { state: string; area: string }[]) {
   const supabase = await createClient();
   await done(await supabase.from("territories").delete().eq("user_id", userId).select("user_id"), "Clear territory");

@@ -41,6 +41,7 @@ export function statusMeta(status: VisitStatus | null | undefined) {
 export const ROLE_LABEL: Record<string, string> = {
   admin: "Cora Connect admin",
   shliach: "Shliach",
+  bochur: "Bochur",
   visitor: "Visitor",
   limited: "Limited",
 };
