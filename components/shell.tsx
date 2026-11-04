@@ -33,15 +33,15 @@ import { formatMedium } from "@/lib/format";
 import type { AppNotificationView, Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const PRIMARY: { href: string; label: string; icon: typeof House; adminOnly?: boolean }[] = [
+const PRIMARY: { href: string; label: string; short?: string; icon: typeof House; adminOnly?: boolean; desktopOnly?: boolean }[] = [
   { href: "/households", label: "Contacts", icon: House },
-  { href: "/users", label: "Users", icon: ShieldCheck, adminOnly: true },
+  { href: "/map", label: "Map", icon: Map },
+  { href: "/saved-routes", label: "Routes", icon: Route },
+  { href: "/planner", label: "Daily planner", short: "Planner", icon: CalendarDays },
+  { href: "/users", desktopOnly: true, label: "Users", icon: ShieldCheck, adminOnly: true },
 ];
 
 const MORE_NAV: { href: string; label: string; icon: typeof House; adminOnly?: boolean }[] = [
-  { href: "/map", label: "Map", icon: Map },
-  { href: "/saved-routes", label: "Routes", icon: Route },
-  { href: "/planner", label: "Daily planner", icon: CalendarDays },
   { href: "/reports", label: "Reports", icon: ClipboardList },
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
   { href: "/team", label: "My Team", icon: Users },
@@ -102,7 +102,7 @@ export function Shell({
   const [search, setSearch] = useState(false);
   const unread = notifications.filter((note) => !note.read).length;
   const mapPage = pathname.startsWith("/map") || pathname === "/saved-routes/new";
-  const primary = PRIMARY.filter((item) => viewer.canManage || !item.adminOnly);
+  const primary = PRIMARY.filter((item) => (viewer.canManage || !item.adminOnly) && !item.desktopOnly);
 
   useEffect(() => {
     setMore(false);
@@ -234,7 +234,7 @@ export function Shell({
           <SheetContent side="bottom" className="rounded-t-3xl pb-6">
             <SheetTitle className="sr-only">More</SheetTitle>
             <div className="px-2 pt-2">
-              <NavLinks items={[...PRIMARY, ...MORE_NAV]} canManage={viewer.canManage} onNavigate={() => setMore(false)} />
+              <NavLinks items={[...PRIMARY.filter((item) => item.desktopOnly), ...MORE_NAV]} canManage={viewer.canManage} onNavigate={() => setMore(false)} />
               <form action={logoutAction} className="px-3 pt-2">
                 <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-2xl px-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
                   <span className="flex size-8 items-center justify-center rounded-xl"><LogOut className="size-4" /></span>
@@ -260,7 +260,7 @@ export function Shell({
           return (
             <Link key={item.href} href={item.href} className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium", active ? "bg-accent text-foreground" : "text-muted-foreground")}>
               <Icon className="size-5" />
-              {item.label}
+              {item.short ?? item.label}
             </Link>
           );
         })}

@@ -1,3 +1,4 @@
+import { matchParts, matchScore, reasonLead } from "@/lib/duplicate-reason";
 import { isListedProject, listedProjects, parseHouseholdReaction, projectLabel } from "@/lib/constants";
 import { isRealVisit } from "@/lib/visited";
 import { monthKey, fullAddress } from "@/lib/format";
@@ -101,6 +102,12 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
   const perms = viewerPermissions(user, today);
   const allowed = allowedHouseholdIds(user, db.routes);
   const visibleHouseholds = db.households.filter((household) => !allowed || allowed.has(household.id));
+  const peopleBy = new Map<string, typeof db.people>();
+  for (const person of db.people) {
+    const list = peopleBy.get(person.householdId);
+    if (list) list.push(person);
+    else peopleBy.set(person.householdId, [person]);
+  }
   const visibleIds = new Set(visibleHouseholds.map((household) => household.id));
   const hideContact = !perms.canViewContact;
   const hideHistory = !perms.canViewHistory;
@@ -131,10 +138,31 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       }));
       const latest = contactVisits[0] ?? null;
       const realVisits = contactVisits.filter((visit) => isRealVisit(visit.visited));
-      const duplicateOfName = household.duplicateOf
-        ? visibleHouseholds.find((item) => item.id === household.duplicateOf)?.name
-          ?? db.people.find((person) => person.householdId === household.duplicateOf && person.name.trim())?.name
-          ?? null
+      let duplicateMatchId: string | null = null;
+      let duplicateReason = "";
+      if (household.possibleDuplicate) {
+        const side = (item: typeof household) => ({ household: item, people: peopleBy.get(item.id) ?? [] });
+        const target = household.duplicateOf ? db.households.find((item) => item.id === household.duplicateOf) : undefined;
+        if (target) {
+          // Only name the other contact when this viewer is allowed to see it.
+          const seen = !allowed || allowed.has(target.id);
+          duplicateMatchId = seen ? target.id : null;
+          const lead = reasonLead(matchParts(side(household), side(target)));
+          duplicateReason = seen ? lead || "Flagged on import as maybe the same as" : lead ? `${lead} another contact` : "Flagged on import";
+        } else {
+          let best = 0;
+          for (const other of visibleHouseholds) {
+            if (other.id === household.id) continue;
+            const score = matchScore(matchParts(side(household), side(other)));
+            if (score > best) { best = score; duplicateMatchId = other.id; }
+          }
+          duplicateReason = duplicateMatchId ? "Flagged on import · closest match:" : "Flagged on import";
+        }
+      }
+      const duplicateOfName = duplicateMatchId
+        ? visibleHouseholds.find((item) => item.id === duplicateMatchId)?.name
+          || db.people.find((person) => person.householdId === duplicateMatchId && person.name.trim())?.name
+          || null
         : null;
       return {
         id: household.id,
@@ -164,6 +192,8 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         possibleDuplicate: household.possibleDuplicate,
         duplicateOf: household.duplicateOf,
         duplicateOfName,
+        duplicateMatchId,
+        duplicateReason,
         contactVisits,
         latestVisited: realVisits[0]?.visited ?? "",
         latestReaction: latest?.reaction ?? null,

@@ -97,6 +97,10 @@ export function HouseholdsView({
   const [importOpen, setImportOpen] = useState(openImport);
   const [contact, setContact] = useState<HouseholdView | null>(null);
   const [history, setHistory] = useState<HouseholdView | null>(null);
+  const openById = (id: string) => {
+    const match = data.households.find((item) => item.id === id);
+    if (match) setContact(match);
+  };
   const [visitFor, setVisitFor] = useState<HouseholdView | null>(null);
   const [error, setError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
@@ -327,7 +331,7 @@ export function HouseholdsView({
                   <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                     <VisitChips visits={household.contactVisits ?? []} />
                     <ReactionBadge reaction={household.latestReaction} />
-                    {household.possibleDuplicate ? <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-900">Possible duplicate</span> : null}
+                    <DuplicateNote household={household} onOpen={openById} className="w-full rounded-2xl bg-amber-500/15 px-2 py-1 text-[11px]" />
                     <TagBadges tags={household.tags} />
                     {household.sharedWithCora ? null : <span className="text-xs">Private</span>}
                   </div>
@@ -399,7 +403,7 @@ export function HouseholdsView({
                   <td className="px-2"><IconAction label="Visit history" onClick={() => setHistory(household)} icon={History} /></td>
                   <td className="max-w-[16rem] px-2 text-muted-foreground">
                     <VisitChips visits={household.contactVisits ?? []} />
-                    {household.possibleDuplicate ? <span className="block text-[11px]">Possible duplicate</span> : null}
+                    <DuplicateNote household={household} onOpen={openById} className="mt-1 block text-[11px]" />
                   </td>
                   <td className="px-2"><ReactionBadge reaction={household.latestReaction} /></td>
                   <td className="px-2">
@@ -432,6 +436,7 @@ export function HouseholdsView({
         canContact={data.viewer.canViewContact}
         canHistory={data.viewer.canViewHistory}
         onClose={() => setContact(null)}
+        onOpenOther={openById}
         onEdit={() => { if (contact) { setEditing(contact); setContact(null); } }}
         onVisit={() => { if (contact) { setVisitFor(contact); setContact(null); } }}
         onHistory={() => { if (contact) { setHistory(contact); setContact(null); } }}
@@ -480,6 +485,30 @@ function visitChipLabel(visit: HouseholdView["contactVisits"][number]) {
   const name = visit.visited.trim() ? projectLabel(visit.visited) : "";
   const date = visit.visitDate ? formatMedium(visit.visitDate) : "";
   return name || date || "Visit";
+}
+
+/** "Possible duplicate" with the plain reason and a link to the matching contact. */
+function DuplicateNote({ household, onOpen, className }: { household: HouseholdView; onOpen?: (id: string) => void; className?: string }) {
+  if (!household.possibleDuplicate) return null;
+  const reason = household.duplicateReason || "Flagged on import";
+  const id = household.duplicateMatchId;
+  return (
+    <span className={cn("text-amber-900 dark:text-amber-200", className)}>
+      <span className="font-medium">Possible duplicate</span>
+      {" · "}
+      {reason}
+      {id && household.duplicateOfName ? (
+        <>
+          {" "}
+          {onOpen ? (
+            <button type="button" className="font-medium underline underline-offset-2 hover:text-primary" onClick={(event) => { event.stopPropagation(); onOpen(id); }}>
+              {household.duplicateOfName}
+            </button>
+          ) : <span className="font-medium">{household.duplicateOfName}</span>}
+        </>
+      ) : null}
+    </span>
+  );
 }
 
 function VisitStatusIcon({ status }: { status: HouseholdView["contactVisits"][number]["status"] }) {
@@ -889,6 +918,7 @@ function ContactDialog({
   onEdit,
   onVisit,
   onHistory,
+  onOpenOther,
 }: {
   household: HouseholdView | null;
   households: HouseholdView[];
@@ -899,6 +929,7 @@ function ContactDialog({
   onEdit: () => void;
   onVisit: () => void;
   onHistory: () => void;
+  onOpenOther: (id: string) => void;
 }) {
   const announce = useUndoToast();
   const [mergeInto, setMergeInto] = useState("");
@@ -925,7 +956,7 @@ function ContactDialog({
             <section>
               <p className="font-heading text-2xl font-semibold text-foreground">{household.name}</p>
               {household.possibleDuplicate ? (
-                <p className="mt-2 text-sm text-amber-900">Possible duplicate{household.duplicateOfName ? ` · Might be the same as ${household.duplicateOfName}` : ""}</p>
+                <p className="mt-2 text-sm"><DuplicateNote household={household} onOpen={onOpenOther} /></p>
               ) : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 <ReactionBadge reaction={household.latestReaction} />

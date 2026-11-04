@@ -27,6 +27,22 @@ export function hebrewLabel(date: string) {
   return new Intl.DateTimeFormat("en-u-ca-hebrew", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(noon(date));
 }
 
+/** yyyy-mm-dd plus or minus whole days. */
+export function shiftDate(date: string, by: number) {
+  const next = noon(date);
+  next.setUTCDate(next.getUTCDate() + by);
+  return next.toISOString().slice(0, 10);
+}
+
+function todayIso() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function shortLabel(date: string) {
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(noon(date));
+}
+
 function timeLabel(time: string | null) {
   if (!time) return "";
   const [h, m] = time.split(":").map(Number);
@@ -39,6 +55,20 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
   const [newDate, setNewDate] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const dates = days.map((day) => day.date).sort();
+  const before = dates.length ? shiftDate(dates[0]!, -1) : "";
+  const after = dates.length ? shiftDate(dates[dates.length - 1]!, 1) : "";
+  const quick = (date: string, label: string) => (
+    <Button
+      type="button"
+      variant="outline"
+      className="min-h-11 w-full justify-center rounded-full"
+      disabled={pending}
+      onClick={() => run(() => addPlannerDayAction(date))}
+    >
+      <CalendarPlus className="size-4" /> {label} · {shortLabel(date)} · {hebrewLabel(date)}
+    </Button>
+  );
 
   function run(task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) {
     setError("");
@@ -70,9 +100,11 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
         </form>
       ) : null}
       <div className="grid gap-3">
+        {canEdit && !loadError ? (dates.length ? quick(before, "Add day before") : quick(todayIso(), "Add day")) : null}
         {days.map((day) => (
           <DayCard key={day.id} data={data} day={day} canEdit={canEdit} pending={pending} run={run} />
         ))}
+        {canEdit && !loadError && dates.length ? quick(after, "Add day after") : null}
         {!days.length && !loadError ? <p className="panel rounded-3xl px-4 py-10 text-center text-sm text-muted-foreground">No days in the planner.</p> : null}
       </div>
     </div>

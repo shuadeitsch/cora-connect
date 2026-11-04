@@ -259,6 +259,10 @@ export interface HouseholdView {
   possibleDuplicate: boolean;
   duplicateOf: string | null;
   duplicateOfName: string | null;
+  /** The contact the reason points at (duplicate_of, or the closest match when that is empty). */
+  duplicateMatchId: string | null;
+  /** Plain reason, e.g. "Same address and phone as". Worked out on load, not stored. */
+  duplicateReason: string;
   contactVisits: ContactVisitView[];
   latestVisited: string;
   latestReaction: HouseholdReaction | null;

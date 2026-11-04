@@ -67,7 +67,7 @@ export interface ImportPlan {
   warnings: string[];
 }
 
-function normName(value: string) {
+export function normName(value: string) {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")

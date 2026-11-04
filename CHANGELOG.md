@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.10
+
+- Map, Routes and Daily planner are now main items in the side bar, above More, so you no longer have to open More to find them. On phones, the bottom bar reads Contacts, Map, Routes, Planner, More.
+- Possible duplicates now say why they were flagged, for example "Same address and name as Dr. Alan Hymanson". You can tap the other contact's name to open it. If the import didn't record a match, the note says "Flagged on import" and names the closest match.
+- Daily planner: new one-tap "Add day before" (top) and "Add day after" (bottom) buttons fill in the date and show its Hebrew date. When the planner is empty, "Add day" adds today. You can still type any other date at the top.
+
 ## 1.7.9
 
 - Contacts: the color of a visit chip (like "Summer 5786") now shows only how the visit went, for every project. Green with a check means the visit was completed. Red with a crossed circle means it was deferred. Gray with a dash means no status was saved. The same colors are used in the Visited column, the phone cards, the contact page, and Visit history.
