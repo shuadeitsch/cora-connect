@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.9
+- Saved routes list: every route now has a pencil Edit button (desktop rows and phone cards) that opens a quick edit to rename the route and change its project, with an "Edit stops" link to the full editor. Saves are read back and confirmed with a toast.
+- The ⋯ menu on each row also has "Edit name or project" and "Edit stops".
+- Opening a route with ?edit=1 goes straight into the editor.
+
 ## 1.8.8
 
 - Edit a saved route: the route page has an Edit button. You can rename the route, change its project, add stops (search by name, street or city, or Add a city to add all of a town's contacts, skipping ones already on the route), remove stops, move them with the arrows (or drag on a computer), and press Re-optimize order. Nothing changes until you press Save; Cancel leaves the route as it was. Saving checks the database and shows Route saved, or an error. If someone else deletes the route while you edit, you get an error instead of a new copy. Stops on contacts you can't see are left on the route as they were.

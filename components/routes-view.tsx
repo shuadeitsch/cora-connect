@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, ListChecks, Map as MapIcon, MoreHorizontal, Search } from "lucide-react";
+import { Building2, ListChecks, Map as MapIcon, MoreHorizontal, Pencil, Search } from "lucide-react";
+import { RouteQuickEdit } from "@/components/route-quick-edit";
 import { CityRouteDialog, PickContactsDialog } from "@/components/create-route";
 import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,9 @@ export function RoutesView({ data }: { data: AppData }) {
   const [pending, start] = useTransition();
   const [byCity, setByCity] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = data.routes.find((route) => route.id === editingId) ?? null;
+  const canEdit = data.viewer.canCreateRoute;
   const rows = useMemo(
     () => data.routes.filter((route) => route.name.toLowerCase().includes(query.trim().toLowerCase())),
     [data.routes, query],
@@ -78,6 +82,7 @@ export function RoutesView({ data }: { data: AppData }) {
       />
       <CityRouteDialog data={data} open={byCity} onClose={() => setByCity(false)} />
       <PickContactsDialog data={data} open={picking} onClose={() => setPicking(false)} />
+      <RouteQuickEdit data={data} route={editing} onClose={() => setEditingId(null)} />
       {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
       <div className="panel overflow-hidden rounded-3xl">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
@@ -114,11 +119,16 @@ export function RoutesView({ data }: { data: AppData }) {
                   </td>
                   <td className="px-2 py-2"><span className="rounded-full bg-accent px-2 py-0.5 text-[11px] text-accent-foreground">{route.projectName}</span></td>
                   <td className="px-2 py-2 text-mutedink">{formatDots(route.createdAt)}</td>
-                  <td className="px-2 py-2 text-right">
+                  <td className="px-2 py-2 text-right whitespace-nowrap">
+                    {canEdit ? (
+                      <button type="button" aria-label={`Edit ${route.name}`} title="Edit" className="inline-flex size-8 items-center justify-center rounded-full text-primary hover:bg-muted" onClick={() => setEditingId(route.id)}><Pencil className="size-4" /></button>
+                    ) : null}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><button type="button" aria-label="Route actions" className="inline-flex size-8 items-center justify-center rounded-full hover:bg-muted"><MoreHorizontal className="size-4" /></button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => router.push(`/saved-routes/${route.id}`)}>Open</DropdownMenuItem>
+                        {canEdit ? <DropdownMenuItem onClick={() => setEditingId(route.id)}>Edit name or project</DropdownMenuItem> : null}
+                        {canEdit ? <DropdownMenuItem onClick={() => router.push(`/saved-routes/${route.id}?edit=1`)}>Edit stops</DropdownMenuItem> : null}
                         {data.viewer.canDeleteRoute ? <DropdownMenuItem onClick={() => remove(route.id)}>Delete</DropdownMenuItem> : null}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -130,10 +140,15 @@ export function RoutesView({ data }: { data: AppData }) {
         </div>
         <div className="divide-y md:hidden">
           {slice.map((route) => (
-            <Link key={route.id} href={`/saved-routes/${route.id}`} className="block px-3 py-3">
-              <p className="font-semibold text-foreground">{route.name}</p>
-              <p className="text-xs text-mutedink">{route.stopCount} stops · {route.projectName} · {formatDots(route.createdAt)}</p>
-            </Link>
+            <div key={route.id} className="flex items-center gap-2 px-3 py-2">
+              <Link href={`/saved-routes/${route.id}`} className="block min-w-0 flex-1 py-1">
+                <p className="font-semibold text-foreground">{route.name}</p>
+                <p className="text-xs text-mutedink">{route.stopCount} stops · {route.projectName} · {formatDots(route.createdAt)}</p>
+              </Link>
+              {canEdit ? (
+                <button type="button" aria-label={`Edit ${route.name}`} className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-primary hover:bg-muted" onClick={() => setEditingId(route.id)}><Pencil className="size-5" /></button>
+              ) : null}
+            </div>
           ))}
         </div>
         {!slice.length ? <p className="px-4 py-10 text-center text-sm text-mutedink">No routes yet.</p> : null}

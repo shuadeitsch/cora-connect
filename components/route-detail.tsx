@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { useMapPoints } from "@/components/map-points";
 import { StartRoute } from "@/components/start-route";
 import { RouteEditor } from "@/components/route-editor";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ArrowLeft, Navigation, Pencil, Play, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,8 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
   const [pending, start] = useTransition();
   const { pointFor } = useMapPoints(data.households);
   const [starting, setStarting] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const params = useSearchParams();
+  const [editing, setEditing] = useState(() => params.get("edit") === "1" && data.viewer.canCreateRoute);
   const [order, setOrder] = useState<string[] | null>(null);
   const pointOf = (stop: RouteStopView) => {
     const household = data.households.find((item) => item.id === stop.householdId);
