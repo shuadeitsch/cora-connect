@@ -124,3 +124,17 @@ export async function geocodeText(text: string): Promise<GeocodePoint | null> {
     return null;
   }
 }
+
+/** Town centers for city+state pairs (Nominatim, cached 30 days). Nothing is written to the database. */
+export async function geocodeTowns(list: { key: string; city: string; state: string }[]): Promise<Record<string, { lat: number; lng: number } | null>> {
+  const out: Record<string, { lat: number; lng: number } | null> = {};
+  for (const item of list) {
+    const city = clean(item.city);
+    const state = clean(item.state);
+    if (!city) { out[item.key] = null; continue; }
+    const townKey = [city, state, ""].join("|").toLowerCase();
+    if (!towns.has(townKey)) towns.set(townKey, nominatimTown(city, state, ""));
+    out[item.key] = await towns.get(townKey)!;
+  }
+  return out;
+}

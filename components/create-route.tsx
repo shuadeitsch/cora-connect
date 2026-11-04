@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Notice } from "@/components/page-header";
 import { useToast } from "@/components/toast";
@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { ContactFilterControls, ContactStateTabs, cityKey, useContactFilters } from "@/components/contact-filters";
 import { buildRouteAction } from "@/lib/actions";
+import { cityCentersAction } from "@/lib/city-actions";
+import { byDistance, haversineMiles, nearestChain, type Point } from "@/lib/city-order";
 import { stateLabel } from "@/lib/constants";
 import type { AppData } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -110,7 +112,80 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
     }
     return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
   }, [ctl.beforeCity, ctl.filters.state]);
-  const shown = cities.filter((city) => city.label.toLowerCase().includes(search.trim().toLowerCase()));
+  const [order, setOrder] = useState<"az" | "distance" | "chain">("az");
+  const [startKey, setStartKey] = useState("");
+  const [centers, setCenters] = useState<Record<string, Point | null>>({});
+  const [looking, setLooking] = useState(false);
+  // Fallback: the average of that city's contacts' saved coordinates.
+  const averages = useMemo(() => {
+    const out: Record<string, Point | null> = {};
+    for (const city of cities) {
+      const pts = data.households.filter((h) => city.ids.includes(h.id) && h.lat != null && h.lng != null);
+      out[city.key] = pts.length ? { lat: pts.reduce((sum, h) => sum + h.lat!, 0) / pts.length, lng: pts.reduce((sum, h) => sum + h.lng!, 0) / pts.length } : null;
+    }
+    return out;
+  }, [cities, data.households]);
+  const points = useMemo(() => {
+    const out: Record<string, Point | null> = {};
+    for (const city of cities) out[city.key] = centers[city.key] ?? averages[city.key] ?? null;
+    return out;
+  }, [cities, centers, averages]);
+  useEffect(() => {
+    if (order === "az" || !open) return;
+    const missing = cities.filter((city) => !(city.key in centers) && city.key.split("|")[0]);
+    if (!missing.length) { setLooking(false); return; }
+    let cancelled = false;
+    setLooking(true);
+    (async () => {
+      for (let i = 0; i < missing.length && !cancelled; i += 10) {
+        const chunk = missing.slice(i, i + 10).map((city) => {
+          const [, state] = city.key.split("|");
+          const name = data.households.find((h) => h.id === city.ids[0])?.city.trim() ?? "";
+          return { key: city.key, city: name, state: state ?? "" };
+        });
+        const result = await cityCentersAction(chunk);
+        if (cancelled) return;
+        if (result.ok) setCenters((current) => ({ ...current, ...result.points }));
+        else setCenters((current) => ({ ...current, ...Object.fromEntries(chunk.map((c) => [c.key, null])) }));
+      }
+      if (!cancelled) setLooking(false);
+    })();
+    return () => { cancelled = true; };
+  }, [order, open, cities, centers, data.households]);
+  const org = data.org;
+  const origin: Point | null = org.startLat != null && org.startLng != null ? { lat: org.startLat, lng: org.startLng } : org.lat != null && org.lng != null ? { lat: org.lat, lng: org.lng } : null;
+  const defaultStart = useMemo(() => {
+    if (origin) {
+      let best = "";
+      let bestMiles = Infinity;
+      for (const city of cities) {
+        const point = points[city.key];
+        if (!point) continue;
+        const miles = haversineMiles(origin, point);
+        if (miles < bestMiles) { bestMiles = miles; best = city.key; }
+      }
+      if (best) return best;
+    }
+    return cities[0]?.key ?? "";
+  }, [cities, points, origin?.lat, origin?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+  const start = cities.some((city) => city.key === startKey) ? startKey : defaultStart;
+  const sorted = useMemo(() => {
+    if (order === "az") return cities;
+    const keys = cities.map((city) => city.key);
+    const ranked = order === "chain" ? nearestChain(keys, points, start) : byDistance(keys, points, start);
+    const byKey = new Map(cities.map((city) => [city.key, city]));
+    return ranked.map((key) => byKey.get(key)!);
+  }, [order, cities, points, start]);
+  const milesFrom = (key: string, index: number) => {
+    if (order === "az") return null;
+    const from = order === "chain" ? (index > 0 ? points[sorted[index - 1]!.key] : null) : points[start];
+    const to = points[key];
+    if (!to) return "location unknown";
+    if (key === start && order === "distance") return "start";
+    if (!from) return order === "chain" ? "start" : null;
+    return `${Math.round(haversineMiles(from, to))} mi`;
+  };
+  const shown = sorted.filter((city) => city.label.toLowerCase().includes(search.trim().toLowerCase()));
   const current = chosen;
 
   return (
@@ -125,15 +200,31 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
           <div className="grid gap-3">
             <ContactStateTabs ctl={ctl} />
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search cities" aria-label="Search cities" />
+            <div className="flex flex-wrap items-center gap-2">
+              <select className="h-9 rounded-full border bg-card px-3 text-sm" value={order} onChange={(event) => setOrder(event.target.value as typeof order)} aria-label="Sort cities">
+                <option value="az">A–Z</option>
+                <option value="distance">By distance</option>
+                <option value="chain">Nearest-next chain</option>
+              </select>
+              {order !== "az" ? (
+                <select className="h-9 min-w-0 max-w-full rounded-full border bg-card px-3 text-sm" value={start} onChange={(event) => setStartKey(event.target.value)} aria-label="Starting city">
+                  {cities.map((city) => <option key={city.key} value={city.key}>From {city.label}</option>)}
+                </select>
+              ) : null}
+              {looking ? <span className="text-xs text-muted-foreground">Finding city locations…</span> : null}
+            </div>
             <ul className="max-h-[50vh] divide-y overflow-auto rounded-xl border">
-              {shown.map((city) => (
+              {shown.map((city) => {
+                const miles = milesFrom(city.key, sorted.indexOf(city));
+                return (
                 <li key={city.key}>
                   <button type="button" className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-muted" onClick={() => setChosen(city)}>
-                    <span className="font-medium text-foreground">{city.label}</span>
+                    <span className="font-medium text-foreground">{city.label}{miles ? <span className="font-normal text-muted-foreground"> · {miles}</span> : null}</span>
                     <span className="text-xs text-muted-foreground">{city.ids.length}</span>
                   </button>
                 </li>
-              ))}
+                );
+              })}
               {!shown.length ? <li className="px-3 py-6 text-center text-sm text-muted-foreground">No contacts{ctl.filters.state ? ` in ${stateLabel(ctl.filters.state)}` : ""}.</li> : null}
             </ul>
           </div>

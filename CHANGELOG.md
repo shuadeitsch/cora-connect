@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.4
+
+- Routes > New route by city has a new sort menu: A–Z, By distance and Nearest-next chain. By distance sorts the cities by straight-line miles from a starting city you pick, showing the miles next to each one (for example Kennebunk · 4 mi). Nearest-next chain orders the cities so each one is the closest to the one before it.
+- City locations come from the town center (OpenStreetMap, cached for 30 days). When a town can't be found, it uses the average location of that city's contacts. Nothing is saved to the database. Works on the phone too.
+
 ## 1.8.3
 
 - Daily planner: each day now shows its Jewish holidays next to the date and Hebrew date, using diaspora rules and Chabad wording. Saturdays say Shabbos.
