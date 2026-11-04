@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Notice } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { approveBochurAction, disableBochurAction, extendBochurAction } from "@/lib/bochur-actions";
+import { approveBochurAction, disableBochurAction, extendBochurAction, setBochurShliachAction } from "@/lib/bochur-actions";
 import { formatMedium } from "@/lib/format";
 import type { AppData, TeamMember } from "@/lib/types";
 
@@ -30,7 +30,9 @@ export function BochurimPanel({ data }: { data: AppData }) {
   const admin = data.viewer.canManage;
   const mine = data.members.filter((member) => member.kind === "member" && member.role === "bochur" && (admin || member.leaderId === data.viewer.id));
   if (data.viewer.role !== "shliach" && !admin) return null;
-  if (!mine.length && !(data.viewer.role === "shliach")) return null;
+  const shluchim = data.members.filter((member) => member.kind === "member" && member.role === "shliach").sort((a, b) => a.name.localeCompare(b.name));
+  const order = (member: TeamMember) => (member.status === "pending" ? 0 : member.status === "approved" && !(member.expiresAt && member.expiresAt.slice(0, 10) < todayIso()) ? 1 : 2);
+  mine.sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name));
   const today = todayIso();
 
   function run(id: string, task: () => Promise<{ ok: boolean; error?: string }>) {
@@ -60,8 +62,23 @@ export function BochurimPanel({ data }: { data: AppData }) {
                   <p className="font-semibold text-foreground">{member.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {stateOf(member, today)}
-                    {admin && leader ? ` · Shliach: ${leader.name}` : ""}
+                    {!admin ? ` · Under ${leader?.name ?? "you"}` : ""}
                   </p>
+                  {admin ? (
+                    <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      Shliach
+                      <select
+                        aria-label={`Shliach for ${member.name}`}
+                        className="h-9 max-w-[14rem] min-w-0 rounded-lg border bg-background px-2 text-sm text-foreground"
+                        value={member.leaderId ?? ""}
+                        disabled={busy === member.id}
+                        onChange={(event) => { const next = event.target.value; if (next) run(member.id, () => setBochurShliachAction(member.id, next)); }}
+                      >
+                        {!leader ? <option value="">No shliach set</option> : null}
+                        {shluchim.map((shliach) => <option key={shliach.id} value={shliach.id}>{shliach.name}</option>)}
+                      </select>
+                    </label>
+                  ) : null}
                 </div>
                 {canAct ? (
                   <div className="flex flex-wrap gap-1.5">
@@ -83,7 +100,7 @@ export function BochurimPanel({ data }: { data: AppData }) {
           })}
         </ul>
       ) : (
-        <p className="mt-2 text-sm text-muted-foreground">No bochurim yet. When a Cora Connect admin approves a bochur for you, he shows up here for your approval.</p>
+        <p className="mt-2 text-sm text-muted-foreground">No bochurim yet.{admin ? "" : " When a Cora Connect admin approves a bochur for you, he shows up here for your approval."}</p>
       )}
     </section>
   );

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.8.16
+- Saved routes: a "Plan a trip" button. "Delete all" is gone. Tick routes (on phones, tap Select first) and use "Delete selected (N)"; it asks first and lists the route names. There is no select-all. The main buttons are all the same green.
+- Reports: the Scheduled column is gone. A new Visited column shows the projects each contact was visited for (completed visits), and it's in the download too.
+- My Team: the Bochurim section always shows for admins ("No bochurim yet" when empty), with each bochur's status, expiry, Extend/Disable, and the shliach he is under. Admins can change his shliach.
+- Dashboard for shluchim and bochurim: "New contacts per project" and "Visits per project" cards with a project picker (All or one project), remembered on this device. The households-added, visits-this-month, routes and team cards, Quick actions and Top categories are gone.
+- Dashboard for Cora Connect admins: the same two cards with Project and State filters, plus a breakdown table (states × projects, or flipped) for visits or new contacts, with totals. Tap a number to set the filters.
+- Navigation: "More" is gone. Dashboard is in the side bar and the phone bar. Reports, My Team, Users, Settings and Log out are in a "More" box at the bottom of the Dashboard; Settings is also in the side bar. Bochurim get Reports and Settings in their phone bar.
+- The bell and the gear are gone from the top bar.
+- Only admins see the version and "Updated" time.
+- Settings: the Categories, Projects and Custom fields tabs are gone (nothing was deleted). Organization and Chabad House name are now one field: "Chabad of [state]" (admins can pick Cora). Log out is on the Account tab.
+- The side bar logo has a clear background now.
+
 ## 1.8.15
 - New "Plan a trip" (Saved routes → Plan a trip): pick cities (sorted by distance, plus nearby stops within a slider distance), 1–5 days with dates, a start place (the Chabad House or the last place you used, or type one), return to start, minutes per visit, and a start or finish time per day.
 - Add extra stops or events (like a menorah lighting) with an address and an optional fixed time and day. The day is planned around the fixed time.

@@ -402,11 +402,6 @@ export async function removeRoute(id: string) {
   await done(await supabase.from("routes").delete().eq("id", id).select("id"), "Delete route");
 }
 
-export async function removeAllRoutes(orgId: string) {
-  const supabase = await createClient();
-  await done(await supabase.from("routes").delete().eq("org_id", orgId).select("id"), "Delete routes");
-}
-
 export async function writeOrganization(org: Organization) {
   const supabase = await createClient();
   await done(

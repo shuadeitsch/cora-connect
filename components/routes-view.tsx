@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, ListChecks, Map as MapIcon, MoreHorizontal, Pencil, Search } from "lucide-react";
+import { Building2, CalendarRange, ListChecks, Map as MapIcon, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
 import { RouteCities } from "@/components/route-cities";
 import { RouteQuickEdit } from "@/components/route-quick-edit";
 import { CityRouteDialog, PickContactsDialog } from "@/components/create-route";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { deleteAllRoutesAction, deleteRouteAction } from "@/lib/actions";
+import { deleteRouteAction, deleteRoutesAction } from "@/lib/actions";
 import { formatDots } from "@/lib/format";
 import type { AppData } from "@/lib/types";
 
@@ -37,6 +37,22 @@ export function RoutesView({ data }: { data: AppData }) {
   const safe = Math.min(page, pages);
   const slice = rows.slice((safe - 1) * pageSize, safe * pageSize);
 
+  const [selecting, setSelecting] = useState(false);
+  const chosen = data.routes.filter((route) => selected.includes(route.id));
+  function toggle(id: string, on: boolean) {
+    setSelected((list) => (on ? [...new Set([...list, id])] : list.filter((item) => item !== id)));
+  }
+  function removeSelected() {
+    if (!chosen.length) return;
+    const names = chosen.map((route) => `• ${route.name}`).join("\n");
+    if (!confirm(`Delete ${chosen.length} route${chosen.length === 1 ? "" : "s"}? This can't be undone.\n\n${names}`)) return;
+    start(async () => {
+      const result = await deleteRoutesAction(chosen.map((route) => route.id));
+      if (!result.ok) setError(result.error);
+      else { setSelected([]); setSelecting(false); router.refresh(); }
+    });
+  }
+
   function remove(id: string) {
     if (!confirm("Delete this route?")) return;
     start(async () => {
@@ -56,27 +72,10 @@ export function RoutesView({ data }: { data: AppData }) {
           {data.viewer.canCreateRoute ? (
             <>
               <Button className="rounded-full" onClick={() => router.push("/saved-routes/new")}><MapIcon className="size-4" /> Build on map</Button>
-              <Button variant="outline" className="rounded-full" onClick={() => setPicking(true)}><ListChecks className="size-4" /> Pick contacts</Button>
-              <Button variant="outline" className="rounded-full" onClick={() => setByCity(true)}><Building2 className="size-4" /> New route by city</Button>
+              <Button className="rounded-full" onClick={() => setPicking(true)}><ListChecks className="size-4" /> Pick contacts</Button>
+              <Button className="rounded-full" onClick={() => setByCity(true)}><Building2 className="size-4" /> New route by city</Button>
+              <Button className="rounded-full" onClick={() => router.push("/saved-routes/plan")}><CalendarRange className="size-4" /> Plan a trip</Button>
             </>
-          ) : null}
-          {data.viewer.canDeleteRoute && data.routes.length ? (
-            <Button
-              variant="outline"
-              className="rounded-full text-red-600"
-              disabled={pending}
-              onClick={() => {
-                const count = data.routes.length;
-                if (!confirm(`Delete all ${count} saved route${count === 1 ? "" : "s"} for everyone? This can't be undone.`)) return;
-                start(async () => {
-                  const result = await deleteAllRoutesAction();
-                  if (!result.ok) setError(result.error);
-                  else router.refresh();
-                });
-              }}
-            >
-              Delete all
-            </Button>
           ) : null}
           </div>
         }
@@ -98,12 +97,20 @@ export function RoutesView({ data }: { data: AppData }) {
             </select>
             of {rows.length} entries
           </p>
+          {data.viewer.canDeleteRoute && data.routes.length ? (
+            <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+              <Button type="button" variant="outline" className="min-h-10 rounded-full md:hidden" onClick={() => { setSelecting(!selecting); if (selecting) setSelected([]); }}>{selecting ? "Done" : "Select"}</Button>
+              {chosen.length ? (
+                <Button type="button" variant="outline" className="min-h-10 rounded-full border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300" disabled={pending} onClick={removeSelected}><Trash2 className="size-4" /> Delete selected ({chosen.length})</Button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="hidden md:block">
           <table className="w-full text-left text-[13px]">
             <thead className="text-[11px] tracking-wide text-mutedink uppercase">
               <tr className="border-b">
-                <th className="w-10 px-3 py-2"><Checkbox checked={slice.length > 0 && slice.every((row) => selected.includes(row.id))} onCheckedChange={(value) => setSelected(value ? slice.map((row) => row.id) : [])} aria-label="Select page" /></th>
+                {data.viewer.canDeleteRoute ? <th className="w-10 px-3 py-2"><span className="sr-only">Select</span></th> : null}
                 <th className="px-2 py-2 font-medium">Route name</th>
                 <th className="px-2 py-2 font-medium">Project</th>
                 <th className="px-2 py-2 font-medium">Creating date</th>
@@ -113,7 +120,7 @@ export function RoutesView({ data }: { data: AppData }) {
             <tbody>
               {slice.map((route) => (
                 <tr key={route.id} className="border-b last:border-0">
-                  <td className="px-3 py-2"><Checkbox checked={selected.includes(route.id)} onCheckedChange={(value) => setSelected(value ? [...selected, route.id] : selected.filter((id) => id !== route.id))} aria-label={route.name} /></td>
+                  {data.viewer.canDeleteRoute ? <td className="px-3 py-2"><Checkbox checked={selected.includes(route.id)} onCheckedChange={(value) => toggle(route.id, Boolean(value))} aria-label={`Select ${route.name}`} /></td> : null}
                   <td className="px-2 py-2">
                     <Link href={`/saved-routes/${route.id}`} className="font-semibold text-foreground hover:text-link">{route.name}</Link>
                     <div className="text-[11px] text-mutedink">{route.stopCount} stops{route.optimized ? " · optimized" : ""}{route.miles != null ? ` · ${route.miles} mi` : ""}</div>
@@ -143,6 +150,7 @@ export function RoutesView({ data }: { data: AppData }) {
         <div className="divide-y md:hidden">
           {slice.map((route) => (
             <div key={route.id} className="flex items-center gap-2 px-3 py-2">
+              {selecting ? <Checkbox className="size-5" checked={selected.includes(route.id)} onCheckedChange={(value) => toggle(route.id, Boolean(value))} aria-label={`Select ${route.name}`} /> : null}
               <div className="min-w-0 flex-1 py-1">
                 <Link href={`/saved-routes/${route.id}`} className="block">
                   <p className="font-semibold text-foreground">{route.name}</p>

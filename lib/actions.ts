@@ -12,7 +12,7 @@ import {
   startGoogleSignIn,
 } from "@/lib/auth";
 import {
-  deleteAllRoutes,
+  deleteRoutes,
   deleteCategory,
   deleteCustomField,
   applyUndo,
@@ -222,10 +222,10 @@ export async function deleteRouteAction(id: string) {
   return refresh(await deleteRoute(user, id));
 }
 
-export async function deleteAllRoutesAction() {
+export async function deleteRoutesAction(ids: string[]) {
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
-  return refresh(await deleteAllRoutes(user));
+  return refresh(await deleteRoutes(user, ids));
 }
 
 export async function saveMemberAction(input: MemberInput) {

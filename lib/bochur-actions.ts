@@ -51,6 +51,16 @@ export async function disableBochurAction(id: string) {
   return updateBochur(id, { status: "disabled" }, "Couldn't disable his access.");
 }
 
+/** Admins only: set or change the shliach a bochur is under. */
+export async function setBochurShliachAction(id: string, shliachId: string): Promise<Result> {
+  const user = await who();
+  if (!user || user.role !== "admin") return { ok: false, error: "Only a Cora Connect admin can change his shliach." };
+  const supabase = await createClient();
+  const { data: shliach } = await supabase.from("profiles").select("id").eq("id", shliachId).eq("role", "shliach").maybeSingle();
+  if (!shliach) return { ok: false, error: "Pick a shliach." };
+  return updateBochur(id, { leader_id: shliachId }, "Couldn't change his shliach.");
+}
+
 /** Share or unshare many contacts with one bochur. */
 export async function shareWithBochurAction(householdIds: string[], bochurId: string, share: boolean): Promise<Result> {
   const user = await who();

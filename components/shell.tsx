@@ -4,20 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  Bell,
   CalendarDays,
   ClipboardList,
   House,
   LayoutGrid,
   LogOut,
   Map,
-  MoreHorizontal,
   MessageSquareText,
   Route,
   Search,
   Settings,
-  ShieldCheck,
-  Users,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { CommandPalette, type PaletteHousehold } from "@/components/command-palette";
@@ -25,8 +21,7 @@ import { ReloadButton } from "@/components/reload-button";
 import { VersionBadge } from "@/components/version-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { logoutAction, readNotificationsAction } from "@/lib/actions";
+import { logoutAction } from "@/lib/actions";
 import { scopeLabel } from "@/lib/constants";
 import { useViewingState } from "@/lib/viewing-state";
 import { formatMedium } from "@/lib/format";
@@ -38,18 +33,21 @@ const PRIMARY: { href: string; label: string; short?: string; icon: typeof House
   { href: "/map", label: "Map", icon: Map },
   { href: "/saved-routes", label: "Routes", icon: Route },
   { href: "/planner", label: "Daily planner", short: "Planner", icon: CalendarDays },
-  { href: "/users", desktopOnly: true, label: "Users", icon: ShieldCheck, adminOnly: true },
+  { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutGrid },
+];
+
+/** Sidebar only (phone reaches Settings from the Dashboard's More section). */
+const SIDEBAR_EXTRA: typeof PRIMARY = [{ href: "/settings", label: "Settings", icon: Settings, desktopOnly: true }];
+
+/** A bochur has no Dashboard, so his few extra pages sit in the bar itself. */
+const BOCHUR_EXTRA: typeof PRIMARY = [
+  { href: "/reports", label: "Reports", icon: ClipboardList },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 /** A bochur only works with contacts shared with him. */
 const BOCHUR_HIDDEN = new Set(["/planner", "/team", "/dashboard"]);
 
-const MORE_NAV: { href: string; label: string; icon: typeof House; adminOnly?: boolean }[] = [
-  { href: "/reports", label: "Reports", icon: ClipboardList },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/team", label: "My Team", icon: Users },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
 
 function NavLinks({
   items,
@@ -92,26 +90,22 @@ function NavLinks({
 
 export function Shell({
   viewer,
-  notifications,
   households,
   children,
 }: {
   viewer: Viewer;
-  notifications: AppNotificationView[];
+  /** Still passed by the layout; the bell is gone from the toolbar. */
+  notifications?: AppNotificationView[];
   households: PaletteHousehold[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [more, setMore] = useState(false);
   const viewingState = useViewingState();
   const [search, setSearch] = useState(false);
-  const unread = notifications.filter((note) => !note.read).length;
   const mapPage = pathname.startsWith("/map") || pathname === "/saved-routes/new";
-  const primary = PRIMARY.filter((item) => (viewer.canManage || !item.adminOnly) && !item.desktopOnly && !(viewer.role === "bochur" && BOCHUR_HIDDEN.has(item.href)));
-
-  useEffect(() => {
-    setMore(false);
-  }, [pathname]);
+  const bochur = viewer.role === "bochur";
+  const navItems = bochur ? [...PRIMARY, ...BOCHUR_EXTRA] : [...PRIMARY, ...SIDEBAR_EXTRA];
+  const primary = navItems.filter((item) => (viewer.canManage || !item.adminOnly) && !item.desktopOnly && !(bochur && BOCHUR_HIDDEN.has(item.href)));
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -134,7 +128,7 @@ export function Shell({
             <img src="/brand/cora-logo.png" alt="Cora" className="h-10 w-auto max-w-[9.5rem] object-contain object-left sm:h-11 sm:max-w-[13rem]" />
           </Link>
           <div className="flex w-full min-w-0 flex-wrap items-center gap-1">
-            <VersionBadge className="min-w-0 flex-1" />
+            {viewer.role === "admin" ? <VersionBadge className="min-w-0 flex-1" /> : null}
             <ReloadButton />
           </div>
         </div>
@@ -172,44 +166,6 @@ export function Shell({
               </div>
             </PopoverContent>
           </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
-                className="relative inline-flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted"
-                onClick={() => {
-                  if (unread) void readNotificationsAction();
-                }}
-              >
-                <Bell className="size-[18px]" />
-                {unread ? (
-                  <span className="absolute top-1.5 right-1.5 min-w-4 rounded-full bg-[#e11d48] px-1 text-center text-[10px] leading-4 font-semibold text-white">
-                    {unread}
-                  </span>
-                ) : null}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-0">
-              <div className="border-b px-3 py-2 font-heading text-sm font-semibold text-foreground">Notifications</div>
-              <div className="max-h-80 overflow-auto">
-                {notifications.length ? (
-                  notifications.map((note) => (
-                    <div key={note.id} className="border-b px-3 py-2 last:border-0">
-                      <p className="text-sm font-medium text-foreground">{note.title}</p>
-                      <p className="text-xs text-muted-foreground">{note.body}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">{formatMedium(note.createdAt)}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="px-3 py-6 text-sm text-muted-foreground">You&apos;re caught up.</p>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-          <Link href="/settings" aria-label="Settings" className="hidden size-11 items-center justify-center rounded-full text-foreground hover:bg-muted lg:inline-flex">
-            <Settings className="size-[18px]" />
-          </Link>
           <form action={logoutAction} className="hidden lg:block">
             <button type="submit" aria-label="Log out" className="inline-flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted">
               <LogOut className="size-[18px]" />
@@ -220,13 +176,11 @@ export function Shell({
       <div className="flex min-h-0 flex-1">
         <aside className="glass mx-3 my-3 hidden w-[220px] shrink-0 flex-col rounded-3xl py-4 lg:flex">
           <Link href="/households" className="mb-3 block w-full px-2">
-            {/* The side bar mark is the Cora Connect logo photo. next/image is not configured for it. */}
+            {/* The side bar mark is the Cora Connect logo with a clear background (old map photo kept at public/crm-logo.jpeg). next/image is not configured for it. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/crm-logo.jpeg" alt="Cora Connect" className="block h-auto w-full object-contain" />
+            <img src="/brand/cora-connect-logo.png" alt="Cora Connect" className="block h-auto w-full object-contain dark:brightness-0 dark:invert" />
           </Link>
-          <NavLinks items={PRIMARY} canManage={viewer.canManage} bochur={viewer.role === "bochur"} />
-          <p className="mt-4 px-5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">More</p>
-          <NavLinks items={MORE_NAV} canManage={viewer.canManage} bochur={viewer.role === "bochur"} />
+          <NavLinks items={navItems} canManage={viewer.canManage} bochur={bochur} />
           <Link href="/settings?tab=account" className="mx-3 mt-auto flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
             <Avatar name={viewer.name} className="size-9" />
             <span className="min-w-0">
@@ -235,20 +189,6 @@ export function Shell({
             </span>
           </Link>
         </aside>
-        <Sheet open={more} onOpenChange={setMore}>
-          <SheetContent side="bottom" className="rounded-t-3xl pb-6">
-            <SheetTitle className="sr-only">More</SheetTitle>
-            <div className="px-2 pt-2">
-              <NavLinks items={[...PRIMARY.filter((item) => item.desktopOnly), ...MORE_NAV]} canManage={viewer.canManage} bochur={viewer.role === "bochur"} onNavigate={() => setMore(false)} />
-              <form action={logoutAction} className="px-3 pt-2">
-                <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-2xl px-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
-                  <span className="flex size-8 items-center justify-center rounded-xl"><LogOut className="size-4" /></span>
-                  Log out
-                </button>
-              </form>
-            </div>
-          </SheetContent>
-        </Sheet>
         <div className="flex min-w-0 flex-1 flex-col">
           {viewer.expired ? (
             <div className="mx-3 mt-3 rounded-2xl bg-amber-100 px-4 py-2 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">
@@ -264,7 +204,7 @@ export function Shell({
           </main>
         </div>
       </div>
-      <nav className="glass fixed inset-x-3 z-40 grid rounded-3xl px-1 py-1 bottom-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden" style={{ gridTemplateColumns: `repeat(${primary.length + 1}, minmax(0, 1fr))` }}>
+      <nav className="glass fixed inset-x-3 z-40 grid rounded-3xl px-1 py-1 bottom-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden" style={{ gridTemplateColumns: `repeat(${primary.length}, minmax(0, 1fr))` }}>
         {primary.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
@@ -275,10 +215,6 @@ export function Shell({
             </Link>
           );
         })}
-        <button type="button" onClick={() => setMore(true)} className="flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium text-muted-foreground">
-          <MoreHorizontal className="size-5" />
-          More
-        </button>
       </nav>
       <CommandPalette open={search} onOpenChange={setSearch} households={households} canManage={viewer.canManage} />
     </div>

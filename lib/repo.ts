@@ -17,7 +17,6 @@ import {
   setBochurAdminApproval,
   markAllRead,
   patchHousehold,
-  removeAllRoutes,
   removeCategory,
   removeField,
   removeHousehold,
@@ -685,18 +684,16 @@ export async function deleteRoute(actor: User, id: string): Promise<ActionResult
   }
 }
 
-export async function deleteAllRoutes(actor: User): Promise<ActionResult> {
-  try {
-    assert(perms(actor).canDeleteRoute, "Only an admin can delete routes.");
-    if (isSupabaseMode()) await removeAllRoutes(actor.orgId);
-    else applyDemo((draft) => {
-      draft.routes = [];
-      for (const user of draft.users) user.assignedRouteIds = [];
-    });
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Could not delete routes." };
+/** Delete the routes picked one by one. There is no "delete all"; each id is named. */
+export async function deleteRoutes(actor: User, ids: string[]): Promise<ActionResult> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (!unique.length) return { ok: false, error: "Pick the routes to delete." };
+  if (unique.length > 200) return { ok: false, error: "Pick fewer routes at a time." };
+  for (const id of unique) {
+    const result = await deleteRoute(actor, id);
+    if (!result.ok) return result;
   }
+  return { ok: true };
 }
 
 export async function saveMember(actor: User, input: MemberInput): Promise<ActionResult> {

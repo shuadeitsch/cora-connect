@@ -1,13 +1,9 @@
 import Link from "next/link";
-import {
-  CalendarPlus,
-  HousePlus,
-  Map as MapIcon,
-  Route,
-  Upload,
-  UserPlus,
-} from "lucide-react";
+import { ClipboardList, LogOut, Settings, ShieldCheck, Users } from "lucide-react";
+import { logoutAction } from "@/lib/actions";
 import { Greeting } from "@/components/greeting";
+import { AdminBreakdown } from "@/components/admin-breakdown";
+import { ContactsPerProject, VisitsPerProject } from "@/components/visits-per-project";
 import { REACTIONS, reactionMeta, statusMeta } from "@/lib/constants";
 import { formatMedium } from "@/lib/format";
 import type { AppData } from "@/lib/types";
@@ -28,36 +24,14 @@ export function DashboardHome({ data }: { data: AppData }) {
     <div className="space-y-4 p-3 sm:p-6">
       <Greeting name={viewer.name} />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat
-          label="Households"
-          value={stats.householdCount.toLocaleString()}
-          hint={`+${stats.householdsThisMonth} this month`}
-          href="/households"
-          link="View all"
-        />
-        <Stat
-          label="Visits this month"
-          value={String(stats.visitsThisMonth)}
-          hint={stats.visitsThisMonth ? "Logged this month" : "No visits this month — log one"}
-          href="/reports"
-          link="View report"
-        />
-        <Stat
-          label="Routes"
-          value={String(stats.routeCount)}
-          hint={`${stats.optimizedRoutes} optimized · ${stats.stopCount} stops`}
-          href="/saved-routes"
-          link="View routes"
-        />
-        <Stat
-          label="Team"
-          value={String(stats.teamCount)}
-          hint={`${stats.roleCounts.admin} Cora Connect admin · ${stats.roleCounts.shliach} shliach · ${stats.roleCounts.visitor} visitor`}
-          href="/team"
-          link="Manage team"
-        />
-      </section>
+      {viewer.role === "admin" ? (
+        <AdminBreakdown data={data} />
+      ) : (
+        <section className="grid gap-3 sm:grid-cols-2">
+          <ContactsPerProject data={data} />
+          <VisitsPerProject data={data} />
+        </section>
+      )}
 
       <section className="grid gap-3 xl:grid-cols-3">
         <div className="panel rounded-3xl p-4 xl:col-span-2">
@@ -104,19 +78,8 @@ export function DashboardHome({ data }: { data: AppData }) {
         </div>
       </section>
 
-      <section className="panel rounded-3xl p-4">
-        <h2 className="font-heading text-xl font-semibold text-foreground">Quick actions</h2>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <Quick href="/households?new=1" icon={HousePlus} label="Add household" />
-          <Quick href="/reports?new=1" icon={CalendarPlus} label="Record visit" />
-          <Quick href="/households?import=1" icon={Upload} label="Import CSV" />
-          <Quick href="/map" icon={Route} label="Create route" />
-          <Quick href="/team?invite=1" icon={UserPlus} label="Invite member" />
-          <Quick href="/map" icon={MapIcon} label="View map" />
-        </div>
-      </section>
 
-      <section className="grid gap-3 lg:grid-cols-3">
+      <section className="grid gap-3 lg:grid-cols-2">
         <div className="panel rounded-3xl p-4">
           <div className="flex items-center justify-between">
             <h2 className="font-heading text-xl font-semibold text-foreground">Recent visits</h2>
@@ -169,68 +132,28 @@ export function DashboardHome({ data }: { data: AppData }) {
           )}
         </div>
 
-        <div className="panel rounded-3xl p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-foreground">Top categories</h2>
-            <Link href="/settings?tab=categories" className="text-sm text-primary">Manage</Link>
-          </div>
-          <ul className="mt-3 space-y-2">
-            {stats.topCategories.slice(0, 5).map((category) => (
-              <li key={category.name} className="flex items-center justify-between text-sm">
-                <span className="text-foreground">{category.name}</span>
-                <span className="font-medium text-muted-foreground tabular-nums">{category.count}</span>
-              </li>
-            ))}
-            {stats.topCategories.length > 5 ? (
-              <li className="text-xs text-muted-foreground">+{stats.topCategories.length - 5} more</li>
-            ) : null}
-          </ul>
-        </div>
       </section>
 
+      <section className="panel rounded-3xl p-4" aria-label="More">
+        <h2 className="font-heading text-lg font-semibold text-foreground">More</h2>
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <MoreLink href="/reports" icon={ClipboardList} label="Reports" />
+          <MoreLink href="/team" icon={Users} label="My Team" />
+          {viewer.canManage ? <MoreLink href="/users" icon={ShieldCheck} label="Users" /> : null}
+          <MoreLink href="/settings" icon={Settings} label="Settings" />
+          <form action={logoutAction}>
+            <button type="submit" className="flex min-h-12 w-full items-center gap-2 rounded-2xl border border-border bg-background/40 px-3 text-sm font-medium text-muted-foreground hover:bg-muted"><LogOut className="size-4" /> Log out</button>
+          </form>
+        </div>
+      </section>
     </div>
   );
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-  href,
-  link,
-  bar,
-  barLabel,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  href: string;
-  link: string;
-  bar?: number;
-  barLabel?: string;
-}) {
+function MoreLink({ href, icon: Icon, label }: { href: string; icon: typeof Users; label: string }) {
   return (
-    <div className="panel rounded-3xl p-4 transition duration-200 hover:-translate-y-0.5">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="font-heading text-4xl font-semibold text-foreground tabular-nums">{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-      {bar != null ? (
-        <>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${bar}%` }} />
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">{barLabel}</p>
-        </>
-      ) : null}
-      <Link href={href} className="mt-2 inline-flex min-h-10 items-center text-sm text-primary">{link}</Link>
-    </div>
-  );
-}
-
-function Quick({ href, icon: Icon, label }: { href: string; icon: typeof MapIcon; label: string }) {
-  return (
-    <Link href={href} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-background/40 px-2 py-3 text-center text-xs font-medium text-foreground transition hover:bg-muted active:scale-[0.98]">
-      <Icon className="size-5 text-primary" />
+    <Link href={href} className="flex min-h-12 items-center gap-2 rounded-2xl border border-border bg-background/40 px-3 text-sm font-medium text-foreground hover:bg-muted">
+      <Icon className="size-4 text-primary" />
       {label}
     </Link>
   );

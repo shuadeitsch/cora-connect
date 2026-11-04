@@ -1,28 +1,19 @@
 "use client";
 
-import { UNSORTED_PROJECT } from "@/lib/constants";
-import { useState, useTransition, type FormEvent } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  deleteCategoryAction,
-  deleteFieldAction,
-  saveCategoryAction,
-  saveFieldAction,
-  saveOrganizationAction,
-} from "@/lib/actions";
+import { logoutAction, saveOrganizationAction } from "@/lib/actions";
 import { geocodeAddress } from "@/lib/geo";
 import { AccountPassword } from "@/components/account-password";
-import type { AppData, CategoryKind, FieldType, OrgInput } from "@/lib/types";
-
-const field = "h-10 w-full rounded-lg border border-input bg-card px-3 text-sm";
+import type { AppData, OrgInput } from "@/lib/types";
 
 export function SettingsView({ data, initialTab, recovery }: { data: AppData; initialTab: string; recovery: boolean }) {
-  const allowed = ["house", "categories", "projects", "fields", "account"];
+  const allowed = ["house", "account"];
   const tab = allowed.includes(initialTab) ? initialTab : "house";
   return (
     <div className="p-4 sm:p-6">
@@ -33,29 +24,42 @@ export function SettingsView({ data, initialTab, recovery }: { data: AppData; in
       <Tabs key={tab} defaultValue={tab}>
         <TabsList className="mb-4 h-auto flex-wrap bg-card">
           <TabsTrigger value="house">Chabad House</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="fields">Custom fields</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
-        <TabsContent value="categories"><Categories data={data} /></TabsContent>
-        <TabsContent value="projects"><Projects data={data} /></TabsContent>
-        <TabsContent value="fields"><Fields data={data} /></TabsContent>
         <TabsContent value="account">
           <AccountPassword name={data.viewer.name} email={data.viewer.email} recovery={recovery} />
+          <form action={logoutAction} className="mt-4">
+            <Button type="submit" variant="outline" className="min-h-11 rounded-full">Log out</Button>
+          </form>
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
+const HOUSE_STATES = ["Maine", "New Hampshire", "Wisconsin"];
+const STATE_CODES: Record<string, string> = { ME: "Maine", NH: "New Hampshire", WI: "Wisconsin" };
+
+/** Read the stored name into the new one-field form. Unknown old text maps to Cora (admin) or his state. */
+function houseValue(stored: string, admin: boolean, states: string[]) {
+  const text = stored.trim();
+  if (text === "Cora") return "Cora";
+  const hit = HOUSE_STATES.find((name) => text.toLowerCase() === `chabad of ${name}`.toLowerCase() || text.toLowerCase() === name.toLowerCase());
+  if (hit) return `Chabad of ${hit}`;
+  const mine = states.map((code) => STATE_CODES[code.toUpperCase()] ?? HOUSE_STATES.find((name) => name.toLowerCase() === code.toLowerCase())).find(Boolean);
+  if (!admin && mine) return `Chabad of ${mine}`;
+  return admin ? "Cora" : `Chabad of ${HOUSE_STATES[0]}`;
+}
+
 function HouseForm({ data }: { data: AppData }) {
   const router = useRouter();
   const org = data.org;
+  const admin = data.viewer.role === "admin";
   const [form, setForm] = useState<OrgInput>({
     name: org.name,
-    chabadHouseName: org.chabadHouseName,
+    // One field now: "Chabad of <state>" (or "Cora"). The old Organization name stays stored as is.
+    chabadHouseName: houseValue(org.chabadHouseName, admin, data.viewer.territory.map((row) => row.state)),
     street: org.street,
     city: org.city,
     state: org.state,
@@ -69,6 +73,8 @@ function HouseForm({ data }: { data: AppData }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+
+  const house = form.chabadHouseName === "Cora" ? "Cora" : HOUSE_STATES.find((name) => form.chabadHouseName === `Chabad of ${name}`) ?? (admin ? "Cora" : HOUSE_STATES[0]);
 
   function set<K extends keyof OrgInput>(key: K, value: OrgInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -91,8 +97,16 @@ function HouseForm({ data }: { data: AppData }) {
         });
       }}
     >
-      <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Organization</span><Input value={form.name} onChange={(event) => set("name", event.target.value)} /></label>
-      <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Chabad House name</span><Input value={form.chabadHouseName} onChange={(event) => set("chabadHouseName", event.target.value)} /></label>
+      <label className="grid gap-1 text-sm">
+        <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Chabad House</span>
+        <span className="flex items-center gap-2">
+          {house !== "Cora" ? <span className="font-medium text-foreground">Chabad of</span> : null}
+          <select aria-label="Chabad House state" className="h-10 rounded-lg border border-input bg-card px-3 text-sm" value={house} onChange={(event) => set("chabadHouseName", event.target.value === "Cora" ? "Cora" : `Chabad of ${event.target.value}`)}>
+            {admin ? <option value="Cora">Cora (all states)</option> : null}
+            {HOUSE_STATES.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </span>
+      </label>
       <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Street</span><Input value={form.street} onChange={(event) => set("street", event.target.value)} /></label>
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">City</span><Input value={form.city} onChange={(event) => set("city", event.target.value)} /></label>
@@ -140,161 +154,3 @@ function HouseForm({ data }: { data: AppData }) {
     </form>
   );
 }
-
-function Categories({ data }: { data: AppData }) {
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [kind, setKind] = useState<CategoryKind>("regular");
-  const [intervalDays, setIntervalDays] = useState("60");
-  const [error, setError] = useState("");
-  const [pending, start] = useTransition();
-  const regular = data.categories.filter((category) => category.kind === "regular");
-  const scheduled = data.categories.filter((category) => category.kind === "scheduled");
-
-  function add(event: FormEvent) {
-    event.preventDefault();
-    start(async () => {
-      const result = await saveCategoryAction({ name, kind, intervalDays });
-      if (!result.ok) setError(result.error);
-      else {
-        setName("");
-        setError("");
-        router.refresh();
-      }
-    });
-  }
-
-  function remove(id: string) {
-    if (!confirm("Delete this category? Households keep their other data.")) return;
-    start(async () => {
-      const result = await deleteCategoryAction(id);
-      if (!result.ok) setError(result.error);
-      else router.refresh();
-    });
-  }
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <CategoryList title="Regular categories" rows={regular.map((category) => ({ id: category.id, label: category.name }))} onDelete={data.viewer.canManage ? remove : undefined} />
-      <CategoryList title="Visit schedule" rows={scheduled.map((category) => ({ id: category.id, label: category.intervalDays ? `${category.name} · every ${category.intervalDays} days` : category.name }))} onDelete={data.viewer.canManage ? remove : undefined} />
-      {data.viewer.canManage ? (
-        <form className="grid gap-2 panel rounded-3xl p-4 lg:col-span-2" onSubmit={add}>
-          <h2 className="font-heading text-lg font-semibold text-foreground">Add a category</h2>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Honey cake" required />
-            <select className={field} value={kind} onChange={(event) => setKind(event.target.value as CategoryKind)}>
-              <option value="regular">Regular</option>
-              <option value="scheduled">Scheduled</option>
-            </select>
-            {kind === "scheduled" ? <Input value={intervalDays} onChange={(event) => setIntervalDays(event.target.value)} type="number" min={1} placeholder="Days between visits" /> : <span />}
-          </div>
-          {error ? <Notice>{error}</Notice> : null}
-          <Button type="submit" className="w-fit rounded-full" disabled={pending}>{pending ? "Saving…" : "Add category"}</Button>
-        </form>
-      ) : null}
-    </div>
-  );
-}
-
-function CategoryList({ title, rows, onDelete }: { title: string; rows: { id: string; label: string }[]; onDelete?: (id: string) => void }) {
-  return (
-    <section className="panel rounded-3xl p-4">
-      <h2 className="font-heading text-lg font-semibold text-foreground">{title}</h2>
-      <ul className="mt-2 divide-y">
-        {rows.map((row) => (
-          <li key={row.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-            <span>{row.label}</span>
-            {onDelete ? <button type="button" className="text-xs text-red-600" onClick={() => onDelete(row.id)}>Delete</button> : null}
-          </li>
-        ))}
-        {!rows.length ? <li className="py-4 text-sm text-mutedink">None yet.</li> : null}
-      </ul>
-    </section>
-  );
-}
-
-function Projects({ data }: { data: AppData }) {
-  const rows = [...data.projects.map((project) => project.name), UNSORTED_PROJECT];
-  return (
-    <section className="max-w-xl panel rounded-3xl p-4">
-      <h2 className="font-heading text-lg font-semibold text-foreground">Projects</h2>
-      <ul className="mt-3 divide-y">
-        {rows.map((name) => (
-          <li key={name} className="py-2 text-sm text-foreground">
-            {name}
-            {name === UNSORTED_PROJECT ? <span className="ml-2 text-xs text-mutedink">no project</span> : null}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function Fields({ data }: { data: AppData }) {
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [fieldType, setFieldType] = useState<FieldType>("text");
-  const [options, setOptions] = useState("");
-  const [error, setError] = useState("");
-  const [pending, start] = useTransition();
-  return (
-    <section className="max-w-xl panel rounded-3xl p-4">
-      <h2 className="font-heading text-lg font-semibold text-foreground">Custom fields</h2>
-      <p className="text-sm text-mutedink">Extra facts that show up on every household, such as a mezuzah check or a preferred language.</p>
-      <ul className="mt-3 divide-y">
-        {data.customFields.map((item) => (
-          <li key={item.id} className="flex items-center justify-between py-2 text-sm">
-            <span>{item.name} <span className="text-mutedink">· {item.fieldType}{item.options.length ? ` (${item.options.join(", ")})` : ""}</span></span>
-            {data.viewer.canManage ? (
-              <button
-                type="button"
-                className="text-xs text-red-600"
-                onClick={() => {
-                  if (!confirm(`Delete ${item.name}?`)) return;
-                  start(async () => {
-                    const result = await deleteFieldAction(item.id);
-                    if (!result.ok) setError(result.error);
-                    else router.refresh();
-                  });
-                }}
-              >
-                Delete
-              </button>
-            ) : null}
-          </li>
-        ))}
-        {!data.customFields.length ? <li className="py-3 text-sm text-mutedink">No custom fields yet.</li> : null}
-      </ul>
-      {data.viewer.canManage ? (
-        <form
-          className="mt-3 grid gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            start(async () => {
-              const result = await saveFieldAction({ name, fieldType, options });
-              if (!result.ok) setError(result.error);
-              else {
-                setName("");
-                setOptions("");
-                setError("");
-                router.refresh();
-              }
-            });
-          }}
-        >
-          <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Field name" required />
-          <select className={field} value={fieldType} onChange={(event) => setFieldType(event.target.value as FieldType)}>
-            <option value="text">Text</option>
-            <option value="number">Number</option>
-            <option value="date">Date</option>
-            <option value="select">Choices</option>
-          </select>
-          {fieldType === "select" ? <Input value={options} onChange={(event) => setOptions(event.target.value)} placeholder="Yes, No, Ask again" /> : null}
-          {error ? <Notice>{error}</Notice> : null}
-          <Button type="submit" className="w-fit rounded-full" disabled={pending}>Add field</Button>
-        </form>
-      ) : null}
-    </section>
-  );
-}
-

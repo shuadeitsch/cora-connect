@@ -45,10 +45,22 @@ export function ReportsView({ data, startNew, householdId }: { data: AppData; st
   const safe = Math.min(page, pages);
   const slice = rows.slice((safe - 1) * pageSize, safe * pageSize);
 
+  // Projects each contact was visited for: completed contact visits (deleted ones aren't loaded), by project name.
+  const visitedFor = useMemo(() => {
+    const names = new Map(data.projects.map((project) => [project.name.trim().toLowerCase(), project.name]));
+    const map = new Map<string, string[]>();
+    for (const household of data.households) {
+      const list = [...new Set(household.contactVisits.filter((visit) => visit.status === "completed").map((visit) => names.get(visit.visited.trim().toLowerCase())).filter((name): name is string => Boolean(name)))];
+      list.sort((a, b) => b.localeCompare(a));
+      map.set(household.id, list);
+    }
+    return map;
+  }, [data.households, data.projects]);
+
   function download() {
     const csv = toCsv(
-      ["Household", "Date", "Status", "Reaction", "Details", "Visitor", "Schedule", "Categories"],
-      rows.map((visit) => [visit.householdName, visit.visitDate, visit.status ?? "", visit.reaction ?? "", visit.details, visit.visitorName, visit.scheduleName, visit.categoryNames.join("; ")]),
+      ["Household", "Date", "Status", "Reaction", "Details", "Visitor", "Visited", "Categories"],
+      rows.map((visit) => [visit.householdName, visit.visitDate, visit.status ?? "", visit.reaction ?? "", visit.details, visit.visitorName, (visitedFor.get(visit.householdId) ?? []).join("; "), visit.categoryNames.join("; ")]),
     );
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -110,7 +122,7 @@ export function ReportsView({ data, startNew, householdId }: { data: AppData; st
                 <th className="px-2 py-2 font-medium">Status</th>
                 <th className="px-2 py-2 font-medium">Reaction</th>
                 <th className="hidden px-2 py-2 font-medium xl:table-cell">Details</th>
-                <th className="hidden px-2 py-2 font-medium xl:table-cell">Scheduled</th>
+                <th className="px-2 py-2 font-medium">Visited</th>
                 <th className="hidden px-2 py-2 font-medium xl:table-cell">Categories</th>
                 <th className="px-2 py-2 font-medium" />
               </tr>
@@ -127,7 +139,7 @@ export function ReportsView({ data, startNew, householdId }: { data: AppData; st
                       {expanded === visit.id ? visit.details : visit.details.slice(0, 80)}
                       {visit.details.length > 80 ? <button type="button" className="ml-1 text-link" onClick={() => setExpanded(expanded === visit.id ? null : visit.id)}>{expanded === visit.id ? "less" : "more"}</button> : null}
                     </td>
-                    <td className="hidden px-2 py-2 xl:table-cell">{visit.scheduleName}</td>
+                    <td className="px-2 py-2"><VisitedChips names={visitedFor.get(visit.householdId) ?? []} /></td>
                     <td className="hidden px-2 py-2 xl:table-cell">{visit.categoryNames.join(", ") || "—"}</td>
                     <td className="px-2 py-2">
                       <div className="flex gap-1">
@@ -146,6 +158,7 @@ export function ReportsView({ data, startNew, householdId }: { data: AppData; st
             <button key={visit.id} type="button" className="block w-full px-3 py-3 text-left" onClick={() => { setEditing(visit); setOpen(true); }}>
               <p className="font-semibold text-foreground">{visit.householdName}</p>
               <p className="text-xs text-mutedink">{formatMedium(visit.visitDate)} · {statusMeta(visit.status).label} · {reactionMeta(visit.reaction)?.label ?? "No reaction"}</p>
+              <div className="mt-1"><VisitedChips names={visitedFor.get(visit.householdId) ?? []} /></div>
               {visit.details ? <p className="mt-1 text-sm">{visit.details}</p> : null}
             </button>
           ))}
@@ -167,5 +180,14 @@ export function ReportsView({ data, startNew, householdId }: { data: AppData; st
         canDelete={data.viewer.canManage}
       />
     </div>
+  );
+}
+
+function VisitedChips({ names }: { names: string[] }) {
+  if (!names.length) return <span className="text-mutedink">—</span>;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {names.map((name) => <span key={name} className="rounded-full bg-muted px-1.5 py-px text-[10px] leading-4 whitespace-nowrap text-muted-foreground ring-1 ring-foreground/5">{name}</span>)}
+    </span>
   );
 }
