@@ -117,6 +117,7 @@ export function MapView({ data }: { data: AppData }) {
         {phone ? (
           <div className="flex items-start justify-between gap-2 p-3">
             <div className="flex min-w-0 flex-wrap gap-2">
+              <span className="glass rounded-full px-3 py-2 text-xs text-muted-foreground">See all your contacts from a bird&apos;s-eye view.</span>
               {!filtersUnset ? <span className="glass rounded-full px-3 py-2 text-xs font-medium text-foreground">Filtered · {filtered.length}</span> : null}
               {status}
             </div>
@@ -131,6 +132,7 @@ export function MapView({ data }: { data: AppData }) {
           </div>
         ) : (
           <div className="pointer-events-auto m-3 flex flex-wrap items-center gap-2">
+            <span className="glass rounded-full px-3 py-2 text-xs text-muted-foreground">See all your contacts from a bird&apos;s-eye view.</span>
             {filterBar}
             {status}
           </div>

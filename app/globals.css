@@ -342,3 +342,40 @@
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
 }
+
+/* Color presets (Settings > Account > Theme). Only the accent and the background tint change,
+   so status and reaction chip colors keep their meaning. Text stays dark-on-light (AA). */
+[data-palette="ocean"] {
+  --background: #eef3f8; --card: #fbfdff; --popover: #fbfdff; --sidebar: #fbfdff;
+  --primary: #1d5fa8; --primary-foreground: #ffffff; --ring: #1d5fa8; --chart-1: #1d5fa8;
+  --accent: #e3edf8; --accent-foreground: #164a83; --sidebar-primary: #1d5fa8; --sidebar-ring: #1d5fa8;
+  --secondary: #e4ebf3; --muted: #e7edf4; --border: #d5dfea; --input: #d5dfea; --sidebar-accent: #e7edf4; --sidebar-border: #d5dfea;
+  --glass-bg: color-mix(in oklab, #fbfdff 74%, transparent); --glass-border: color-mix(in oklab, white 62%, #d5dfea);
+}
+[data-palette="sand"] {
+  --background: #f4ebdd; --card: #fffaf2; --popover: #fffaf2; --sidebar: #fffaf2;
+  --primary: #a4521c; --primary-foreground: #fffaf5; --ring: #a4521c; --chart-1: #a4521c;
+  --accent: #f6e7d8; --accent-foreground: #7c3d14; --sidebar-primary: #a4521c; --sidebar-ring: #a4521c;
+  --secondary: #ecdfcb; --muted: #eee2d0; --border: #e2d3bd; --input: #e2d3bd; --sidebar-accent: #eee2d0; --sidebar-border: #e2d3bd;
+  --glass-bg: color-mix(in oklab, #fffaf2 74%, transparent); --glass-border: color-mix(in oklab, white 62%, #e2d3bd);
+}
+[data-palette="purple"] {
+  --background: #f1edf6; --card: #fdfbff; --popover: #fdfbff; --sidebar: #fdfbff;
+  --primary: #6b3fa0; --primary-foreground: #ffffff; --ring: #6b3fa0; --chart-1: #6b3fa0;
+  --accent: #ede4f7; --accent-foreground: #52307b; --sidebar-primary: #6b3fa0; --sidebar-ring: #6b3fa0;
+  --secondary: #e7e0ef; --muted: #ebe5f1; --border: #ddd3e8; --input: #ddd3e8; --sidebar-accent: #ebe5f1; --sidebar-border: #ddd3e8;
+  --glass-bg: color-mix(in oklab, #fdfbff 74%, transparent); --glass-border: color-mix(in oklab, white 62%, #ddd3e8);
+}
+[data-palette="soft"] {
+  --background: #fafaf8; --card: #ffffff; --popover: #ffffff; --sidebar: #ffffff;
+  --primary: #3f6f8f; --primary-foreground: #ffffff; --ring: #3f6f8f; --chart-1: #3f6f8f;
+  --accent: #eaf1f5; --accent-foreground: #2f566f; --sidebar-primary: #3f6f8f; --sidebar-ring: #3f6f8f;
+  --secondary: #f0f0ec; --muted: #f1f1ee; --border: #e6e6e1; --input: #e6e6e1; --sidebar-accent: #f1f1ee; --sidebar-border: #e6e6e1;
+  --glass-bg: color-mix(in oklab, #ffffff 80%, transparent); --glass-border: color-mix(in oklab, white 62%, #e6e6e1);
+}
+/* In dark mode a preset keeps the dark surfaces and only swaps to a lighter accent. */
+.dark[data-palette="ocean"] { --primary: #7cb6f2; --primary-foreground: #0b2440; --ring: #7cb6f2; --chart-1: #7cb6f2; --sidebar-primary: #7cb6f2; --accent: #17283b; --accent-foreground: #d6e8fb; }
+.dark[data-palette="sand"] { --primary: #f0a46b; --primary-foreground: #3a1a05; --ring: #f0a46b; --chart-1: #f0a46b; --sidebar-primary: #f0a46b; --accent: #3a2618; --accent-foreground: #fbe3cf; }
+.dark[data-palette="purple"] { --primary: #c4a3ee; --primary-foreground: #2a1245; --ring: #c4a3ee; --chart-1: #c4a3ee; --sidebar-primary: #c4a3ee; --accent: #2c1f3d; --accent-foreground: #eadcfb; }
+.dark[data-palette="soft"] { --primary: #8fbcd8; --primary-foreground: #0f2633; --ring: #8fbcd8; --chart-1: #8fbcd8; --sidebar-primary: #8fbcd8; --accent: #1c2a33; --accent-foreground: #dcecf5; }
+.dark[data-palette] { --background: #12110f; --card: #1c1a17; --popover: #221f1b; --sidebar: #1c1a17; --secondary: #2a2622; --muted: #2a2622; --border: #3a342c; --input: #3a342c; --sidebar-accent: #2a2622; --sidebar-border: #3a342c; --glass-bg: color-mix(in oklab, #1c1a17 70%, transparent); --glass-border: color-mix(in oklab, white 14%, transparent); }

@@ -28,7 +28,15 @@ const MapCanvas = dynamic(() => import("@/components/map-canvas").then((mod) => 
 const START_KEY = "cora.trip.start";
 type Start = Pt & { label: string };
 type Extra = { id: string; name: string; address: string; time: string; day: number; point: Pt | null };
-type DayPlan = { date: string; stops: TripStop[]; matrix: Matrix; times: DayTimes; sunset: number | null; routeId?: string; plannerItems?: string[] };
+type DayPlan = { date: string; stops: TripStop[]; matrix: Matrix; times: DayTimes; sunset: number | null; timed: boolean; routeId?: string; plannerItems?: string[] };
+const MAX_DAYS = 14;
+const PLAN_KEY = "cora.trip.plan";
+/** Server actions can fail outright (network, or the app was updated while this page was open). */
+function failMessage(error: unknown) {
+  const text = error instanceof Error ? error.message : "";
+  if (/server action|failed to find|unexpected response|fetch/i.test(text)) return "Cora Connect was just updated or the connection dropped. Your plan is kept: reload the page and press Save again.";
+  return text ? `Something went wrong: ${text}` : "Something went wrong. Try again.";
+}
 
 function dayLabel(date: string) {
   const [y, m, d] = date.split("-").map(Number);
@@ -70,14 +78,27 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
   const [nearby, setNearby] = useState(5);
   const future = plannerDates.filter((date) => date >= isoPlus(0)).sort();
   const [dayCount, setDayCount] = useState(2);
-  const [dates, setDates] = useState<string[]>(() => Array.from({ length: 5 }, (_, i) => future[i] ?? isoPlus(i + 1)));
-  const [startTimes, setStartTimes] = useState<string[]>(() => Array(5).fill(""));
-  const [finishTimes, setFinishTimes] = useState<string[]>(() => Array(5).fill(""));
-  const [visit, setVisit] = useState(15);
+  const [dates, setDates] = useState<string[]>(() => Array.from({ length: MAX_DAYS }, (_, i) => future[i] ?? isoPlus(i + 1)));
+  const [startTimes, setStartTimes] = useState<string[]>(() => Array(MAX_DAYS).fill(""));
+  const [finishTimes, setFinishTimes] = useState<string[]>(() => Array(MAX_DAYS).fill(""));
+  const [visitText, setVisitText] = useState("15");
+  const visit = Math.max(0, Math.min(240, Number(visitText) || 0));
+  const [useTimes, setUseTimes] = useState(true);
+  const [dayText, setDayText] = useState("2");
   const [extras, setExtras] = useState<Extra[]>([]);
   const [skipTaken, setSkipTaken] = useState(true);
   const [plan, setPlan] = useState<DayPlan[] | null>(null);
   const [names, setNames] = useState<string[]>([]);
+  // Keep the last plan on this device so a reload (or an app update) doesn't lose it before it's saved.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.sessionStorage.getItem(PLAN_KEY) ?? "null") as { plan: DayPlan[]; names: string[] } | null;
+      if (saved?.plan?.length) { setPlan(saved.plan.map((day) => ({ ...day, timed: day.timed ?? true }))); setNames(saved.names ?? []); }
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { if (plan) window.sessionStorage.setItem(PLAN_KEY, JSON.stringify({ plan, names })); } catch {}
+  }, [plan, names]);
 
   // Cities with contacts this user can see (hidden tags already excluded), sorted by distance from the start.
   const cityRows = useMemo(() => {
@@ -114,24 +135,30 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
 
   async function timesFor(stops: TripStop[], dayIndex: number, from: Start) {
     const matrix = await driveMatrixAction([from, ...stops.map((stop) => ({ lat: stop.lat, lng: stop.lng }))]);
-    const times = scheduleDay(stops, matrix, { visit, back, startAt: parseClock(startTimes[dayIndex] ?? ""), finishBy: parseClock(finishTimes[dayIndex] ?? "") });
-    return { matrix, times };
+    const startAt = useTimes ? parseClock(startTimes[dayIndex] ?? "") : null;
+    const finishBy = useTimes ? parseClock(finishTimes[dayIndex] ?? "") : null;
+    const plain = stops.map((stop) => (useTimes ? stop : { ...stop, fixed: undefined }));
+    const times = scheduleDay(plain, matrix, { visit, back, startAt, finishBy });
+    // Clock times only make sense with a visit length and at least one time to fit around.
+    const timed = useTimes && visit > 0 && (startAt != null || finishBy != null || plain.some((stop) => stop.fixed != null));
+    return { matrix, times, timed };
   }
 
   async function buildDay(stops: TripStop[], dayIndex: number, from: Start): Promise<DayPlan> {
-    const ordered = orderDay(from, stops, back);
-    const { matrix, times } = await timesFor(ordered, dayIndex, from);
-    return { date: dates[dayIndex]!, stops: ordered, matrix, times, sunset: sunsetMinutes(dates[dayIndex]!, from) };
+    const ordered = orderDay(from, useTimes ? stops : stops.map((stop) => ({ ...stop, fixed: undefined })), back);
+    const { matrix, times, timed } = await timesFor(ordered, dayIndex, from);
+    return { date: dates[dayIndex]!, stops: ordered, matrix, times, timed, sunset: sunsetMinutes(dates[dayIndex]!, from) };
   }
 
-  function suggestName(stops: TripStop[], date: string) {
+  function suggestName(stops: TripStop[], date: string, index: number) {
     const cities = [...new Set(stops.filter((s) => s.kind === "contact").map((s) => s.address.split(",").at(-2)?.trim() || ""))].filter(Boolean);
-    return `${cities.slice(0, 3).join(", ")}${cities.length > 3 ? " +" + (cities.length - 3) : ""} · ${dayLabel(date)}`;
+    const where = `${cities.slice(0, 3).join(", ")}${cities.length > 3 ? " +" + (cities.length - 3) : ""}`;
+    return [project.projectName, `Day ${index + 1}`, where || dayLabel(date)].filter(Boolean).join(" · ");
   }
 
   function build() {
     setError("");
-    start(async () => {
+    start(async () => { try {
       if (!startPlace) { setError("Set a start place first."); return; }
       const contacts: TripStop[] = all
         .filter((entry) => !(skipTaken && overlap.has(entry.household.id)))
@@ -154,9 +181,9 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
       for (const extra of placed) groups[extra.day ?? 0]!.push(extra);
       const days = await Promise.all(groups.map((stops, index) => buildDay(stops, index, startPlace)));
       setPlan(days);
-      setNames(days.map((day) => suggestName(day.stops, day.date)));
+      setNames(days.map((day, index) => suggestName(day.stops, day.date, index)));
       window.localStorage.setItem(START_KEY, JSON.stringify(startPlace));
-    });
+    } catch (err) { setError(failMessage(err)); } });
   }
 
   function tweak(dayIndex: number, stopId: string, to: number | "remove") {
@@ -171,28 +198,57 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
     });
   }
 
-  function saveDay(index: number) {
+  async function saveOne(index: number) {
     const day = plan![index]!;
     const ids = day.stops.filter((s) => s.kind === "contact").map((s) => s.id);
+    const name = (names[index] ?? "").trim() || suggestName(day.stops, day.date, index);
+    let result: Awaited<ReturnType<typeof saveRouteAction>>;
+    try {
+      result = await saveRouteAction({ name, projectId: project.projectId, optimized: true, householdIds: ids });
+    } catch (err) {
+      return { ok: false as const, error: failMessage(err) };
+    }
+    if (!result.ok) return { ok: false as const, error: result.error };
+    const id = (result.data as { id?: string } | undefined)?.id;
+    if (!id) return { ok: false as const, error: "The route wasn't saved. Try again." };
+    setPlan((list) => list!.map((d, i) => (i === index ? { ...d, routeId: id } : d)));
+    return { ok: true as const, id, name };
+  }
+
+  function saveDay(index: number) {
     start(async () => {
-      const result = await saveRouteAction({ name: names[index] || suggestName(day.stops, day.date), projectId: project.projectId, optimized: true, householdIds: ids });
-      if (!result.ok) { toast({ title: result.error, tone: "error" }); return; }
-      const id = (result.data as { id?: string } | undefined)?.id;
-      setPlan((list) => list!.map((d, i) => (i === index ? { ...d, routeId: id } : d)));
-      toast({ title: `Route saved: ${names[index]}`, action: id ? { label: "View", href: `/saved-routes/${id}` } : undefined });
+      const result = await saveOne(index);
+      if (!result.ok) { toast({ title: result.error, tone: "error" }); setError(result.error); return; }
+      setError("");
+      toast({ title: `Route saved: ${result.name}`, action: { label: "View", href: `/saved-routes/${result.id}` } });
+    });
+  }
+
+  function saveAll() {
+    start(async () => {
+      let saved = 0;
+      for (let index = 0; index < plan!.length; index += 1) {
+        const day = plan![index]!;
+        if (day.routeId || !day.stops.some((s) => s.kind === "contact")) continue;
+        const result = await saveOne(index);
+        if (!result.ok) { toast({ title: result.error, tone: "error" }); setError(result.error); return; }
+        saved += 1;
+      }
+      setError("");
+      toast({ title: saved ? `${saved} ${saved === 1 ? "route" : "routes"} saved` : "Everything is already saved", action: { label: "Routes", href: "/saved-routes" } });
     });
   }
 
   function planDay(index: number) {
     const day = plan![index]!;
     if (!day.routeId) return;
-    start(async () => {
+    start(async () => { try {
       const events = day.stops.flatMap((stop, i) => (stop.kind === "extra" ? [{ title: stop.name, time: toTime(day.times.arrivals[i]!), address: stop.address }] : []));
-      const result = await addTripDayToPlannerAction({ date: day.date, routeId: day.routeId!, title: names[index] || "Route", time: toTime(day.times.leave), events });
+      const result = await addTripDayToPlannerAction({ date: day.date, routeId: day.routeId!, title: names[index] || "Route", time: day.timed ? toTime(day.times.leave) : "", events: day.timed ? events : events.map((event) => ({ ...event, time: undefined })) });
       if (!result.ok) { toast({ title: result.error, tone: "error" }); return; }
       setPlan((list) => list!.map((d, i) => (i === index ? { ...d, plannerItems: result.itemIds } : d)));
       toast({ title: `Added to the planner · ${dayLabel(day.date)}`, action: { label: "View", href: "/planner" } });
-    });
+    } catch (err) { toast({ title: failMessage(err), tone: "error" }); } });
   }
 
   const field = "grid gap-1 text-sm";
@@ -200,7 +256,7 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
 
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6">
-      <PageHeader title="Plan a trip" crumb="Plan a trip" />
+      <PageHeader title="Plan a trip" crumb="Plan a trip" description="" />
       <p className="-mt-2 mb-4 text-sm text-mutedink">Pick the areas, days and any fixed stops. Cora splits the contacts across the days, orders each day, and suggests when to leave. Nothing is saved until you press Save.</p>
       {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
 
@@ -228,15 +284,15 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
           <h2 className="font-heading text-lg font-semibold">2. Days and start</h2>
           <label className={field}>
             <span className={label}>Number of days</span>
-            <select className="h-10 rounded-lg border bg-card px-2" value={dayCount} onChange={(event) => setDayCount(Number(event.target.value))} aria-label="Number of days">
-              {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+            <Input type="number" inputMode="numeric" min={1} max={MAX_DAYS} className="w-24" value={dayText} onChange={(event) => { setDayText(event.target.value); const n = Math.round(Number(event.target.value)); if (n >= 1) setDayCount(Math.min(MAX_DAYS, n)); }} onBlur={() => setDayText(String(dayCount))} aria-label="Number of days" />
+            <span className="text-xs text-mutedink">1 to {MAX_DAYS} days</span>
           </label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4" checked={useTimes} onChange={(event) => setUseTimes(event.target.checked)} aria-label="Fit between times" /> Fit between times <span className="text-xs text-mutedink">(optional start / finish times)</span></label>
           {Array.from({ length: dayCount }, (_, i) => (
-            <div key={i} className="grid grid-cols-[1fr_auto_auto] items-end gap-2">
+            <div key={i} className={cn("grid items-end gap-2", useTimes ? "grid-cols-[1fr_auto_auto]" : "grid-cols-1")}>
               <label className={field}><span className={label}>Day {i + 1}</span><Input type="date" value={dates[i]} onChange={(event) => setDates(dates.map((d, j) => (j === i ? event.target.value : d)))} aria-label={`Day ${i + 1} date`} /></label>
-              <label className={field}><span className={label}>Start at</span><Input type="time" className="w-28" value={startTimes[i]} onChange={(event) => setStartTimes(startTimes.map((t, j) => (j === i ? event.target.value : t)))} aria-label={`Day ${i + 1} start time`} /></label>
-              <label className={field}><span className={label}>Finish by</span><Input type="time" className="w-28" value={finishTimes[i]} onChange={(event) => setFinishTimes(finishTimes.map((t, j) => (j === i ? event.target.value : t)))} aria-label={`Day ${i + 1} finish time`} /></label>
+              {useTimes ? <><label className={field}><span className={label}>Start at</span><Input type="time" className="w-28" value={startTimes[i]} onChange={(event) => setStartTimes(startTimes.map((t, j) => (j === i ? event.target.value : t)))} aria-label={`Day ${i + 1} start time`} /></label>
+              <label className={field}><span className={label}>Finish by</span><Input type="time" className="w-28" value={finishTimes[i]} onChange={(event) => setFinishTimes(finishTimes.map((t, j) => (j === i ? event.target.value : t)))} aria-label={`Day ${i + 1} finish time`} /></label></> : null}
             </div>
           ))}
           <div className={field}>
@@ -255,8 +311,9 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4" checked={back} onChange={(event) => setBack(event.target.checked)} /> Return to the start at the end of each day</label>
           </div>
           <label className={field}>
-            <span className={label}>Minutes per visit</span>
-            <Input type="number" min={1} max={120} className="w-24" value={visit} onChange={(event) => setVisit(Math.max(1, Number(event.target.value) || 15))} aria-label="Minutes per visit" />
+            <span className={label}>Minutes per visit (optional)</span>
+            <Input type="number" min={0} max={240} className="w-24" value={visitText} placeholder="—" onChange={(event) => setVisitText(event.target.value)} aria-label="Minutes per visit" />
+            {!visit ? <span className="text-xs text-mutedink">Blank: the plan shows drive times only, no arrival times.</span> : null}
           </label>
         </section>
 
@@ -270,7 +327,7 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
               </div>
               <Input value={extra.address} onChange={(event) => setExtras(extras.map((e) => (e.id === extra.id ? { ...e, address: event.target.value, point: null } : e)))} placeholder="Address" aria-label={`Extra stop ${i + 1} address`} />
               <div className="flex flex-wrap gap-2">
-                <label className={field}><span className={label}>Fixed time (optional)</span><Input type="time" className="w-32" value={extra.time} onChange={(event) => setExtras(extras.map((e) => (e.id === extra.id ? { ...e, time: event.target.value } : e)))} aria-label={`Extra stop ${i + 1} time`} /></label>
+                {useTimes ? <label className={field}><span className={label}>Fixed time (optional)</span><Input type="time" className="w-32" value={extra.time} onChange={(event) => setExtras(extras.map((e) => (e.id === extra.id ? { ...e, time: event.target.value } : e)))} aria-label={`Extra stop ${i + 1} time`} /></label> : null}
                 <label className={field}><span className={label}>Day</span>
                   <select className="h-10 rounded-lg border bg-card px-2" value={extra.day} onChange={(event) => setExtras(extras.map((e) => (e.id === extra.id ? { ...e, day: Number(event.target.value) } : e)))} aria-label={`Extra stop ${i + 1} day`}>
                     {Array.from({ length: dayCount }, (_, d) => <option key={d} value={d}>Day {d + 1} · {dayLabel(dates[d]!)}</option>)}
@@ -303,24 +360,24 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
             const numbers = Object.fromEntries(day.stops.map((stop, i) => [stop.id, i + 1]));
             const line = [startPlace!, ...day.stops, ...(back ? [startPlace!] : [])].map((p) => ({ lat: p.lat, lng: p.lng }));
             const links = googleParts(startPlace!.label, [...day.stops.map((stop) => stop.address), ...(back ? [startPlace!.label] : [])]);
-            const afterSunset = day.sunset != null ? day.stops.filter((_, i) => day.times.arrivals[i]! > day.sunset!).length : 0;
+            const afterSunset = day.timed && day.sunset != null ? day.stops.filter((_, i) => day.times.arrivals[i]! > day.sunset!).length : 0;
             return (
               <section key={index} className="panel rounded-3xl p-4" aria-label={`Day ${index + 1}`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h2 className="font-heading text-lg font-semibold">Day {index + 1} · {dayLabel(day.date)}</h2>
-                    <p className="text-sm text-foreground"><strong>Leave {clock(day.times.leave)}</strong> · {day.stops.length} stops · {day.times.miles} mi · {Math.floor(day.times.driveMinutes / 60)}h {day.times.driveMinutes % 60}m driving · back {day.times.back != null ? clock(day.times.back) : clock(day.times.end)}</p>
+                    <p className="text-sm text-foreground">{day.timed ? <><strong>Leave {clock(day.times.leave)}</strong> · </> : null}{day.stops.length} stops · {day.times.miles} mi · {Math.floor(day.times.driveMinutes / 60)}h {day.times.driveMinutes % 60}m driving{day.timed ? ` · back ${day.times.back != null ? clock(day.times.back) : clock(day.times.end)}` : ""}</p>
                     <p className="text-xs text-mutedink">{day.matrix.source === "osrm" ? "Drive times from OSRM road data" : "Drive times estimated (straight line × 1.3 at 40 mph)"}{day.sunset != null ? ` · Sunset ${clock(day.sunset)}` : ""}{afterSunset ? ` · ${afterSunset} stops after sunset` : ""}</p>
-                    {day.times.warnings.map((warning) => <p key={warning} className="text-xs text-amber-700 dark:text-amber-300">{warning}</p>)}
+                    {(day.timed ? day.times.warnings : []).map((warning) => <p key={warning} className="text-xs text-amber-700 dark:text-amber-300">{warning}</p>)}
                   </div>
                 </div>
                 <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
                   <ol className="grid min-w-0 max-h-[28rem] gap-1.5 overflow-auto pr-1">
                     {day.stops.map((stop, i) => (
                       <li key={stop.id} className={cn("flex min-w-0 flex-wrap items-center gap-2 rounded-xl sm:flex-nowrap bg-card p-2 ring-1 ring-foreground/8", stop.kind === "extra" && "ring-fuchsia-300 dark:ring-fuchsia-800")}>
-                        <span className="w-16 shrink-0 text-xs font-semibold tabular-nums text-foreground">{clock(day.times.arrivals[i]!)}</span>
+                        <span className="w-16 shrink-0 text-xs font-semibold tabular-nums text-foreground" title={day.timed ? "Arrival" : "Drive from the last stop"}>{day.timed ? clock(day.times.arrivals[i]!) : <>{Math.round(day.matrix.minutes[i]?.[i + 1] ?? 0)} min<span className="block text-[10px] font-normal text-mutedink">drive</span></>}</span>
                         <div className="w-[calc(100%-4.5rem)] min-w-0 sm:w-auto sm:flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">{i + 1}. {stop.name}{stop.fixed != null ? <span className="ml-1 text-xs font-normal text-fuchsia-700 dark:text-fuchsia-300">fixed {clock(stop.fixed)}</span> : null}</p>
+                          <p className="truncate text-sm font-medium text-foreground">{i + 1}. {stop.name}{day.timed && stop.fixed != null ? <span className="ml-1 text-xs font-normal text-fuchsia-700 dark:text-fuchsia-300">fixed {clock(stop.fixed)}</span> : null}</p>
                           <p className="truncate text-xs text-mutedink">{stop.address}</p>
                           {stop.kind === "contact" && overlap.get(stop.id) ? <OverlapBadge text={overlapBadge(overlap.get(stop.id)!, project.projectName)} /> : null}
                         </div>
@@ -355,7 +412,10 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
               </section>
             );
           })}
-          <Button type="button" variant="outline" className="justify-self-start rounded-full" onClick={() => router.push("/saved-routes")}>Back to Saved routes</Button>
+          <div className="flex flex-wrap gap-2">
+            {data.viewer.canCreateRoute && plan.length > 1 ? <Button type="button" className="rounded-full" disabled={pending || plan.every((day) => day.routeId || !day.stops.some((s) => s.kind === "contact"))} onClick={saveAll}><Save className="size-4" /> Save all {plan.length} days as routes</Button> : null}
+            <Button type="button" variant="outline" className="rounded-full" onClick={() => router.push("/saved-routes")}>Back to Saved routes</Button>
+          </div>
         </div>
       ) : null}
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { isNewContact } from "@/lib/new-contacts";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { AppData } from "@/lib/types";
@@ -53,7 +54,7 @@ export function AdminBreakdown({ data }: { data: AppData }) {
     for (const household of data.households) {
       const st = stateCode(household.state) || "—";
       const pr = household.projectId ? byId.get(household.projectId) ?? "Unsorted" : "Unsorted";
-      add(result.contacts, st, pr);
+      if (isNewContact(household)) add(result.contacts, st, pr);
       for (const visit of household.contactVisits) {
         if (visit.status !== "completed") continue;
         const name = known.get(visit.visited.trim().toLowerCase());
@@ -107,7 +108,7 @@ export function AdminBreakdown({ data }: { data: AppData }) {
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Card title="Visits" value={total("visits", state, project)} hint={`Completed visits · ${scope}`} href="/reports" link="View report" />
-        <Card title="New contacts" value={total("contacts", state, project)} hint={`Contacts · ${scope}`} href="/households" link="View contacts" />
+        <Card title="New contacts" value={total("contacts", state, project)} hint={`Added since Nov 4, 2026, not imports · ${scope}`} href="/households" link="View contacts" />
       </div>
       <section className="panel rounded-3xl p-4" aria-label="Breakdown">
         <div className="flex flex-wrap items-center justify-between gap-2">

@@ -1,5 +1,6 @@
 "use client";
 
+import { isNewContact } from "@/lib/new-contacts";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { AppData } from "@/lib/types";
@@ -31,6 +32,7 @@ function PerProjectCard({ data, kind }: { data: AppData; kind: "visits" | "conta
     if (kind === "contacts") {
       const byId = new Map(data.projects.map((project) => [project.id, project.name]));
       for (const household of data.households) {
+        if (!isNewContact(household)) continue;
         all += 1;
         const name = household.projectId ? byId.get(household.projectId) : undefined;
         if (name) map.set(name, (map.get(name) ?? 0) + 1);
@@ -65,7 +67,7 @@ function PerProjectCard({ data, kind }: { data: AppData; kind: "visits" | "conta
         </select>
       </div>
       <p className="font-heading text-4xl font-semibold text-foreground tabular-nums">{value.toLocaleString()}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{kind === "contacts" ? (choice === "All" ? "All contacts" : `Contacts in ${choice}`) : choice === "All" ? "Completed visits, all projects, all time" : `Completed visits for ${choice}`}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{kind === "contacts" ? (choice === "All" ? "Added by hand since Nov 4, 2026 (not imports)" : `Added to ${choice} since Nov 4, 2026 (not imports)`) : choice === "All" ? "Completed visits, all projects, all time" : `Completed visits for ${choice}`}</p>
       <Link href={kind === "visits" ? "/reports" : "/households"} className="mt-2 inline-flex min-h-10 items-center text-sm text-primary">{kind === "visits" ? "View report" : "View contacts"}</Link>
     </div>
   );

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.8.18
+
+- Plan a trip: saving is sturdier. If a save fails (for example because Cora Connect was updated while the page was open) you now get a clear message instead of nothing, and your plan is kept so you can reload and save again. New "Save all days as routes" button.
+- Plan a trip: each day's route name is editable, with a default like "Chanukah 5787 · Day 1 · Kennebunkport, Biddeford".
+- Plan a trip: times are optional. Untick "Fit between times" (or leave minutes per visit blank) and Cora just orders the stops and shows drive times, with no leave or arrival times.
+- Plan a trip: choose any number of days from 1 to 14.
+- Dashboard for shluchim and bochurim: removed Households by state, Recent visits, Visit reactions and the More box. "Visits over time" is now "Bochurim visits", a list of every visit your bochurim logged, newest first.
+- Settings, Reports, My Team and Log out are in the side bar on computers and in the picture menu at the top on phones.
+- "New contacts" counts only contacts added by hand from now on (not existing contacts, not imports).
+- A short line under each page title says what the page is for.
+- Settings > Account > Theme: pick Classic green, Ocean blue, Warm sand, Royal purple, Soft light or Dark mode. It's saved to your account.
+
 ## 1.8.17
 
 - Settings > Account: add, change or remove your profile picture. It is cropped to a square and shows in the side bar, the top bar on phones, and My Team. Each person can only change their own picture.

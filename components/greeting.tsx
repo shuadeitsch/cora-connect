@@ -19,6 +19,7 @@ export function Greeting({ name }: { name: string }) {
         {name}
         {date ? ` · ${date}` : ""}
       </p>
+      <p className="mt-1 text-sm text-muted-foreground">Your stats and the visits reported lately, at a glance.</p>
     </div>
   );
 }

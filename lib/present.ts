@@ -135,6 +135,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         visitDate: visit.visitDate,
         status: visit.status,
         createdAt: visit.createdAt,
+        createdBy: visit.createdBy,
         // A shliach or bochur can remove only a visit he logged himself.
         canRemove: visit.id.startsWith("legacy-")
           ? editsContact && perms.canDeleteContacts
@@ -206,6 +207,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         latestReaction: latest?.reaction ?? null,
         visitCount: realVisits.length,
         createdAt: household.createdAt,
+        importBatchId: household.importBatchId ?? null,
         people,
         lastVisitAt: last?.visitDate ?? null,
         lastStatus: last?.status ?? null,
@@ -369,6 +371,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       expiresAt: user.expiresAt,
       leaderId: user.leaderId ?? null,
       avatarUrl: user.avatarUrl ?? null,
+      theme: user.theme ?? null,
       territory: user.territory ?? [],
       ...perms,
     },

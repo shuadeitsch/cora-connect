@@ -7,6 +7,7 @@ import { ContactsPerProject, VisitsPerProject } from "@/components/visits-per-pr
 import { REACTIONS, reactionMeta, statusMeta } from "@/lib/constants";
 import { formatMedium } from "@/lib/format";
 import type { AppData } from "@/lib/types";
+import { VisitsLog } from "@/components/visits-log";
 
 export function DashboardHome({ data }: { data: AppData }) {
   const { stats, viewer } = data;
@@ -33,6 +34,8 @@ export function DashboardHome({ data }: { data: AppData }) {
         </section>
       )}
 
+      {viewer.role === "admin" ? (
+        <>
       <section className="grid gap-3 xl:grid-cols-3">
         <div className="panel rounded-3xl p-4 xl:col-span-2">
           <h2 className="font-heading text-xl font-semibold text-foreground">Visits over time</h2>
@@ -146,6 +149,10 @@ export function DashboardHome({ data }: { data: AppData }) {
           </form>
         </div>
       </section>
+        </>
+      ) : (
+        <VisitsLog data={data} />
+      )}
     </div>
   );
 }

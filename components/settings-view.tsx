@@ -11,6 +11,7 @@ import { logoutAction, saveOrganizationAction } from "@/lib/actions";
 import { geocodeAddress } from "@/lib/geo";
 import { AccountPassword } from "@/components/account-password";
 import { AvatarPicker } from "@/components/avatar-picker";
+import { ThemePicker } from "@/components/theme-picker";
 import type { AppData, OrgInput } from "@/lib/types";
 
 export function SettingsView({ data, initialTab, recovery }: { data: AppData; initialTab: string; recovery: boolean }) {
@@ -31,6 +32,7 @@ export function SettingsView({ data, initialTab, recovery }: { data: AppData; in
         <TabsContent value="account">
           <AccountPassword name={data.viewer.name} email={data.viewer.email} recovery={recovery} />
           <AvatarPicker name={data.viewer.name} url={data.viewer.avatarUrl} />
+          <ThemePicker saved={data.viewer.theme} />
           <form action={logoutAction} className="mt-4">
             <Button type="submit" variant="outline" className="min-h-11 rounded-full">Log out</Button>
           </form>

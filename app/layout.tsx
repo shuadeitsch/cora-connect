@@ -18,7 +18,7 @@ const fraunces = Fraunces({
   weight: ["500", "600", "700"],
 });
 
-const themeBoot = `(function(){try{var t=localStorage.getItem("cora-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark");if(matchMedia("(display-mode: standalone)").matches||navigator.standalone)document.documentElement.classList.add("standalone")}catch(e){}})()`;
+const themeBoot = `(function(){try{var p=localStorage.getItem("cora-palette");if(p&&p!=="classic"&&p!=="dark")document.documentElement.setAttribute("data-palette",p);var t=localStorage.getItem("cora-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark");if(matchMedia("(display-mode: standalone)").matches||navigator.standalone)document.documentElement.classList.add("standalone")}catch(e){}})()`;
 
 export const metadata: Metadata = {
   title: { default: "Cora Connect", template: "%s · Cora Connect" },

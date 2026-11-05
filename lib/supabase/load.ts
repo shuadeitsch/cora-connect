@@ -174,6 +174,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     assignedRouteIds: assignmentsByUser.get(text(profile, "id")) ?? [],
     leaderId: nullableText(profile, "leader_id"),
     avatarUrl: nullableText(profile, "avatar_url"),
+    theme: nullableText(profile, "theme"),
     adminApprovedAt: nullableText(profile, "admin_approved_at"),
     finalApprovedAt: nullableText(profile, "final_approved_at"),
     territory: territoryByUser.get(text(profile, "id")) ?? [],
@@ -200,6 +201,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     visitReaction: parseHouseholdReaction(text(row, "visit_reaction")),
     possibleDuplicate: Boolean(row.possible_duplicate),
     duplicateOf: nullableText(row, "duplicate_of"),
+    importBatchId: nullableText(row, "import_batch_id"),
     customFields:
       row.custom_fields && typeof row.custom_fields === "object"
         ? Object.fromEntries(Object.entries(row.custom_fields as Record<string, unknown>).map(([k, v]) => [k, String(v ?? "")]))

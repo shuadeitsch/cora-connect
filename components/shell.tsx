@@ -14,12 +14,15 @@ import {
   Route,
   Search,
   Settings,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { CommandPalette, type PaletteHousehold } from "@/components/command-palette";
 import { ReloadButton } from "@/components/reload-button";
 import { VersionBadge } from "@/components/version-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { applyTheme, isThemeId, THEME_KEY } from "@/lib/themes";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { logoutAction } from "@/lib/actions";
 import { scopeLabel } from "@/lib/constants";
@@ -36,8 +39,12 @@ const PRIMARY: { href: string; label: string; short?: string; icon: typeof House
   { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutGrid },
 ];
 
-/** Sidebar only (phone reaches Settings from the Dashboard's More section). */
-const SIDEBAR_EXTRA: typeof PRIMARY = [{ href: "/settings", label: "Settings", icon: Settings, desktopOnly: true }];
+/** Sidebar only; on phones these sit in the avatar menu at the top. */
+const SIDEBAR_EXTRA: typeof PRIMARY = [
+  { href: "/reports", label: "Reports", icon: ClipboardList, desktopOnly: true },
+  { href: "/team", label: "My Team", icon: Users, desktopOnly: true },
+  { href: "/settings", label: "Settings", icon: Settings, desktopOnly: true },
+];
 
 /** A bochur has no Dashboard, so his few extra pages sit in the bar itself. */
 const BOCHUR_EXTRA: typeof PRIMARY = [
@@ -103,6 +110,10 @@ export function Shell({
   const viewingState = useViewingState();
   const [search, setSearch] = useState(false);
   const mapPage = pathname.startsWith("/map") || pathname === "/saved-routes/new";
+  // A theme saved on the account follows the person to a new device.
+  useEffect(() => {
+    if (isThemeId(viewer.theme) && !window.localStorage.getItem(THEME_KEY)) applyTheme(viewer.theme);
+  }, [viewer.theme]);
   const bochur = viewer.role === "bochur";
   const navItems = bochur ? [...PRIMARY, ...BOCHUR_EXTRA] : [...PRIMARY, ...SIDEBAR_EXTRA];
   const primary = navItems.filter((item) => (viewer.canManage || !item.adminOnly) && !item.desktopOnly && !(bochur && BOCHUR_HIDDEN.has(item.href)));
@@ -146,9 +157,27 @@ export function Shell({
             <Search className="size-[18px]" />
           </button>
           <ThemeToggle />
-          <Link href="/settings?tab=account" aria-label="Your account" className="inline-flex size-11 items-center justify-center rounded-full hover:bg-muted lg:hidden">
-            <Avatar name={viewer.name} src={viewer.avatarUrl} className="size-8 text-[10px]" />
-          </Link>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button type="button" aria-label="Your account menu" className="inline-flex size-11 items-center justify-center rounded-full hover:bg-muted lg:hidden">
+                <Avatar name={viewer.name} src={viewer.avatarUrl} className="size-8 text-[10px]" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56 p-1.5">
+              <p className="truncate px-2.5 py-1.5 text-xs text-muted-foreground">{viewer.name}</p>
+              {[
+                { href: "/settings?tab=account", label: "Settings", icon: Settings },
+                { href: "/reports", label: "Reports", icon: ClipboardList },
+                ...(bochur ? [] : [{ href: "/team", label: "My Team", icon: Users }]),
+                ...(viewer.canManage ? [{ href: "/users", label: "Users", icon: ShieldCheck }] : []),
+              ].map((item) => (
+                <Link key={item.href} href={item.href} className="flex min-h-11 items-center gap-2 rounded-xl px-2.5 text-sm text-foreground hover:bg-muted"><item.icon className="size-4" /> {item.label}</Link>
+              ))}
+              <form action={logoutAction}>
+                <button type="submit" className="flex min-h-11 w-full items-center gap-2 rounded-xl px-2.5 text-sm text-foreground hover:bg-muted"><LogOut className="size-4" /> Log out</button>
+              </form>
+            </PopoverContent>
+          </Popover>
           <Popover>
             <PopoverTrigger asChild>
               <button

@@ -50,6 +50,7 @@ export interface User {
   territory: Territory[];
   /** Public URL of his profile picture, if he set one. */
   avatarUrl?: string | null;
+  theme?: string | null;
   /** Bochur: step one (a Cora admin) and the final step (his shliach). */
   adminApprovedAt?: string | null;
   finalApprovedAt?: string | null;
@@ -127,6 +128,8 @@ export interface Household {
   possibleDuplicate: boolean;
   duplicateOf: string | null;
   createdAt: string;
+  /** Set when the contact came from a spreadsheet import. */
+  importBatchId?: string | null;
 }
 
 export interface ContactVisit {
@@ -226,6 +229,7 @@ export interface Viewer {
   leaderId: string | null;
   territory: Territory[];
   avatarUrl: string | null;
+  theme: string | null;
 }
 
 export interface TeamMember {
@@ -284,6 +288,7 @@ export interface HouseholdView {
   latestReaction: HouseholdReaction | null;
   visitCount: number;
   createdAt: string;
+  importBatchId: string | null;
   people: Person[];
   lastVisitAt: string | null;
   lastStatus: VisitStatus | null;
@@ -301,6 +306,8 @@ export interface ContactVisitView {
   /** null when the visit has no Completed/Deferred status stored. */
   status: "completed" | "deferred" | null;
   createdAt: string;
+  /** Who logged it (null for imported history). */
+  createdBy: string | null;
   canRemove: boolean;
 }
 
