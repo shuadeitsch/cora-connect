@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.21
+
+- My Team: the main team list stays at the top. Participating bochurim and Shluchim now sit below it.
+
 ## 1.8.20
 
 - Beta (admins only): a Beta page under More in the sidebar (and under More in the phone avatar menu). Open a read-only copy of the whole app as a bochur, or as a shliach for a picked state (Maine, New Hampshire, or Wisconsin). A banner with Exit stays on screen; every write is blocked with "Preview only". Role views come from the same present() path used live.

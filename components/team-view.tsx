@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Search } from "lucide-react";
 import { Notice, PageHeader } from "@/components/page-header";
+import { BochurimPanel } from "@/components/bochurim-panel";
 import { ShluchimSection } from "@/components/people-overview";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -167,7 +168,6 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
           <p className="text-sm text-mutedink">Invite a Cora Connect admin or a shliach by email. They are approved automatically when they create their account.</p>
         )}
       </section>
-      {data.viewer.canManage ? <ShluchimSection data={data} /> : null}
       <div className="panel overflow-hidden rounded-3xl">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
           <div className="relative">
@@ -247,6 +247,11 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
           </div>
         ) : null}
       </div>
+
+      <div className="mt-4">
+        <BochurimPanel data={data} />
+      </div>
+      {data.viewer.canManage ? <ShluchimSection data={data} /> : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
