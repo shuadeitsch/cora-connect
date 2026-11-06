@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { MoreHorizontal, Search } from "lucide-react";
 import { Notice, PageHeader } from "@/components/page-header";
 import { BochurimPanel } from "@/components/bochurim-panel";
+import { UsersView } from "@/components/users-view";
 import { ShluchimSection } from "@/components/people-overview";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -137,13 +138,16 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
     });
   }
 
+  const admin = data.viewer.canManage;
+  const shliach = data.viewer.role === "shliach";
+
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
-        title="My team"
-        crumb="My team"
+        title="My Team"
+        crumb="My Team"
         action={
-          data.viewer.canManage ? (
+          admin ? (
             <Button
               className="rounded-full"
               onClick={() => {
@@ -160,6 +164,10 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
       />
       {error && !open ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
       {info && !open ? <div className="mb-3"><Notice tone="ok">{info}</Notice></div> : null}
+      {shliach ? (
+        <p className="mb-4 text-sm text-muted-foreground">Your participating bochurim — approve, extend, or disable them here.</p>
+      ) : null}
+      {admin ? (
       <section className="mb-4 panel rounded-3xl p-4">
         <h2 className="font-heading text-lg font-semibold text-foreground">People on this account</h2>
         {volunteers.length ? (
@@ -168,6 +176,8 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
           <p className="text-sm text-mutedink">Invite a Cora Connect admin or a shliach by email. They are approved automatically when they create their account.</p>
         )}
       </section>
+      ) : null}
+      {admin ? (
       <div className="panel overflow-hidden rounded-3xl">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
           <div className="relative">
@@ -248,10 +258,14 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
         ) : null}
       </div>
 
+      ) : null}
+
+      {admin ? <UsersView data={data} embedded /> : null}
+
       <div className="mt-4">
         <BochurimPanel data={data} />
       </div>
-      {data.viewer.canManage ? <ShluchimSection data={data} /> : null}
+      {admin ? <ShluchimSection data={data} /> : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
@@ -374,7 +388,7 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
             ) : null}
             {form.id ? null : (
               <p className="text-xs text-mutedink">
-                They create an account with this email and a password. The invite approves them automatically as the role you pick here. No extra step on Users.
+                They create an account with this email and a password. The invite approves them automatically as the role you pick here.
               </p>
             )}
             {error ? <Notice>{error}</Notice> : null}

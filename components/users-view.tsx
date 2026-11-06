@@ -23,7 +23,7 @@ function territoryText(member: TeamMember) {
   return { states, areas };
 }
 
-export function UsersView({ data }: { data: AppData }) {
+export function UsersView({ data, embedded = false }: { data: AppData; embedded?: boolean }) {
   const router = useRouter();
   const [filter, setFilter] = useState<"pending" | "all">(() => (data.members.some((member) => member.kind === "member" && member.status === "pending") ? "pending" : "all"));
   const [error, setError] = useState("");
@@ -49,12 +49,25 @@ export function UsersView({ data }: { data: AppData }) {
     });
   }
 
-  return (
-    <div className="p-4 sm:p-6">
+  const intro = embedded ? (
+    <div className="mb-3">
+      <h2 className="font-heading text-lg font-semibold text-foreground">User management</h2>
+      <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+        Approve new accounts, set roles, or disable access. A bochur also needs his shliach to approve him under Participating bochurim.
+      </p>
+    </div>
+  ) : (
+    <>
       <PageHeader title="Users" crumb="Users" />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
         New accounts wait here. Approve a Cora Connect admin, a shliach with the state he covers, or a bochur with his shliach. A bochur then also needs his shliach to approve him in My Team.
       </p>
+    </>
+  );
+
+  const body = (
+    <>
+      {intro}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Button type="button" variant={filter === "pending" ? "default" : "outline"} className="rounded-full" onClick={() => setFilter("pending")}>
           Pending ({pendingCount})
@@ -140,8 +153,13 @@ export function UsersView({ data }: { data: AppData }) {
           </table>
         </ScrollRegion>
       </div>
-    </div>
+    </>
   );
+
+  if (embedded) {
+    return <section className="mt-4" aria-label="User management">{body}</section>;
+  }
+  return <div className="p-4 sm:p-6">{body}</div>;
 }
 
 function RoleBadge({ member }: { member: TeamMember }) {

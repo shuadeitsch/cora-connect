@@ -1,6 +1,6 @@
 {
   "name": "cora",
-  "version": "1.8.22",
+  "version": "1.8.23",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 43123",

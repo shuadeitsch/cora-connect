@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.23
+
+- Bochur dashboard: project visit count plus locked Reports table and activity totals for his project (no project dropdown).
+- Merge Users into My Team (single nav); `/users` redirects. Admins get team list + approvals/invites, then Participating bochurim, then Shluchim. Shliach sees only his bochurim. Bochur has no My Team. Reflects in Beta.
+
 ## 1.8.22
 
 - Shliach soft-hide contacts (admins still see + filter/restore); share contacts with all bochurim; shliach prefs for default share and “Let bochurim edit the planner”.

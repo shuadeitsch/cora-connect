@@ -24,7 +24,7 @@ function monthFromToday() {
   return date.toISOString().slice(0, 10);
 }
 
-function done(paths: string[] = ["/team", "/users"]): Result {
+function done(paths: string[] = ["/team"]): Result {
   for (const path of paths) revalidatePath(path);
   return { ok: true };
 }

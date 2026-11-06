@@ -15,7 +15,6 @@ import {
   Route,
   Search,
   Settings,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
@@ -47,7 +46,6 @@ const PRIMARY: NavItem[] = [
 const SIDEBAR_EXTRA: NavItem[] = [
   { href: "/reports", label: "Reports", icon: ClipboardList, desktopOnly: true },
   { href: "/team", label: "My Team", icon: Users, desktopOnly: true },
-  { href: "/users", label: "Users", icon: ShieldCheck, adminOnly: true, desktopOnly: true },
   { href: "/settings", label: "Settings", icon: Settings, desktopOnly: true },
 ];
 
@@ -240,7 +238,6 @@ export function Shell({
                 { href: "/settings?tab=account", label: "Settings", icon: Settings },
                 { href: "/reports", label: "Reports", icon: ClipboardList },
                 ...(bochur ? [] : [{ href: "/team", label: "My Team", icon: Users }]),
-                ...(showAdminChrome ? [{ href: "/users", label: "Users", icon: ShieldCheck }] : []),
               ].map((item) => (
                 <Link key={item.href} href={item.href} className="flex min-h-11 items-center gap-2 rounded-xl px-2.5 text-sm text-foreground hover:bg-muted"><item.icon className="size-4" /> {item.label}</Link>
               ))}

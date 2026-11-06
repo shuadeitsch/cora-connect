@@ -12,9 +12,12 @@ const STATES = FOCUS_STATES.filter((item) => item.code !== "Unsorted");
 /** Dashboard Reports table: people visited in a project (and state for admins). */
 export function DashboardReports({ data }: { data: AppData }) {
   const admin = data.viewer.role === "admin" && !data.viewer.preview;
+  const bochur = data.viewer.role === "bochur";
   const projects = data.projects;
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? "ALL");
+  const lockedProjectId = bochur ? (data.viewer.projectId ?? "ALL") : null;
+  const [projectId, setProjectId] = useState(lockedProjectId ?? projects[0]?.id ?? "ALL");
   const [state, setState] = useState("ALL");
+  const activeProjectId = lockedProjectId ?? projectId;
 
   const rows = useMemo(() => {
     const houseById = new Map(data.households.map((h) => [h.id, h]));
@@ -22,32 +25,21 @@ export function DashboardReports({ data }: { data: AppData }) {
       .filter((visit) => {
         const house = houseById.get(visit.householdId);
         if (!house) return false;
-        if (projectId !== "ALL") {
-          const projectName = projects.find((p) => p.id === projectId)?.name;
-          const matchProject =
-            house.projectId === projectId ||
-            (projectName && (visit.categoryNames.includes(projectName) || false)) ||
-            // Prefer contact-visit "visited" season via household contactVisits
-            house.contactVisits.some((cv) => cv.status === "completed" && cv.id === visit.id && projectName && cv.visited.toLowerCase() === projectName.toLowerCase()) ||
-            (projectName && house.contactVisits.some((cv) => cv.id === visit.id && cv.visited.toLowerCase() === projectName.toLowerCase()));
-          // Simpler rule: include visit if the household's project matches OR any completed contact visit on that day lists the project as visited.
+        if (activeProjectId !== "ALL") {
+          const projectName = projects.find((p) => p.id === activeProjectId)?.name;
           const ok =
-            house.projectId === projectId ||
+            house.projectId === activeProjectId ||
             house.contactVisits.some(
               (cv) =>
                 cv.id === visit.id &&
                 projectName &&
                 cv.visited.trim().toLowerCase() === projectName.trim().toLowerCase(),
             );
-          if (!ok) {
-            // Also allow: visit is completed and household is in project
-            if (house.projectId !== projectId) return false;
-          }
+          if (!ok && house.projectId !== activeProjectId) return false;
         }
         if (admin && state !== "ALL") {
           const code = STATES.find((s) => s.code === state || s.name === state)?.code ?? state;
           if ((house.state || "").toUpperCase() !== code && house.state !== state) {
-            // sameState-ish
             const map: Record<string, string> = { Maine: "ME", "New Hampshire": "NH", Wisconsin: "WI", ME: "ME", NH: "NH", WI: "WI" };
             if ((map[house.state] ?? house.state) !== code) return false;
           }
@@ -65,7 +57,7 @@ export function DashboardReports({ data }: { data: AppData }) {
         };
       })
       .sort((a, b) => b.visitDate.localeCompare(a.visitDate));
-  }, [admin, data.households, data.visits, projectId, projects, state]);
+  }, [activeProjectId, admin, data.households, data.visits, projects, state]);
 
   function download() {
     const csv = toCsv(
@@ -96,18 +88,26 @@ export function DashboardReports({ data }: { data: AppData }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-heading text-xl font-semibold text-foreground">Reports</h2>
-          <p className="text-sm text-muted-foreground">People visited in the selected project.</p>
+          <p className="text-sm text-muted-foreground">
+            {bochur
+              ? (projects.find((p) => p.id === activeProjectId)?.name
+                  ? `People visited in ${projects.find((p) => p.id === activeProjectId)!.name}.`
+                  : "People visited in your project.")
+              : "People visited in the selected project."}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs text-muted-foreground">
-            Project
-            <select className="ml-1 h-9 rounded-lg border bg-background px-2 text-sm text-foreground" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              <option value="ALL">All projects</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </label>
+          {!bochur ? (
+            <label className="text-xs text-muted-foreground">
+              Project
+              <select className="ml-1 h-9 rounded-lg border bg-background px-2 text-sm text-foreground" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                <option value="ALL">All projects</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {admin ? (
             <label className="text-xs text-muted-foreground">
               State

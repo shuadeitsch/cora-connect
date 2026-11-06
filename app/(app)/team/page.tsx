@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { TeamView } from "@/components/team-view";
 import { getAppData } from "@/lib/session";
 
-export const metadata = { title: "My team" };
+export const metadata = { title: "My Team" };
 
 export default async function TeamPage({ searchParams }: { searchParams: Promise<{ invite?: string }> }) {
   const data = await getAppData();

@@ -20,8 +20,7 @@ const PAGES = [
   { href: "/map", label: "Map", hint: "Pins and routes" },
   { href: "/saved-routes", label: "Saved routes", hint: "Driving order" },
   { href: "/reports", label: "Reports", hint: "Visits" },
-  { href: "/team", label: "My team", hint: "Invites" },
-  { href: "/users", label: "Users", hint: "Approvals", admin: true },
+  { href: "/team", label: "My Team", hint: "Team, invites & approvals" },
   { href: "/settings", label: "Settings", hint: "House and account" },
   { href: "/settings?tab=account", label: "Account", hint: "Password" },
 ];
@@ -41,11 +40,11 @@ export function CommandPalette({
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  void canManage;
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const pages = PAGES.filter((page) => canManage || !page.admin)
-      .filter((page) => !q || `${page.label} ${page.hint}`.toLowerCase().includes(q))
+    const pages = PAGES.filter((page) => !q || `${page.label} ${page.hint}`.toLowerCase().includes(q))
       .map((page) => ({ ...page, kind: "Page" as const }));
     const homes = households
       .filter((household) => {
@@ -67,7 +66,7 @@ export function CommandPalette({
         };
       });
     return [...pages, ...homes].slice(0, 12);
-  }, [query, households, canManage]);
+  }, [query, households]);
 
   useEffect(() => {
     if (!open) return;

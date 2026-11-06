@@ -18,7 +18,6 @@ export function DashboardHome({ data }: { data: AppData }) {
   const admin = viewer.role === "admin" && !viewer.preview;
   const bochur = viewer.role === "bochur";
 
-  // Bochur: only a simple count of people visited in his project.
   if (bochur) {
     const projectId = viewer.projectId;
     const projectName = data.projects.find((p) => p.id === projectId)?.name;
@@ -41,6 +40,7 @@ export function DashboardHome({ data }: { data: AppData }) {
           <p className="mt-1 text-sm text-muted-foreground">{visited.size === 1 ? "person" : "people"}</p>
         </section>
         <ActivityTotals data={data} />
+        <DashboardReports data={data} />
       </div>
     );
   }

@@ -11,8 +11,8 @@ export const PAGE_DESCRIPTIONS: Record<string, string> = {
   Dashboard: "Your stats and the visits reported lately, at a glance.",
   Settings: "Your account and your Chabad House settings.",
   Reports: "Every visit that was logged, with filters and a download.",
-  "My team": "The shluchim and bochurim you work with, and who's on which team.",
-  Users: "Everyone with a login: approve new people and set their access.",
+  "My team": "Your team, invites, and account approvals — shluchim, bochurim, and access — in one place.",
+  "My Team": "Your team, invites, and account approvals — shluchim, bochurim, and access — in one place.",
   Beta: "Try the shliach and bochur versions of Cora Connect without changing real data.",
 };
 
