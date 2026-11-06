@@ -116,6 +116,7 @@ const both = present(database({
     arrived: "",
     createdBy: "u1",
     createdAt: "2026-11-03T15:00:00.000Z",
+    activities: [],
     importBatchId: null,
   }],
 }), user, "supabase", "2026-11-03");

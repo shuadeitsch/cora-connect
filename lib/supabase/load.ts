@@ -91,6 +91,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
   const org = orgRes.data as unknown as Row;
 
   const contactVisitLoad = await optionalTable("contact_visits");
+  const shareLoad = await optionalTable("contact_shares");
   const pairLoad = await supabase.from("not_duplicate_pairs").select("a_id, b_id");
   const notDuplicatePairs = pairLoad.error ? [] : ((pairLoad.data ?? []) as { a_id: string; b_id: string }[]).map((row) => `${row.a_id}|${row.b_id}`);
   const [profiles, projects, categories, fields, householdRows, peopleRows, categoryLinks, visitRows, routeRows, stopRows, assignmentRows, notifications, reads] =
@@ -175,6 +176,9 @@ export async function loadSupabase(actor: User): Promise<Database> {
     leaderId: nullableText(profile, "leader_id"),
     avatarUrl: nullableText(profile, "avatar_url"),
     theme: nullableText(profile, "theme"),
+    shareNewWithBochurim: Boolean(profile.share_new_with_bochurim),
+    bochurimEditPlanner: Boolean(profile.bochurim_edit_planner),
+    projectId: nullableText(profile, "project_id"),
     adminApprovedAt: nullableText(profile, "admin_approved_at"),
     finalApprovedAt: nullableText(profile, "final_approved_at"),
     territory: territoryByUser.get(text(profile, "id")) ?? [],
@@ -198,6 +202,8 @@ export async function loadSupabase(actor: User): Promise<Database> {
     tags: list(row.tags),
     sharedWithCora: row.shared_with_cora == null ? true : Boolean(row.shared_with_cora),
     ownerId: nullableText(row, "owner_id"),
+    deletedByShliachAt: nullableText(row, "deleted_by_shliach_at"),
+    deletedByShliachBy: nullableText(row, "deleted_by_shliach_by"),
     visitReaction: parseHouseholdReaction(text(row, "visit_reaction")),
     possibleDuplicate: Boolean(row.possible_duplicate),
     duplicateOf: nullableText(row, "duplicate_of"),
@@ -239,6 +245,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     orgId: text(row, "org_id"),
     householdId: text(row, "household_id"),
     visited: text(row, "visited"),
+    activities: list(row.activities),
     reaction: parseHouseholdReaction(text(row, "reaction")) as HouseholdReaction | null,
     notes: text(row, "notes"),
     visitDate: nullableText(row, "visit_date")?.slice(0, 10) ?? null,
@@ -347,6 +354,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     contactVisits,
     contactVisitsReady: contactVisitLoad.ready,
     notDuplicatePairs,
+    contactShares: shareLoad.rows.map((row) => ({ householdId: text(row, "household_id"), bochurId: text(row, "bochur_id") })),
     removedVisitIds: contactVisitLoad.rows.filter((row) => !alive(row)).map((row) => text(row, "id")),
     routes,
     notifications: notes,

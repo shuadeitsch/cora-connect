@@ -32,8 +32,8 @@ export function viewerPermissions(user: User, today: string) {
     canLogVisit: active && (admin || shliach || bochur || user.role === "visitor" || user.canEdit),
     canCreateRoute: active && (admin || shliach || bochur || user.role === "visitor"),
     canDeleteRoute: admin,
-    // Shliach: view, edit and visits only. No delete, import or export.
-    canDeleteContacts: canEdit && !shliach,
+    // Soft-hide for shliach; hard delete stays admin-only in the repo.
+    canDeleteContacts: canEdit && (admin || shliach),
     canImport: canEdit && !shliach,
     canShare: admin || shliach,
   };
@@ -90,6 +90,7 @@ function inTerritory(state: string, city: string, territory: { state: string; ar
 /** Households this role may see. Used by present() so Beta preview matches live role views. */
 export function householdVisibleTo(user: User, household: Household, users: User[]): boolean {
   if (user.role === "admin") return true;
+  if (household.deletedByShliachAt) return false;
   if (user.role === "limited") return true; // allowedHouseholdIds handles limited
   if (user.role === "bochur") {
     // Live bochur lists are already RLS-scoped. Beta preview approximates with shared contacts.

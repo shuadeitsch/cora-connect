@@ -81,8 +81,8 @@ export async function signInAction(email: string, password: string) {
   return signInWithPassword(email, password);
 }
 
-export async function signUpAction(name: string, email: string, password: string, confirm: string, state?: string) {
-  return signUpWithPassword(name, email, password, confirm, state);
+export async function signUpAction(name: string, email: string, password: string, confirm: string, state?: string, project?: string) {
+  return signUpWithPassword(name, email, password, confirm, state, project);
 }
 
 export async function sendPasswordResetAction(email: string) {

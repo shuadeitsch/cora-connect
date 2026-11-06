@@ -45,6 +45,9 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
     territory,
     avatarUrl: profile.avatar_url ?? null,
     theme: profile.theme ?? null,
+    shareNewWithBochurim: Boolean(profile.share_new_with_bochurim),
+    bochurimEditPlanner: Boolean(profile.bochurim_edit_planner),
+    projectId: profile.project_id ?? null,
   };
 });
 

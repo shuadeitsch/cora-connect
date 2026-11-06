@@ -64,7 +64,7 @@ const BOCHUR_EXTRA: NavItem[] = [
 ];
 
 /** A bochur only works with contacts shared with him. */
-const BOCHUR_HIDDEN = new Set(["/planner", "/team", "/dashboard", "/beta"]);
+const BOCHUR_HIDDEN = new Set(["/team", "/beta"]);
 
 function visibleItems(items: NavItem[], canManage: boolean, bochur: boolean) {
   return items.filter((item) => (canManage || !item.adminOnly) && !(bochur && BOCHUR_HIDDEN.has(item.href)));
@@ -88,6 +88,7 @@ function NavLinks({
       {visible.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         const Icon = item.icon;
+        const label = bochur && item.href === "/planner" ? "Daily schedule" : item.label;
         return (
           <Link
             key={item.href}
@@ -101,7 +102,7 @@ function NavLinks({
             <span className={cn("flex size-8 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
               <Icon className="size-4" />
             </span>
-            {item.label}
+            {label}
           </Link>
         );
       })}
@@ -150,7 +151,7 @@ function MoreGroup({
                 <span className={cn("flex size-8 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
                   <Icon className="size-4" />
                 </span>
-                {item.label}
+                {bochur && item.href === "/planner" ? "Daily schedule" : item.label}
               </Link>
             );
           })}
@@ -304,7 +305,7 @@ export function Shell({
           return (
             <Link key={item.href} href={item.href} className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium", active ? "bg-accent text-foreground" : "text-muted-foreground")}>
               <Icon className="size-5" />
-              {item.short ?? item.label}
+              {bochur && item.href === "/planner" ? "Schedule" : (item.short ?? item.label)}
             </Link>
           );
         })}

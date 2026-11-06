@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.22
+
+- Shliach soft-hide contacts (admins still see + filter/restore); share contacts with all bochurim; shliach prefs for default share and “Let bochurim edit the planner”.
+- Bochur Daily schedule in nav (view-only unless shliach toggle is on) with Google/Apple Maps start links; Settings is Account-only for bochurim.
+- Bochur signup project + My Team project picker; dashboard Reports + visit activity totals; visit activity chips on the visit dialog.
+- Profiles RLS uses `my_leader_id()` (no recursive profiles subqueries). Migration 024/025.
+
 ## 1.8.21
 
 - My Team: the main team list stays at the top. Participating bochurim and Shluchim now sit below it.

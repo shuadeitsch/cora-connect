@@ -8,12 +8,16 @@ import { createClient, isSupabaseMode } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { ok: false; error: string };
 
-async function admin(): Promise<{ orgId: string; id: string } | string> {
+async function plannerActor(): Promise<{ orgId: string; id: string } | string> {
   const user = await getCurrentUser();
   if (!user) return "Sign in again.";
-  if (user.role !== "admin") return "Only a Cora Connect admin can change the planner.";
   if (!isSupabaseMode()) return "The planner needs the live database.";
-  return { orgId: user.orgId, id: user.id };
+  if (user.role === "admin" || user.role === "shliach") return { orgId: user.orgId, id: user.id };
+  if (user.role === "bochur") {
+    // RLS enforces the shliach's bochurim_edit_planner flag.
+    return { orgId: user.orgId, id: user.id };
+  }
+  return "You can't change the planner.";
 }
 
 function fail(message: string | undefined, fallback: string): Result {
@@ -30,7 +34,7 @@ function done(): Result {
 export async function addPlannerDayAction(date: string): Promise<Result> {
   const previewGate = await assertNotPreview();
   if (!previewGate.ok) return previewGate;
-  const who = await admin();
+  const who = await plannerActor();
   if (typeof who === "string") return { ok: false, error: who };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Pick a date." };
   const supabase = await createClient();
@@ -41,7 +45,7 @@ export async function addPlannerDayAction(date: string): Promise<Result> {
 export async function removePlannerDayAction(id: string): Promise<Result> {
   const previewGate = await assertNotPreview();
   if (!previewGate.ok) return previewGate;
-  const who = await admin();
+  const who = await plannerActor();
   if (typeof who === "string") return { ok: false, error: who };
   const supabase = await createClient();
   const { error } = await supabase.from("planner_days").delete().eq("id", id);
@@ -59,7 +63,7 @@ export async function addPlannerItemAction(input: {
 }): Promise<Result> {
   const previewGate = await assertNotPreview();
   if (!previewGate.ok) return previewGate;
-  const who = await admin();
+  const who = await plannerActor();
   if (typeof who === "string") return { ok: false, error: who };
   const title = input.title.trim().slice(0, 200);
   if (input.kind === "route" && !input.routeId) return { ok: false, error: "Pick a route." };
@@ -84,7 +88,7 @@ export async function addPlannerItemAction(input: {
 export async function removePlannerItemAction(id: string): Promise<Result> {
   const previewGate = await assertNotPreview();
   if (!previewGate.ok) return previewGate;
-  const who = await admin();
+  const who = await plannerActor();
   if (typeof who === "string") return { ok: false, error: who };
   const supabase = await createClient();
   const { error } = await supabase.from("planner_items").delete().eq("id", id);
@@ -102,7 +106,7 @@ export async function updatePlannerItemAction(input: {
 }): Promise<Result> {
   const previewGate = await assertNotPreview();
   if (!previewGate.ok) return previewGate;
-  const who = await admin();
+  const who = await plannerActor();
   if (typeof who === "string") return { ok: false, error: who };
   const title = input.title.trim().slice(0, 200);
   if (input.kind === "route" && !input.routeId) return { ok: false, error: "Pick a route." };
@@ -136,7 +140,7 @@ export async function addTripDayToPlannerAction(input: {
 }): Promise<{ ok: true; dayId: string; itemIds: string[] } | { ok: false; error: string }> {
   const previewGate = await assertNotPreview();
   if (!previewGate.ok) return previewGate;
-  const who = await admin();
+  const who = await plannerActor();
   if (typeof who === "string") return { ok: false, error: who };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { ok: false, error: "Pick a date." };
   const supabase = await createClient();

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Notice } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { approveBochurAction, disableBochurAction, extendBochurAction, setBochurShliachAction } from "@/lib/bochur-actions";
+import { setBochurProjectAction } from "@/lib/shliach-prefs-actions";
 import { formatMedium } from "@/lib/format";
 import type { AppData, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -99,6 +100,18 @@ export function BochurimPanel({ data }: { data: AppData }) {
                           {!leader ? <option value="">No shliach set</option> : null}
                           {shluchim.map((shliach) => <option key={shliach.id} value={shliach.id}>{shliach.name}</option>)}
                         </select>
+                    <select
+                      aria-label="Project"
+                      className="mt-1 h-10 w-full rounded-lg border border-input bg-card px-2 text-sm"
+                      value={member.projectId ?? ""}
+                      disabled={busy === member.id}
+                      onChange={(event) => run(member.id, () => setBochurProjectAction(member.id, event.target.value))}
+                    >
+                      <option value="">No project</option>
+                      {data.projects.map((project) => (
+                        <option key={project.id} value={project.id}>{project.name}</option>
+                      ))}
+                    </select>
                       </label>
                     ) : null}
                   </div>

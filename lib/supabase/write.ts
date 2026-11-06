@@ -195,6 +195,18 @@ export async function softDeleteVisits(ids: string[], deleted: boolean): Promise
   return "soft";
 }
 
+export async function markShliachHidden(ids: string[], hidden: boolean): Promise<void> {
+  if (!ids.length) return;
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id ?? null;
+  const patch = hidden
+    ? { deleted_by_shliach_at: new Date().toISOString(), deleted_by_shliach_by: uid }
+    : { deleted_by_shliach_at: null, deleted_by_shliach_by: null };
+  const result = await supabase.from("households").update(patch).in("id", ids);
+  if (result.error) throw new Error(result.error.message);
+}
+
 export async function markHouseholdsDeleted(ids: string[], deleted: boolean): Promise<"soft" | "missing"> {
   if (!ids.length) return "soft";
   const supabase = await createClient();
@@ -221,6 +233,7 @@ export async function writeContactVisit(visit: ContactVisit, isNew: boolean) {
     created_by: visit.createdBy,
     created_at: visit.createdAt,
     import_batch_id: visit.importBatchId,
+    activities: visit.activities ?? [],
   };
   const write = async (payload: Record<string, unknown>) => {
     if (isNew) return supabase.from("contact_visits").insert(payload);
@@ -234,6 +247,7 @@ export async function writeContactVisit(visit: ContactVisit, isNew: boolean) {
     const payload = { ...row } as Record<string, unknown>;
     if (/status/i.test(result.error.message)) delete payload.status;
     if (/import_batch/i.test(result.error.message)) delete payload.import_batch_id;
+    if (/activities/i.test(result.error.message)) delete payload.activities;
     if (!/status|import_batch/i.test(result.error.message)) {
       delete payload.status;
       delete payload.import_batch_id;

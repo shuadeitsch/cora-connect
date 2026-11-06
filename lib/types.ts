@@ -51,6 +51,9 @@ export interface User {
   /** Public URL of his profile picture, if he set one. */
   avatarUrl?: string | null;
   theme?: string | null;
+  shareNewWithBochurim?: boolean;
+  bochurimEditPlanner?: boolean;
+  projectId?: string | null;
   /** True while an admin is in Beta preview as this role. */
   previewing?: boolean;
   /** Bochur: step one (a Cora admin) and the final step (his shliach). */
@@ -126,6 +129,8 @@ export interface Household {
   customFields: Record<string, string>;
   sharedWithCora: boolean;
   ownerId: string | null;
+  deletedByShliachAt?: string | null;
+  deletedByShliachBy?: string | null;
   visitReaction: HouseholdReaction | null;
   possibleDuplicate: boolean;
   duplicateOf: string | null;
@@ -148,6 +153,8 @@ export interface ContactVisit {
   createdBy: string | null;
   createdAt: string;
   importBatchId: string | null;
+  /** Built-in chips and write-ins, e.g. Tefillin, Menorah/package, custom text. */
+  activities: string[];
 }
 
 export interface Visit {
@@ -205,6 +212,7 @@ export interface Database {
   /** Pairs confirmed "not a duplicate", each as "lowId|highId". */
   notDuplicatePairs?: string[];
   removedVisitIds?: string[];
+  contactShares?: { householdId: string; bochurId: string }[];
   routes: Route[];
   notifications: AppNotification[];
 }
@@ -232,6 +240,9 @@ export interface Viewer {
   territory: Territory[];
   avatarUrl: string | null;
   theme: string | null;
+  shareNewWithBochurim: boolean;
+  bochurimEditPlanner: boolean;
+  projectId: string | null;
   /** Set when a Cora admin is viewing the app as another role (Beta). */
   preview?: { role: "shliach" | "bochur"; state: string | null } | null;
 }
@@ -252,6 +263,7 @@ export interface TeamMember {
   adminApprovedAt: string | null;
   finalApprovedAt: string | null;
   avatarUrl: string | null;
+  projectId: string | null;
   kind: "member" | "invite";
 }
 
@@ -277,6 +289,10 @@ export interface HouseholdView {
   customFields: Record<string, string>;
   sharedWithCora: boolean;
   ownerId: string | null;
+  deletedByShliachAt: string | null;
+  deletedByShliachBy: string | null;
+  deletedByShliachName: string | null;
+  sharedWithBochurim: boolean;
   visitReaction: HouseholdReaction | null;
   possibleDuplicate: boolean;
   duplicateOf: string | null;
@@ -313,6 +329,7 @@ export interface ContactVisitView {
   /** Who logged it (null for imported history). */
   createdBy: string | null;
   canRemove: boolean;
+  activities: string[];
 }
 
 export interface VisitView {
@@ -358,6 +375,9 @@ export interface RouteView {
 }
 
 export interface Stats {
+  /** Counts of completed visits that include each activity label. */
+  activityCounts?: { label: string; count: number }[];
+
   householdCount: number;
   householdsThisMonth: number;
   planLimit: number;
@@ -420,6 +440,7 @@ export interface AppData {
 }
 
 export interface HouseholdInput {
+  sharedWithBochurim?: boolean;
   id?: string;
   name: string;
   street: string;
@@ -445,6 +466,7 @@ export interface HouseholdInput {
     reaction: string;
     notes: string;
     visitDate: string;
+    activities?: string[];
   }[];
   people: {
     id?: string;
@@ -493,6 +515,7 @@ export interface VisitInput {
   details: string;
   /** Season and Hebrew year, stored as "Summer 5786". Blank keeps the previous value on an edit. */
   visited?: string;
+  activities?: string[];
 }
 
 export interface ContactSnapshot {
@@ -505,6 +528,7 @@ export interface ContactSnapshot {
 export type UndoPayload =
   | { type: "delete-created"; householdIds: string[] }
   | { type: "restore-deleted"; householdIds: string[] }
+  | { type: "restore-shliach-hidden"; householdIds: string[] }
   | { type: "reinsert"; snapshots: ContactSnapshot[] }
   | { type: "replace-contact"; snapshot: ContactSnapshot }
   | { type: "restore-visit"; visit: Visit; mode: "undelete" | "reinsert" }

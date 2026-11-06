@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 export const VISITED_ANY = "__any_visit";
 export const VISITED_NONE = "__not_visited";
 
-export type SortMode = "" | "tags" | "visits" | "duplicates";
+export type SortMode = "" | "tags" | "visits" | "duplicates" | "shliach-deleted";
 
 export const filterPill = "inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-sm font-medium text-foreground transition hover:bg-muted active:scale-[0.98]";
 const pill = filterPill;
@@ -36,7 +36,7 @@ export const emptyFilters = {
   visited: "",
   tag: "",
   duplicates: false,
-  list: "main" as "main" | "tagged",
+  list: "main" as "main" | "tagged" | "shliach-deleted",
 };
 
 export type ContactFilters = typeof emptyFilters;
@@ -70,9 +70,16 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
         : "";
       const hay = `${household.name} ${household.city} ${household.state} ${household.zip} ${household.tags.join(" ")} ${household.projectName ?? ""} ${noteHay} ${household.people.map((person) => `${person.name} ${person.phone} ${person.email}`).join(" ")}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (filters.tag) {
+      if (filters.list === "shliach-deleted") {
+        if (!household.deletedByShliachAt) return false;
+      } else if (household.deletedByShliachAt && data.viewer.role === "admin") {
+        // Soft-hidden contacts stay off the main admin list unless the filter is on.
+        return false;
+      } else if (filters.tag) {
         if (!matchesTagFilter(household.tags, filters.tag)) return false;
-      } else if (!showInContactList(household.tags, q, filters.list)) return false;
+      } else if (filters.list === "main" || filters.list === "tagged") {
+        if (!showInContactList(household.tags, q, filters.list)) return false;
+      } else return false;
       if (filters.state && !matchesStateFilter(household.state, filters.state)) return false;
       if (filters.visited === VISITED_ANY) {
         if (!(household.contactVisits ?? []).some((visit) => isRealVisit(visit.visited))) return false;
@@ -86,7 +93,7 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
       if (filters.duplicates && !household.possibleDuplicate) return false;
       return true;
     });
-  }, [data.households, data.viewer.canViewHistory, query, filters.tag, filters.list, filters.state, filters.visited, filters.duplicates, gone]);
+  }, [data.households, data.viewer.canViewHistory, data.viewer.role, query, filters.tag, filters.list, filters.state, filters.visited, filters.duplicates, gone]);
 
   // Every city in the chosen state, alphabetical, with how many contacts each would show.
   const cityChoices = useMemo(() => {
@@ -124,6 +131,7 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
     if (mode === "tags") setFilters({ ...base, list: "tagged" });
     else if (mode === "duplicates") setFilters({ ...base, duplicates: true });
     else if (mode === "visits") setFilters({ ...base, visited: VISITED_ANY });
+    else if (mode === "shliach-deleted") setFilters({ ...base, list: "shliach-deleted" });
     else setFilters(base);
   }
 
@@ -131,7 +139,7 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
     setFilters({ ...emptyFilters, state: initialState(data) });
   }
 
-  return { filters, setFilters, tabs: stateTabs(data), beforeCity, cityChoices, matched, seasonChoices, chooseMode, resetFilters };
+  return { filters, setFilters, tabs: stateTabs(data), beforeCity, cityChoices, matched, seasonChoices, chooseMode, resetFilters, isAdmin: data.viewer.role === "admin" };
 }
 
 export type ContactFilterState = ReturnType<typeof useContactFilters>;
@@ -178,6 +186,7 @@ export function ContactFilterControls({ ctl, onChange }: { ctl: ContactFilterSta
         <option value="tags">Tags</option>
         <option value="visits">Visits</option>
         <option value="duplicates">Possible duplicates</option>
+        {ctl.isAdmin ? <option value="shliach-deleted">Deleted by shliach</option> : null}
       </select>
       {filters.mode === "visits" ? (
         <select

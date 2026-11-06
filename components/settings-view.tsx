@@ -7,12 +7,37 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { logoutAction, saveOrganizationAction } from "@/lib/actions";
+import { saveShliachPrefsAction } from "@/lib/shliach-prefs-actions";
 import { AccountPassword } from "@/components/account-password";
 import { AvatarPicker } from "@/components/avatar-picker";
 import { ThemePicker } from "@/components/theme-picker";
 import type { AppData, OrgInput } from "@/lib/types";
 
+function AccountSection({ data, recovery }: { data: AppData; recovery: boolean }) {
+  return (
+    <>
+      <AccountPassword name={data.viewer.name} email={data.viewer.email} recovery={recovery} />
+      <AvatarPicker name={data.viewer.name} url={data.viewer.avatarUrl} />
+      <ThemePicker saved={data.viewer.theme} />
+      {data.viewer.role === "shliach" ? <ShliachPrefsForm data={data} /> : null}
+      <form action={logoutAction} className="mt-4">
+        <Button type="submit" variant="outline" className="min-h-11 rounded-full">Log out</Button>
+      </form>
+    </>
+  );
+}
+
 export function SettingsView({ data, initialTab, recovery }: { data: AppData; initialTab: string; recovery: boolean }) {
+  const bochur = data.viewer.role === "bochur";
+  // Bochur: Account only (name, picture, theme, password). No Chabad house / org settings.
+  if (bochur) {
+    return (
+      <div className="p-4 sm:p-6">
+        <PageHeader title="Settings" crumb="Settings" description="Your account: name, picture, theme, and password." />
+        <AccountSection data={data} recovery={recovery} />
+      </div>
+    );
+  }
   const allowed = ["house", "account"];
   const tab = allowed.includes(initialTab) ? initialTab : "house";
   return (
@@ -28,12 +53,7 @@ export function SettingsView({ data, initialTab, recovery }: { data: AppData; in
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
         <TabsContent value="account">
-          <AccountPassword name={data.viewer.name} email={data.viewer.email} recovery={recovery} />
-          <AvatarPicker name={data.viewer.name} url={data.viewer.avatarUrl} />
-          <ThemePicker saved={data.viewer.theme} />
-          <form action={logoutAction} className="mt-4">
-            <Button type="submit" variant="outline" className="min-h-11 rounded-full">Log out</Button>
-          </form>
+          <AccountSection data={data} recovery={recovery} />
         </TabsContent>
       </Tabs>
     </div>
@@ -121,6 +141,43 @@ function HouseForm({ data }: { data: AppData }) {
       </div>
       {error ? <Notice>{error}</Notice> : null}
       {message ? <Notice tone="ok">{message}</Notice> : null}
+    </form>
+  );
+}
+
+
+function ShliachPrefsForm({ data }: { data: AppData }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [shareNew, setShareNew] = useState(Boolean(data.viewer.shareNewWithBochurim));
+  const [editPlanner, setEditPlanner] = useState(Boolean(data.viewer.bochurimEditPlanner));
+  const [message, setMessage] = useState("");
+  const preview = Boolean(data.viewer.preview);
+  return (
+    <form
+      className="panel mt-4 space-y-3 rounded-3xl p-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (preview) { setMessage("Preview only"); return; }
+        setMessage("");
+        start(async () => {
+          const result = await saveShliachPrefsAction({ shareNewWithBochurim: shareNew, bochurimEditPlanner: editPlanner });
+          if (!result.ok) setMessage(result.error);
+          else { setMessage("Saved."); router.refresh(); }
+        });
+      }}
+    >
+      <h2 className="font-heading text-lg font-semibold text-foreground">Bochurim</h2>
+      <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" className="mt-1 size-4" checked={shareNew} disabled={pending || preview} onChange={(e) => setShareNew(e.target.checked)} />
+        <span>Share new contacts with bochurim by default</span>
+      </label>
+      <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" className="mt-1 size-4" checked={editPlanner} disabled={pending || preview} onChange={(e) => setEditPlanner(e.target.checked)} />
+        <span>Let bochurim edit the planner</span>
+      </label>
+      {message ? <Notice tone={message === "Saved." ? "ok" : "error"}>{message}</Notice> : null}
+      <Button type="submit" className="rounded-full" disabled={pending || preview}>{pending ? "Saving…" : "Save"}</Button>
     </form>
   );
 }

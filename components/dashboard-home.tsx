@@ -1,8 +1,9 @@
 import { Greeting } from "@/components/greeting";
 import { AdminBreakdown } from "@/components/admin-breakdown";
+import { ActivityTotals } from "@/components/activity-totals";
 import { ContactsPerProject, VisitsPerProject } from "@/components/visits-per-project";
+import { DashboardReports } from "@/components/dashboard-reports";
 import { FeedbackCard } from "@/components/feedback-card";
-import { VisitsLog } from "@/components/visits-log";
 import type { AppData } from "@/lib/types";
 
 export function DashboardHome({ data }: { data: AppData }) {
@@ -15,6 +16,34 @@ export function DashboardHome({ data }: { data: AppData }) {
   const states = [...stateCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   const maxState = Math.max(...states.map(([, count]) => count), 1);
   const admin = viewer.role === "admin" && !viewer.preview;
+  const bochur = viewer.role === "bochur";
+
+  // Bochur: only a simple count of people visited in his project.
+  if (bochur) {
+    const projectId = viewer.projectId;
+    const projectName = data.projects.find((p) => p.id === projectId)?.name;
+    const visited = new Set<string>();
+    for (const house of data.households) {
+      if (projectId && house.projectId && house.projectId !== projectId) continue;
+      const hit = house.contactVisits.some(
+        (v) =>
+          v.status === "completed" &&
+          (!projectName || !v.visited.trim() || v.visited.trim().toLowerCase() === projectName.toLowerCase() || house.projectId === projectId),
+      );
+      if (hit) visited.add(house.id);
+    }
+    return (
+      <div className="space-y-4 p-3 sm:p-6">
+        <Greeting name={viewer.name} />
+        <section className="panel rounded-3xl p-6 text-center" aria-label="Project visits">
+          <p className="text-sm text-muted-foreground">{projectName ? `Visited in ${projectName}` : "People you visited"}</p>
+          <p className="mt-2 font-heading text-5xl font-semibold tabular-nums text-foreground">{visited.size}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{visited.size === 1 ? "person" : "people"}</p>
+        </section>
+        <ActivityTotals data={data} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 p-3 sm:p-6">
@@ -29,7 +58,8 @@ export function DashboardHome({ data }: { data: AppData }) {
         </section>
       )}
 
-      <VisitsLog data={data} />
+      <ActivityTotals data={data} />
+      <DashboardReports data={data} />
 
       {admin ? <FeedbackCard /> : null}
 

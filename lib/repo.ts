@@ -43,6 +43,7 @@ import {
   writeVisit,
   writeContactVisit,
   markHouseholdsDeleted,
+  markShliachHidden,
   softDeleteVisits,
   undoImportRows,
   patchHouseholdFlags,
@@ -243,6 +244,7 @@ function visitsFromForm(actor: User, householdId: string, orgId: string, input: 
       createdBy: prior?.createdBy ?? actor.id,
       createdAt: prior?.createdAt ?? new Date().toISOString(),
       importBatchId: prior?.importBatchId ?? null,
+      activities: [...new Set((visit.activities ?? prior?.activities ?? []).map((item: string) => item.trim()).filter(Boolean))],
     };
   });
 }
@@ -314,6 +316,11 @@ export async function deleteHouseholds(actor: User, ids: string[]): Promise<Acti
     const db = await loadDatabase();
     const snapshots = ids.map((id) => snapshotContact(db, id)).filter((item): item is ContactSnapshot => Boolean(item));
     if (isSupabaseMode()) {
+      // Shliach soft-hide (visible to admins with a badge). Admin keeps the real deleted_at soft-delete.
+      if (actor.role === "shliach") {
+        await markShliachHidden(ids, true);
+        return { ok: true, undo: { type: "restore-shliach-hidden", householdIds: ids } };
+      }
       const mode = await markHouseholdsDeleted(ids, true);
       if (mode === "missing") {
         for (const id of ids) await removeHousehold(id);
@@ -494,6 +501,7 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
     const project = db.projects.find((item) => item.id === household?.projectId)?.name ?? "";
     const priorHistory = (db.contactVisits ?? []).find((item) => item.id === visit.id);
     const chosenVisited = (input.visited ?? "").trim();
+    const activities = [...new Set((input.activities ?? []).map((item) => item.trim()).filter(Boolean))];
     const history: ContactVisit = {
       id: visit.id,
       orgId: visit.orgId,
@@ -507,6 +515,7 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
       createdBy: priorHistory?.createdBy ?? actor.id,
       createdAt: priorHistory?.createdAt ?? visit.createdAt,
       importBatchId: priorHistory?.importBatchId ?? null,
+      activities,
     };
     const undo: UndoPayload = existing ? { type: "replace-visit", visit: existing } : { type: "delete-visit", id: visit.id };
     if (isSupabaseMode()) {
@@ -940,7 +949,8 @@ export async function importContacts(
             arrived: "",
             createdBy: actor.id,
             createdAt: new Date().toISOString(),
-            importBatchId: batchId,
+            activities: [],
+      importBatchId: batchId,
           };
           if (isSupabaseMode()) await writeContactVisit(row, true);
           else applyDemo((draft) => { draft.contactVisits = [...(draft.contactVisits ?? []), row]; });
@@ -1127,6 +1137,7 @@ function historyFromLog(visit: Visit): ContactVisit {
     arrived: "",
     createdBy: visit.visitorId,
     createdAt: visit.createdAt,
+    activities: [],
     importBatchId: null,
   };
 }
@@ -1307,7 +1318,7 @@ export async function mergeContacts(actor: User, sourceId: string, targetId: str
 
 export async function saveOrganization(actor: User, input: OrgInput): Promise<ActionResult> {
   try {
-    assert(perms(actor).canManage, "Only an admin can change settings.");
+    assert(actor.role === "admin" && perms(actor).canManage, "Only an admin can change organization settings.");
     const db = await loadDatabase();
     const geocoded = geocodeAddress(input.city, input.state, input.street);
     const houseLat = geocoded?.lat ?? db.organization.lat;

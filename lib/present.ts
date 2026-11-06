@@ -1,3 +1,4 @@
+import { activityCountsFor } from "@/lib/visit-activities";
 import { matchParts, matchScore, reasonLead, worthFlagging } from "@/lib/duplicate-reason";
 import { isListedProject, listedProjects, parseHouseholdReaction, projectLabel } from "@/lib/constants";
 import { isRealVisit } from "@/lib/visited";
@@ -66,6 +67,7 @@ function outreachFor(db: Database, household: Household): ContactVisit[] {
       arrived: "",
       createdBy: log.visitorId,
       createdAt: log.createdAt,
+      activities: [],
       importBatchId: null,
     });
   }
@@ -83,6 +85,7 @@ function outreachFor(db: Database, household: Household): ContactVisit[] {
     arrived: "",
     createdBy: null,
     createdAt: household.createdAt,
+    activities: [],
     importBatchId: null,
   }];
 }
@@ -119,7 +122,39 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
   const notDup = new Set(db.notDuplicatePairs ?? []);
   const hideHistory = !perms.canViewHistory;
 
-  const households: HouseholdView[] = visibleHouseholds
+  const bochurIds = new Set(
+    db.users
+      .filter((member) => member.role === "bochur" && member.status === "approved" && (user.role === "admin" || member.leaderId === user.id || (user.role === "bochur" && member.leaderId === user.leaderId)))
+      .map((member) => member.id),
+  );
+  // For a shliach, "shared with bochurim" means shared with every one of his active bochurim (or none if he has none).
+  const myBochurIds = [...bochurIds].filter((id) => {
+    const member = db.users.find((item) => item.id === id);
+    return user.role === "admin" ? true : member?.leaderId === user.id;
+  });
+  const sharesByHousehold = new Map<string, Set<string>>();
+  for (const share of db.contactShares ?? []) {
+    const set = sharesByHousehold.get(share.householdId) ?? new Set<string>();
+    set.add(share.bochurId);
+    sharesByHousehold.set(share.householdId, set);
+  }
+  function isSharedWithBochurim(householdId: string) {
+    if (!myBochurIds.length) return false;
+    const set = sharesByHousehold.get(householdId) ?? new Set();
+    return myBochurIds.every((id) => set.has(id));
+  }
+  const nameById = new Map(db.users.map((member) => [member.id, member.name]));
+  const roleById = new Map(db.users.map((member) => [member.id, member.role]));
+  function displayPersonName(id: string | null | undefined, fallback: string) {
+    if (!id) return fallback;
+    if ((user.role === "shliach" || user.role === "bochur") && (roleById.get(id) === "admin" || (!roleById.has(id) && id !== user.id))) {
+      // Admins are hidden from shliach/bochur; RLS omits them, so an unknown author is shown as Cora.
+      if (roleById.get(id) === "admin" || !roleById.has(id)) return "Cora";
+    }
+    return nameById.get(id) ?? fallback;
+  }
+
+    const households: HouseholdView[] = visibleHouseholds
     .map((household) => {
       const schedule = db.categories.find((category) => category.id === household.scheduleCategoryId);
       const project = db.projects.find((item) => item.id === household.projectId);
@@ -140,6 +175,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         status: visit.status,
         createdAt: visit.createdAt,
         createdBy: visit.createdBy,
+        activities: visit.activities ?? [],
         // A shliach or bochur can remove only a visit he logged himself.
         canRemove: visit.id.startsWith("legacy-")
           ? editsContact && perms.canDeleteContacts
@@ -199,6 +235,12 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         customFields: household.customFields,
         sharedWithCora: household.sharedWithCora,
         ownerId: household.ownerId,
+        deletedByShliachAt: household.deletedByShliachAt ?? null,
+        deletedByShliachBy: household.deletedByShliachBy ?? null,
+        deletedByShliachName: household.deletedByShliachBy
+          ? (user.role === "admin" ? (nameById.get(household.deletedByShliachBy) ?? "Shliach") : "Shliach")
+          : null,
+        sharedWithBochurim: isSharedWithBochurim(household.id),
         visitReaction: household.visitReaction,
         possibleDuplicate: household.possibleDuplicate,
         duplicateOf: household.duplicateOf,
@@ -232,7 +274,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         householdId: visit.householdId,
         householdName: household?.name ?? "Household",
         visitorId: visit.visitorId,
-        visitorName: visit.visitorName,
+        visitorName: displayPersonName(visit.visitorId, visit.visitorName),
         visitDate: visit.visitDate,
         status: visit.status,
         reaction: hideHistory ? null : visit.reaction,
@@ -295,7 +337,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
     id: visit.id,
     householdId: visit.householdId,
     householdName: visit.householdName,
-    visitorName: visit.visitorName,
+    visitorName: displayPersonName(visit.visitorId, visit.visitorName),
     status: visit.status,
     reaction: visit.reaction,
     visitDate: visit.visitDate,
@@ -317,10 +359,13 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       nextDue: household.nextDue,
     }));
 
-  const roster: TeamMember[] =
+  const rosterMembers =
     user.role === "limited" || user.role === "bochur"
       ? []
-      : db.users.map((member) => ({
+      : user.role === "shliach"
+        ? db.users.filter((member) => member.id === user.id || (member.role === "bochur" && member.leaderId === user.id))
+        : db.users;
+  const roster: TeamMember[] = rosterMembers.map((member) => ({
           id: member.id,
           name: member.name,
           email: member.email,
@@ -336,6 +381,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
           territory: member.territory ?? [],
           adminApprovedAt: member.adminApprovedAt ?? null,
           finalApprovedAt: member.finalApprovedAt ?? null,
+          projectId: member.projectId ?? null,
           kind: "member" as const,
         }));
 
@@ -358,12 +404,20 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         territory: invite.territory ?? [],
         adminApprovedAt: null,
         finalApprovedAt: null,
+        projectId: null,
         kind: "invite",
       });
     }
   }
 
-  return {
+  const activityCounts = activityCountsFor(
+    db.contactVisits ?? [],
+    visibleHouseholds,
+    user,
+    user.role === "bochur" && user.projectId ? { projectId: user.projectId } : undefined,
+  );
+
+    return {
     mode,
     viewer: {
       id: user.id,
@@ -376,6 +430,12 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       leaderId: user.leaderId ?? null,
       avatarUrl: user.avatarUrl ?? null,
       theme: user.theme ?? null,
+      shareNewWithBochurim: Boolean(user.shareNewWithBochurim),
+      bochurimEditPlanner:
+        user.role === "bochur"
+          ? Boolean(db.users.find((member) => member.id === user.leaderId)?.bochurimEditPlanner)
+          : Boolean(user.bochurimEditPlanner),
+      projectId: user.projectId ?? null,
       territory: user.territory ?? [],
       ...perms,
     },
@@ -415,6 +475,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       topCategories: categoryCounts(households, db.categories),
       dueThisWeek,
       recentVisits,
+      activityCounts,
       checklist: checklistFor({
         orgStreet: db.organization.street,
         startLat: db.organization.startLat,

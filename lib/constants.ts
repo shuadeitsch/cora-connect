@@ -215,3 +215,10 @@ export function projectChoices<T extends { id: string; name: string }>(projects:
   void currentId; // Other projects show as Unsorted, so they are not offered.
   return listedProjects(projects);
 }
+
+/** Built-in visit activity chips. Write-ins are free text beyond these. */
+export const VISIT_ACTIVITIES = ["Tefillin", "Menorah/package", "Mezuzah", "Challah"] as const;
+
+export function normalizeActivity(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}

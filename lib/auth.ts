@@ -71,13 +71,15 @@ export async function signInWithPassword(email: string, password: string): Promi
   return { ok: true };
 }
 
-export async function signUpWithPassword(name: string, email: string, password: string, confirm: string, state?: string): Promise<ActionResult> {
+export async function signUpWithPassword(name: string, email: string, password: string, confirm: string, state?: string, project?: string): Promise<ActionResult> {
   const trimmed = name.trim();
   const normalized = normalizeEmail(email);
   if (trimmed.length < 2) return { ok: false, error: "Enter your name." };
   if (!/.+@.+\..+/.test(normalized)) return { ok: false, error: "Enter a valid email." };
   const stateCode = (state ?? "").trim().toUpperCase();
-  if (!["ME", "NH", "WI"].includes(stateCode)) return { ok: false, error: "Pick your state: Maine, New Hampshire, or Wisconsin." };
+  const projectName = (project ?? "").trim();
+  if (stateCode && !["ME", "NH", "WI"].includes(stateCode)) return { ok: false, error: "Pick your state: Maine, New Hampshire, or Wisconsin." };
+  if (!stateCode && !projectName) return { ok: false, error: "Shluchim pick a state; bochurim pick which project they are here for." };
   const problem = passwordProblem(password, confirm);
   if (problem) return { ok: false, error: problem };
   const gate = await ensureAllowed(normalized);
@@ -85,12 +87,15 @@ export async function signUpWithPassword(name: string, email: string, password: 
 
   const supabase = await createClient();
   const origin = await requestOrigin();
+  const meta: Record<string, string> = { full_name: trimmed, name: trimmed };
+  if (stateCode) meta.state = stateCode;
+  if (projectName) meta.project = projectName;
   const { data, error } = await supabase.auth.signUp({
     email: normalized,
     password,
     options: {
       emailRedirectTo: `${origin}/auth/callback`,
-      data: { full_name: trimmed, name: trimmed, state: stateCode },
+      data: meta,
     },
   });
   if (error) {

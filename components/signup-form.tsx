@@ -8,7 +8,7 @@ import { Notice } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signUpAction } from "@/lib/actions";
-import { FOCUS_STATES } from "@/lib/constants";
+import { CONTACT_PROJECTS, FOCUS_STATES } from "@/lib/constants";
 
 const STATES = FOCUS_STATES.filter((item) => item.code !== "Unsorted");
 
@@ -16,6 +16,7 @@ export function SignupForm({ initialEmail }: { initialEmail: string }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState(initialEmail);
   const [state, setState] = useState("");
+  const [project, setProject] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -28,7 +29,7 @@ export function SignupForm({ initialEmail }: { initialEmail: string }) {
     setPending(true);
     setError("");
     setInfo("");
-    const result = await signUpAction(name, email, password, confirm, state);
+    const result = await signUpAction(name, email, password, confirm, state, project);
     if (!result.ok) {
       setPending(false);
       setError(result.error);
@@ -44,7 +45,7 @@ export function SignupForm({ initialEmail }: { initialEmail: string }) {
   }
 
   return (
-    <AuthCard title="Create a Cora Connect account" subtitle="Use the email on your invite, or an allowlisted address. An invite approves you automatically with the role chosen for you. Allowlisted signups without an invite still wait for a Cora Connect admin. Shluchim pick their state so they only see that state.">
+    <AuthCard title="Create a Cora Connect account" subtitle="Use the email on your invite. An invite approves you with the role your admin chose. Shluchim pick their state; bochurim pick which project they are here for.">
       <form className="space-y-3" onSubmit={(event) => void submit(event)}>
         <label className="block text-sm">
           <span className="mb-1 block text-[11px] font-medium tracking-wide text-mutedink uppercase">Name</span>
@@ -55,17 +56,30 @@ export function SignupForm({ initialEmail }: { initialEmail: string }) {
           <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" placeholder="you@example.com" />
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block text-[11px] font-medium tracking-wide text-mutedink uppercase">State</span>
+          <span className="mb-1 block text-[11px] font-medium tracking-wide text-mutedink uppercase">State (shluchim)</span>
           <select
             aria-label="State"
-            required
             className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm"
             value={state}
             onChange={(event) => setState(event.target.value)}
           >
-            <option value="" disabled>Pick your state</option>
+            <option value="">Skip if you are a bochur</option>
             {STATES.map((item) => (
               <option key={item.code} value={item.code}>{item.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1 block text-[11px] font-medium tracking-wide text-mutedink uppercase">Which project are you here for? (bochurim)</span>
+          <select
+            aria-label="Project"
+            className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm"
+            value={project}
+            onChange={(event) => setProject(event.target.value)}
+          >
+            <option value="">Skip if you are a shliach</option>
+            {CONTACT_PROJECTS.map((name) => (
+              <option key={name} value={name}>{name}</option>
             ))}
           </select>
         </label>
@@ -78,7 +92,7 @@ export function SignupForm({ initialEmail }: { initialEmail: string }) {
           <Input type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} required minLength={8} autoComplete="new-password" />
         </label>
         {error ? <Notice>{error}</Notice> : null}
-        {info ? <Notice tone="ok">{info}</Notice> : null}
+        {info ? <Notice tone={info ? "ok" : "error"}>{info}</Notice> : null}
         <Button type="submit" disabled={pending} className="h-10 w-full rounded-full">
           {pending ? "Creating…" : "Create account"}
         </Button>

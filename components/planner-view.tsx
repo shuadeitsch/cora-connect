@@ -9,6 +9,7 @@ import { createContext, useContext, useMemo, useState, useTransition } from "rea
 import { useRouter } from "next/navigation";
 import { CalendarPlus, Clock, MapPin, Pencil, Plus, Route as RouteIcon, Trash2, X } from "lucide-react";
 import { AddressLink } from "@/components/address-link";
+import { googleParts } from "@/lib/google-links";
 import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,7 +82,11 @@ function timeLabel(time: string | null) {
 
 export function PlannerView({ data, days, loadError }: { data: AppData; days: PlannerDay[]; loadError: string }) {
   const router = useRouter();
-  const canEdit = data.viewer.canManage;
+  // Admin + shliach always edit. Bochur edits only when his shliach's toggle is on (RLS enforces too).
+  const canEdit =
+    data.viewer.role === "admin" ||
+    data.viewer.role === "shliach" ||
+    (data.viewer.role === "bochur" && Boolean(data.viewer.bochurimEditPlanner));
   const [newDate, setNewDate] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
@@ -342,6 +347,7 @@ function ItemRow({
         </p>
         {route ? <p className="text-xs text-muted-foreground">{route.stopCount} stops</p> : null}
         {route ? <RouteCities stops={route.stops} /> : null}
+        {route ? <RouteStartLinks route={route} /> : null}
         {item.kind === "event" && item.address ? (
           <p className="mt-0.5 flex items-center gap-1 text-sm">
             <MapPin className="size-3.5 shrink-0 text-muted-foreground" />
@@ -373,5 +379,27 @@ function ItemRow({
         </button>
       ) : null}
     </li>
+  );
+}
+
+
+function place(stop: { name?: string; address?: string; street?: string; city?: string; state?: string; zip?: string; lat?: number | null; lng?: number | null }) {
+  if (stop.lat != null && stop.lng != null) return `${stop.lat},${stop.lng}`;
+  return [stop.address || stop.street, stop.city, stop.state, stop.zip, stop.name].filter(Boolean).join(", ");
+}
+
+function RouteStartLinks({ route }: { route: AppData["routes"][number] }) {
+  const stops = route.stops ?? [];
+  if (!stops.length) return null;
+  const first = stops[0]!;
+  const stopAddrs = stops.map((s) => place(s));
+  const { parts } = googleParts("", stopAddrs);
+  const google = parts[0]?.url ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place(first))}`;
+  const apple = `https://maps.apple.com/?daddr=${encodeURIComponent(place(first))}&dirflg=d`;
+  return (
+    <p className="mt-1.5 flex flex-wrap gap-2 text-xs">
+      <a href={google} target="_blank" rel="noreferrer" className="rounded-full bg-accent px-2.5 py-1 font-medium text-foreground hover:underline">Google Maps</a>
+      <a href={apple} target="_blank" rel="noreferrer" className="rounded-full bg-accent px-2.5 py-1 font-medium text-foreground hover:underline">Apple Maps</a>
+    </p>
   );
 }

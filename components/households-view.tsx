@@ -43,6 +43,7 @@ import {
   removeContactVisitAction,
   saveHouseholdAction,
 } from "@/lib/actions";
+import { restoreShliachHiddenAction, shareContactWithBochurimAction } from "@/lib/shliach-prefs-actions";
 import { useUndoToast } from "@/components/undo-toast";
 import { useRouter } from "next/navigation";
 import { shareWithBochurAction } from "@/lib/bochur-actions";
@@ -83,6 +84,7 @@ export function HouseholdsView({
   initialDue: boolean;
   focusId: string;
 }) {
+  const router = useRouter();
   const toast = useToast();
   const announce = useUndoToast();
   const [query, setQuery] = useState("");
@@ -221,6 +223,20 @@ export function HouseholdsView({
     });
   }
 
+  function restoreHidden(ids: string[]) {
+    start(async () => {
+      const result = await restoreShliachHiddenAction(ids);
+      if (!result.ok) {
+        setError(result.error);
+        toast({ title: result.error, tone: "error" });
+        return;
+      }
+      setSelected([]);
+      toast({ title: ids.length === 1 ? "Contact restored" : `${ids.length} contacts restored` });
+      router.refresh();
+    });
+  }
+
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
@@ -281,13 +297,19 @@ export function HouseholdsView({
         {selected.length && data.viewer.canShare ? (
           <ShareWithBochur data={data} ids={selected} className={pill} />
         ) : null}
-        {selected.length && data.viewer.canDeleteContacts ? (
+        {selected.length && data.viewer.canDeleteContacts && filters.list !== "shliach-deleted" ? (
           <button type="button" className={`${pill} text-red-600`} onClick={() => setPendingDelete(selected)}>
             <Trash2 className="size-3.5" /> Delete {selected.length} contact{selected.length === 1 ? "" : "s"}
           </button>
         ) : null}
+        {selected.length && data.viewer.role === "admin" && filters.list === "shliach-deleted" ? (
+          <button type="button" className={pill} onClick={() => restoreHidden(selected)}>
+            Restore {selected.length} contact{selected.length === 1 ? "" : "s"}
+          </button>
+        ) : null}
       </div>
       {filters.list === "tagged" ? <p className="mb-3 text-sm text-muted-foreground">Tagged contacts stay off the main list. Search still finds them from the main list.</p> : null}
+      {filters.list === "shliach-deleted" ? <p className="mb-3 text-sm text-muted-foreground">Contacts a shliach soft-deleted. Restore to put them back on his list.</p> : null}
       <div className="panel overflow-hidden rounded-3xl">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
           <div className="relative min-w-0 basis-full sm:flex-1">
@@ -342,6 +364,11 @@ export function HouseholdsView({
                     <DuplicateNote household={household} onOpen={openById} className="w-full rounded-2xl bg-amber-500/15 px-2 py-1 text-[11px]" />
                     <TagBadges tags={household.tags} />
                     {household.sharedWithCora ? null : <span className="text-xs">Private</span>}
+                    {household.deletedByShliachAt ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-950 dark:bg-amber-950 dark:text-amber-100">
+                        Deleted by shliach{household.deletedByShliachName ? ` (${household.deletedByShliachName}` : ""}{household.deletedByShliachAt ? `, ${household.deletedByShliachAt.slice(0, 10)}` : ""}{household.deletedByShliachName ? ")" : ""}
+                      </span>
+                    ) : null}
                   </div>
                   <NotePreview notes={notesFor(household, data.viewer.canViewHistory)} compact />
                   <div className="mt-auto flex gap-2">
@@ -726,6 +753,7 @@ function fromHousehold(household: HouseholdView, data: AppData): HouseholdInput 
     tags: household.tags.join(", "),
     customFields: Object.fromEntries(data.customFields.map((field) => [field.id, household.customFields[field.id] ?? ""])),
     sharedWithCora: household.sharedWithCora,
+    sharedWithBochurim: household.sharedWithBochurim,
     ownerId: household.ownerId ?? "",
     visitReaction: household.visitReaction ?? "",
     visits: (household.contactVisits ?? [])
@@ -805,6 +833,15 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                   setError(result.error);
                   toast({ title: result.error, tone: "error" });
                   return;
+                }
+                const id = result.data?.id ?? household?.id;
+                if (id && typeof payload.sharedWithBochurim === "boolean" && (data.viewer.role === "shliach" || data.viewer.role === "admin")) {
+                  const share = await shareContactWithBochurimAction(id, payload.sharedWithBochurim);
+                  if (!share.ok) {
+                    setError(share.error);
+                    toast({ title: share.error, tone: "error" });
+                    return;
+                  }
                 }
                 announce(result, household ? "Contact updated" : "Contact saved");
                 onClose();
@@ -963,14 +1000,25 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
             </div>
             <p className="text-xs text-muted-foreground">Tagged contacts stay off the main list. Search still finds them.</p>
           </div>
-          {data.viewer.role === "shliach" ? (
-            <label className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm">
-              <span>
-                <span className="block font-medium text-foreground">Share with Cora</span>
-                <span className="text-xs text-muted-foreground">Shared contacts also show on the Cora overview.</span>
-              </span>
-              <input type="checkbox" className="size-5 accent-primary" checked={form.sharedWithCora} onChange={(event) => setForm({ ...form, sharedWithCora: event.target.checked })} />
-            </label>
+          {data.viewer.role === "shliach" || data.viewer.role === "admin" ? (
+            <>
+              {data.viewer.role === "shliach" ? (
+                <label className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm">
+                  <span>
+                    <span className="block font-medium text-foreground">Share with Cora</span>
+                    <span className="text-xs text-muted-foreground">Shared contacts also show on the Cora overview.</span>
+                  </span>
+                  <input type="checkbox" className="size-5 accent-primary" checked={form.sharedWithCora} onChange={(event) => setForm({ ...form, sharedWithCora: event.target.checked })} />
+                </label>
+              ) : null}
+              <label className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm">
+                <span>
+                  <span className="block font-medium text-foreground">Shared with bochurim</span>
+                  <span className="text-xs text-muted-foreground">All of your bochurim can see this contact.</span>
+                </span>
+                <input type="checkbox" className="size-5 accent-primary" checked={Boolean(form.sharedWithBochurim)} onChange={(event) => setForm({ ...form, sharedWithBochurim: event.target.checked })} />
+              </label>
+            </>
           ) : null}
           {error ? <Notice>{error}</Notice> : null}
           <div className="flex justify-end"><Button type="submit" disabled={pending} className="rounded-full">{pending ? "Saving…" : "Save contact"}</Button></div>
