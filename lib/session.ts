@@ -3,6 +3,7 @@ import { cache } from "react";
 import { todayIso } from "@/lib/format";
 import { normalizeAccountStatus } from "@/lib/constants";
 import { present } from "@/lib/present";
+import { applyPreview, readPreview } from "@/lib/preview";
 import { loadDemo } from "@/lib/store";
 import { createClient, isSupabaseMode } from "@/lib/supabase/server";
 import { loadSupabase } from "@/lib/supabase/load";
@@ -42,6 +43,8 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
     assignedRouteIds: (links ?? []).map((link) => link.route_id),
     leaderId: profile.leader_id ?? null,
     territory,
+    avatarUrl: profile.avatar_url ?? null,
+    theme: profile.theme ?? null,
   };
 });
 
@@ -58,6 +61,19 @@ export const getAppData = cache(async (): Promise<AppData | null> => {
   const user = await getCurrentUser();
   if (!user) return null;
   const db = await loadDatabase();
-  const full = db.users.find((member) => member.id === user.id) ?? user;
-  return present(db, full, isSupabaseMode() ? "supabase" : "demo", todayIso());
+  const found = db.users.find((member) => member.id === user.id);
+  const full = found ?? user;
+  const preview = await readPreview();
+  const effective = applyPreview(full, preview);
+  const data = present(db, effective, isSupabaseMode() ? "supabase" : "demo", todayIso());
+  if (preview && user.role === "admin") {
+    return {
+      ...data,
+      viewer: {
+        ...data.viewer,
+        preview: { role: preview.role, state: preview.state ?? null },
+      },
+    };
+  }
+  return data;
 });

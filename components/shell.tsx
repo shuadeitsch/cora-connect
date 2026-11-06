@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
+  ChevronDown,
   ClipboardList,
+  FlaskConical,
   House,
   LayoutGrid,
   LogOut,
   Map,
-  MessageSquareText,
   Route,
   Search,
   Settings,
@@ -19,6 +20,8 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { CommandPalette, type PaletteHousehold } from "@/components/command-palette";
+import { FeedbackButton } from "@/components/feedback-button";
+import { PreviewBanner } from "@/components/preview-banner";
 import { ReloadButton } from "@/components/reload-button";
 import { VersionBadge } from "@/components/version-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -31,30 +34,41 @@ import { formatMedium } from "@/lib/format";
 import type { AppNotificationView, Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const PRIMARY: { href: string; label: string; short?: string; icon: typeof House; adminOnly?: boolean; desktopOnly?: boolean }[] = [
+type NavItem = { href: string; label: string; short?: string; icon: typeof House; adminOnly?: boolean; desktopOnly?: boolean };
+
+const PRIMARY: NavItem[] = [
   { href: "/households", label: "Contacts", icon: House },
-  { href: "/map", label: "Map", icon: Map },
   { href: "/saved-routes", label: "Routes", icon: Route },
   { href: "/planner", label: "Daily planner", short: "Planner", icon: CalendarDays },
   { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutGrid },
 ];
 
 /** Sidebar only; on phones these sit in the avatar menu at the top. */
-const SIDEBAR_EXTRA: typeof PRIMARY = [
+const SIDEBAR_EXTRA: NavItem[] = [
   { href: "/reports", label: "Reports", icon: ClipboardList, desktopOnly: true },
   { href: "/team", label: "My Team", icon: Users, desktopOnly: true },
+  { href: "/users", label: "Users", icon: ShieldCheck, adminOnly: true, desktopOnly: true },
   { href: "/settings", label: "Settings", icon: Settings, desktopOnly: true },
 ];
 
+/** Map and Beta live under More at the very bottom of the sidebar (and phone avatar menu). */
+const MORE_ITEMS: NavItem[] = [
+  { href: "/map", label: "Map", icon: Map },
+  { href: "/beta", label: "Beta", icon: FlaskConical, adminOnly: true },
+];
+
 /** A bochur has no Dashboard, so his few extra pages sit in the bar itself. */
-const BOCHUR_EXTRA: typeof PRIMARY = [
+const BOCHUR_EXTRA: NavItem[] = [
   { href: "/reports", label: "Reports", icon: ClipboardList },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 /** A bochur only works with contacts shared with him. */
-const BOCHUR_HIDDEN = new Set(["/planner", "/team", "/dashboard"]);
+const BOCHUR_HIDDEN = new Set(["/planner", "/team", "/dashboard", "/beta"]);
 
+function visibleItems(items: NavItem[], canManage: boolean, bochur: boolean) {
+  return items.filter((item) => (canManage || !item.adminOnly) && !(bochur && BOCHUR_HIDDEN.has(item.href)));
+}
 
 function NavLinks({
   items,
@@ -62,13 +76,13 @@ function NavLinks({
   canManage,
   bochur = false,
 }: {
-  items: { href: string; label: string; icon: typeof House; adminOnly?: boolean }[];
+  items: NavItem[];
   onNavigate?: () => void;
   canManage: boolean;
   bochur?: boolean;
 }) {
   const pathname = usePathname();
-  const visible = items.filter((item) => (canManage || !item.adminOnly) && !(bochur && BOCHUR_HIDDEN.has(item.href)));
+  const visible = visibleItems(items, canManage, bochur);
   return (
     <nav className="flex flex-col gap-1 px-3">
       {visible.map((item) => {
@@ -95,6 +109,57 @@ function NavLinks({
   );
 }
 
+function MoreGroup({
+  items,
+  canManage,
+  bochur,
+}: {
+  items: NavItem[];
+  canManage: boolean;
+  bochur: boolean;
+}) {
+  const pathname = usePathname();
+  const visible = visibleItems(items, canManage, bochur);
+  const [open, setOpen] = useState(() => visible.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)));
+  if (!visible.length) return null;
+  return (
+    <div className="mt-auto border-t border-border/60 px-3 pt-2">
+      <button
+        type="button"
+        className="flex min-h-10 w-full items-center justify-between rounded-2xl px-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:bg-muted"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        More
+        <ChevronDown className={cn("size-4 transition", open && "rotate-180")} />
+      </button>
+      {open ? (
+        <nav className="mt-1 flex flex-col gap-1 pb-1">
+          {visible.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex min-h-11 items-center gap-3 rounded-2xl px-2.5 text-sm font-medium transition",
+                  active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <span className={cn("flex size-8 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
+                  <Icon className="size-4" />
+                </span>
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
+    </div>
+  );
+}
+
 export function Shell({
   viewer,
   households,
@@ -110,13 +175,18 @@ export function Shell({
   const viewingState = useViewingState();
   const [search, setSearch] = useState(false);
   const mapPage = pathname.startsWith("/map") || pathname === "/saved-routes/new";
+  const preview = viewer.preview ?? null;
   // A theme saved on the account follows the person to a new device.
   useEffect(() => {
     if (isThemeId(viewer.theme) && !window.localStorage.getItem(THEME_KEY)) applyTheme(viewer.theme);
   }, [viewer.theme]);
   const bochur = viewer.role === "bochur";
+  // Real admins (not in preview) manage; preview uses the role's canManage (false).
+  const canManage = viewer.canManage && !preview;
+  const showAdminChrome = viewer.role === "admin" && !preview;
   const navItems = bochur ? [...PRIMARY, ...BOCHUR_EXTRA] : [...PRIMARY, ...SIDEBAR_EXTRA];
-  const primary = navItems.filter((item) => (viewer.canManage || !item.adminOnly) && !item.desktopOnly && !(bochur && BOCHUR_HIDDEN.has(item.href)));
+  const primary = navItems.filter((item) => (canManage || !item.adminOnly) && !item.desktopOnly && !(bochur && BOCHUR_HIDDEN.has(item.href)));
+  const moreForPhone = visibleItems(MORE_ITEMS, showAdminChrome || canManage, bochur);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -139,7 +209,7 @@ export function Shell({
             <img src="/brand/cora-logo.png" alt="Cora" className="h-10 w-auto max-w-[9.5rem] object-contain object-left sm:h-11 sm:max-w-[13rem]" />
           </Link>
           <div className="flex w-full min-w-0 flex-wrap items-center gap-1">
-            {viewer.role === "admin" ? <VersionBadge className="min-w-0 flex-1" /> : null}
+            {showAdminChrome ? <VersionBadge className="min-w-0 flex-1" /> : null}
             <ReloadButton />
           </div>
         </div>
@@ -169,35 +239,24 @@ export function Shell({
                 { href: "/settings?tab=account", label: "Settings", icon: Settings },
                 { href: "/reports", label: "Reports", icon: ClipboardList },
                 ...(bochur ? [] : [{ href: "/team", label: "My Team", icon: Users }]),
-                ...(viewer.canManage ? [{ href: "/users", label: "Users", icon: ShieldCheck }] : []),
+                ...(showAdminChrome ? [{ href: "/users", label: "Users", icon: ShieldCheck }] : []),
               ].map((item) => (
                 <Link key={item.href} href={item.href} className="flex min-h-11 items-center gap-2 rounded-xl px-2.5 text-sm text-foreground hover:bg-muted"><item.icon className="size-4" /> {item.label}</Link>
               ))}
+              {moreForPhone.length ? (
+                <>
+                  <p className="px-2.5 pt-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">More</p>
+                  {moreForPhone.map((item) => (
+                    <Link key={item.href} href={item.href} className="flex min-h-11 items-center gap-2 rounded-xl px-2.5 text-sm text-foreground hover:bg-muted"><item.icon className="size-4" /> {item.label}</Link>
+                  ))}
+                </>
+              ) : null}
               <form action={logoutAction}>
                 <button type="submit" className="flex min-h-11 w-full items-center gap-2 rounded-xl px-2.5 text-sm text-foreground hover:bg-muted"><LogOut className="size-4" /> Log out</button>
               </form>
             </PopoverContent>
           </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label="Feedback"
-                title="Feedback"
-                className="inline-flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted"
-              >
-                <MessageSquareText className="size-[18px]" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-[min(18rem,calc(100vw-1.5rem))]">
-              <p className="font-heading text-sm font-semibold text-foreground">Send feedback</p>
-              <div className="mt-3 flex flex-col gap-1 text-sm">
-                <a className="flex min-h-11 items-center gap-2 rounded-xl px-2 hover:bg-muted" href="tel:+13477701863">
-                  <span className="text-primary">Call 347-770-1863</span>
-                </a>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <FeedbackButton preview={Boolean(preview)} />
           <form action={logoutAction} className="hidden lg:block">
             <button type="submit" aria-label="Log out" className="inline-flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted">
               <LogOut className="size-[18px]" />
@@ -212,8 +271,9 @@ export function Shell({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/cora-connect-logo.png" alt="Cora Connect" className="block h-auto w-full object-contain dark:brightness-0 dark:invert" />
           </Link>
-          <NavLinks items={navItems} canManage={viewer.canManage} bochur={bochur} />
-          <Link href="/settings?tab=account" className="mx-3 mt-auto flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
+          <NavLinks items={navItems} canManage={canManage || showAdminChrome} bochur={bochur} />
+          <MoreGroup items={MORE_ITEMS} canManage={showAdminChrome || canManage} bochur={bochur} />
+          <Link href="/settings?tab=account" className="mx-3 mt-2 flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
             <Avatar name={viewer.name} src={viewer.avatarUrl} className="size-9" />
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium text-foreground">{viewer.name}</span>
@@ -222,6 +282,7 @@ export function Shell({
           </Link>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
+          {preview ? <PreviewBanner role={preview.role} state={preview.state} /> : null}
           {viewer.expired ? (
             <div className="mx-3 mt-3 rounded-2xl bg-amber-100 px-4 py-2 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">
               Your access expired{viewer.expiresAt ? ` on ${formatMedium(viewer.expiresAt)}` : ""}. You can review records, and editing is turned off.
@@ -248,7 +309,7 @@ export function Shell({
           );
         })}
       </nav>
-      <CommandPalette open={search} onOpenChange={setSearch} households={households} canManage={viewer.canManage} />
+      <CommandPalette open={search} onOpenChange={setSearch} households={households} canManage={viewer.canManage && !preview} />
     </div>
   );
 }

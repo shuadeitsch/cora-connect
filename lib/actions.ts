@@ -40,6 +40,7 @@ import {
   setHouseholdCategories,
   setHouseholdSchedule,
 } from "@/lib/repo";
+import { assertNotPreview } from "@/lib/preview";
 import { getAppData, getCurrentUser } from "@/lib/session";
 import { geocodeMany, geocodeText } from "@/lib/geocode";
 import { nearestNeighbor } from "@/lib/geo";
@@ -63,6 +64,14 @@ async function actor() {
   return getCurrentUser();
 }
 
+async function requireWritable() {
+  const gate = await assertNotPreview();
+  if (!gate.ok) return gate;
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return { ok: true as const, user };
+}
+
 function refresh<T>(result: ActionResult<T>): ActionResult<T> {
   if (result.ok) revalidatePath("/", "layout");
   return result;
@@ -72,8 +81,8 @@ export async function signInAction(email: string, password: string) {
   return signInWithPassword(email, password);
 }
 
-export async function signUpAction(name: string, email: string, password: string, confirm: string) {
-  return signUpWithPassword(name, email, password, confirm);
+export async function signUpAction(name: string, email: string, password: string, confirm: string, state?: string) {
+  return signUpWithPassword(name, email, password, confirm, state);
 }
 
 export async function sendPasswordResetAction(email: string) {
@@ -94,6 +103,8 @@ export async function setAccountApprovalAction(
   territory?: { states: string[]; areas: string[] },
   leaderId?: string,
 ) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await setAccountApproval(user, id, decision, territory, leaderId));
@@ -116,6 +127,8 @@ function actionError(error: unknown, fallback: string) {
 
 export async function saveHouseholdAction(input: HouseholdInput) {
   try {
+    const writable = await requireWritable();
+    if (!writable.ok) return writable;
     const user = await actor();
     if (!user) return { ok: false as const, error: "Sign in again." };
     return refresh(await saveHousehold(user, input));
@@ -125,6 +138,8 @@ export async function saveHouseholdAction(input: HouseholdInput) {
 }
 
 export async function deleteHouseholdsAction(ids: string[]) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteHouseholds(user, ids));
@@ -132,6 +147,8 @@ export async function deleteHouseholdsAction(ids: string[]) {
 
 export async function undoAction(undo: UndoPayload) {
   try {
+    const writable = await requireWritable();
+    if (!writable.ok) return writable;
     const user = await actor();
     if (!user) return { ok: false as const, error: "Sign in again." };
     return refresh(await applyUndo(user, undo));
@@ -142,6 +159,8 @@ export async function undoAction(undo: UndoPayload) {
 
 export async function mergeContactsAction(sourceId: string, targetId: string) {
   try {
+    const writable = await requireWritable();
+    if (!writable.ok) return writable;
     const user = await actor();
     if (!user) return { ok: false as const, error: "Sign in again." };
     return refresh(await mergeContacts(user, sourceId, targetId));
@@ -152,6 +171,8 @@ export async function mergeContactsAction(sourceId: string, targetId: string) {
 
 export async function dismissDuplicateAction(id: string, otherId?: string | null) {
   try {
+    const writable = await requireWritable();
+    if (!writable.ok) return writable;
     const user = await actor();
     if (!user) return { ok: false as const, error: "Sign in again." };
     return refresh(await dismissDuplicate(user, id, otherId));
@@ -161,12 +182,16 @@ export async function dismissDuplicateAction(id: string, otherId?: string | null
 }
 
 export async function setScheduleAction(householdId: string, scheduleCategoryId: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await setHouseholdSchedule(user, householdId, scheduleCategoryId));
 }
 
 export async function setCategoriesAction(householdId: string, categoryIds: string[]) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await setHouseholdCategories(user, householdId, categoryIds));
@@ -174,6 +199,8 @@ export async function setCategoriesAction(householdId: string, categoryIds: stri
 
 export async function importContactsAction(plan: ContactImport) {
   try {
+    const writable = await requireWritable();
+    if (!writable.ok) return writable;
     const user = await actor();
     if (!user) return { ok: false as const, error: "Sign in again." };
     return refresh(await importContacts(user, plan));
@@ -183,18 +210,24 @@ export async function importContactsAction(plan: ContactImport) {
 }
 
 export async function importHouseholdsAction(rows: CsvHouseholdRow[]) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await importHouseholds(user, rows));
 }
 
 export async function saveVisitAction(input: VisitInput) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await saveVisit(user, input));
 }
 
 export async function deleteVisitAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteVisit(user, id));
@@ -202,6 +235,8 @@ export async function deleteVisitAction(id: string) {
 
 export async function removeContactVisitAction(id: string) {
   try {
+    const writable = await requireWritable();
+    if (!writable.ok) return writable;
     const user = await actor();
     if (!user) return { ok: false as const, error: "Sign in again." };
     return refresh(await removeContactVisitFromContact(user, id));
@@ -211,72 +246,96 @@ export async function removeContactVisitAction(id: string) {
 }
 
 export async function saveRouteAction(input: RouteInput) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await saveRoute(user, input));
 }
 
 export async function deleteRouteAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteRoute(user, id));
 }
 
 export async function deleteRoutesAction(ids: string[]) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteRoutes(user, ids));
 }
 
 export async function saveMemberAction(input: MemberInput) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await saveMember(user, input));
 }
 
 export async function deleteMemberAction(id: string, kind: "member" | "invite") {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteMember(user, id, kind));
 }
 
 export async function saveOrganizationAction(input: OrgInput) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await saveOrganization(user, input));
 }
 
 export async function saveCategoryAction(input: CategoryInput) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await saveCategory(user, input));
 }
 
 export async function deleteCategoryAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteCategory(user, id));
 }
 
 export async function saveProjectAction(input: ProjectInput) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await saveProject(user, input));
 }
 
 export async function deleteProjectAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteProject(user, id));
 }
 
 export async function saveFieldAction(input: FieldInput) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await saveCustomField(user, input));
 }
 
 export async function deleteFieldAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteCustomField(user, id));
@@ -289,6 +348,8 @@ export async function readNotificationsAction() {
 }
 
 export async function resetDemoAction() {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await resetDemoData(user));
@@ -296,7 +357,8 @@ export async function resetDemoAction() {
 
 /** Map points for contacts with no saved coordinates. Looked up on the fly; nothing is saved. */
 export async function geocodeContactsAction(ids: string[]) {
-  const data = await getAppData();
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;const data = await getAppData();
   if (!data) return { ok: false as const, error: "Sign in again." };
   const wanted = new Set(ids.slice(0, 40));
   const queries = data.households
@@ -307,6 +369,8 @@ export async function geocodeContactsAction(ids: string[]) {
 
 /** Saves a new route from picked contacts, ordered nearest-first from the start point (looked-up points for contacts with no saved coordinates). */
 export async function buildRouteAction(input: { name: string; projectId: string; householdIds: string[] }) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   const data = await getAppData();

@@ -51,6 +51,8 @@ export interface User {
   /** Public URL of his profile picture, if he set one. */
   avatarUrl?: string | null;
   theme?: string | null;
+  /** True while an admin is in Beta preview as this role. */
+  previewing?: boolean;
   /** Bochur: step one (a Cora admin) and the final step (his shliach). */
   adminApprovedAt?: string | null;
   finalApprovedAt?: string | null;
@@ -230,6 +232,8 @@ export interface Viewer {
   territory: Territory[];
   avatarUrl: string | null;
   theme: string | null;
+  /** Set when a Cora admin is viewing the app as another role (Beta). */
+  preview?: { role: "shliach" | "bochur"; state: string | null } | null;
 }
 
 export interface TeamMember {

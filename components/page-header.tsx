@@ -12,6 +12,7 @@ export const PAGE_DESCRIPTIONS: Record<string, string> = {
   Reports: "Every visit that was logged, with filters and a download.",
   "My team": "The shluchim and bochurim you work with, and who's on which team.",
   Users: "Everyone with a login: approve new people and set their access.",
+  Beta: "Try the shliach and bochur versions of Cora Connect without changing real data.",
 };
 
 export function PageDescription({ children }: { children: ReactNode }) {

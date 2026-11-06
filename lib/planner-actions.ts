@@ -1,5 +1,7 @@
 "use server";
 
+import { assertNotPreview } from "@/lib/preview";
+
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/session";
 import { createClient, isSupabaseMode } from "@/lib/supabase/server";
@@ -26,6 +28,8 @@ function done(): Result {
 }
 
 export async function addPlannerDayAction(date: string): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const who = await admin();
   if (typeof who === "string") return { ok: false, error: who };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Pick a date." };
@@ -35,6 +39,8 @@ export async function addPlannerDayAction(date: string): Promise<Result> {
 }
 
 export async function removePlannerDayAction(id: string): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const who = await admin();
   if (typeof who === "string") return { ok: false, error: who };
   const supabase = await createClient();
@@ -51,6 +57,8 @@ export async function addPlannerItemAction(input: {
   notes?: string;
   address?: string;
 }): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const who = await admin();
   if (typeof who === "string") return { ok: false, error: who };
   const title = input.title.trim().slice(0, 200);
@@ -74,6 +82,8 @@ export async function addPlannerItemAction(input: {
 }
 
 export async function removePlannerItemAction(id: string): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const who = await admin();
   if (typeof who === "string") return { ok: false, error: who };
   const supabase = await createClient();
@@ -90,6 +100,8 @@ export async function updatePlannerItemAction(input: {
   notes?: string;
   address?: string;
 }): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const who = await admin();
   if (typeof who === "string") return { ok: false, error: who };
   const title = input.title.trim().slice(0, 200);
@@ -122,6 +134,8 @@ export async function addTripDayToPlannerAction(input: {
   time?: string;
   events?: { title: string; time?: string; address?: string }[];
 }): Promise<{ ok: true; dayId: string; itemIds: string[] } | { ok: false; error: string }> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const who = await admin();
   if (typeof who === "string") return { ok: false, error: who };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { ok: false, error: "Pick a date." };

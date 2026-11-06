@@ -71,11 +71,13 @@ export async function signInWithPassword(email: string, password: string): Promi
   return { ok: true };
 }
 
-export async function signUpWithPassword(name: string, email: string, password: string, confirm: string): Promise<ActionResult> {
+export async function signUpWithPassword(name: string, email: string, password: string, confirm: string, state?: string): Promise<ActionResult> {
   const trimmed = name.trim();
   const normalized = normalizeEmail(email);
   if (trimmed.length < 2) return { ok: false, error: "Enter your name." };
   if (!/.+@.+\..+/.test(normalized)) return { ok: false, error: "Enter a valid email." };
+  const stateCode = (state ?? "").trim().toUpperCase();
+  if (!["ME", "NH", "WI"].includes(stateCode)) return { ok: false, error: "Pick your state: Maine, New Hampshire, or Wisconsin." };
   const problem = passwordProblem(password, confirm);
   if (problem) return { ok: false, error: problem };
   const gate = await ensureAllowed(normalized);
@@ -88,7 +90,7 @@ export async function signUpWithPassword(name: string, email: string, password: 
     password,
     options: {
       emailRedirectTo: `${origin}/auth/callback`,
-      data: { full_name: trimmed, name: trimmed },
+      data: { full_name: trimmed, name: trimmed, state: stateCode },
     },
   });
   if (error) {

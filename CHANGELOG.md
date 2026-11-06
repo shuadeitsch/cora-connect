@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.8.20
+
+- Beta (admins only): a Beta page under More in the sidebar (and under More in the phone avatar menu). Open a read-only copy of the whole app as a bochur, or as a shliach for a picked state (Maine, New Hampshire, or Wisconsin). A banner with Exit stays on screen; every write is blocked with "Preview only". Role views come from the same present() path used live.
+- Map and Beta sit in a More group at the bottom of the sidebar. On phones they are under More in the avatar menu.
+- Feedback (all roles): the top-bar Feedback button no longer shows a phone number. You type a message and press Send. Messages save to a new feedback table. Admins see a Feedback card on the Dashboard (newest first, with mark read and archive). Shluchim and bochurim do not see that card. Feedback is read-only in Beta preview.
+- Sign up: a required State dropdown (Maine, New Hampshire, Wisconsin). The state is saved on the profile territory so a shliach only sees that state. RLS already scopes by territory.
+
+## 1.8.19
+
+- Dashboard (all roles): "Visits over time" and the shliach "Bochurim visits" card are gone. "Recent visits" shows all of today's visits (America/New_York), newest first, scoped by role, with an empty state.
+- Admin Dashboard: Visit reactions and the More box are gone.
+- My Team: a prominent "Participating bochurim" box at the top.
+- Settings > Chabad house: start latitude/longitude and Map starting state are hidden. Stored values stay for Plan a trip.
+
 ## 1.8.18
 
 - Plan a trip: saving is sturdier. If a save fails (for example because Cora Connect was updated while the page was open) you now get a clear message instead of nothing, and your plan is kept so you can reload and save again. New "Save all days as routes" button.

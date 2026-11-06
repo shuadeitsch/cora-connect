@@ -1,5 +1,7 @@
 "use server";
 
+import { assertNotPreview } from "@/lib/preview";
+
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +18,8 @@ async function clearOld(supabase: Awaited<ReturnType<typeof createClient>>, user
 }
 
 export async function uploadAvatarAction(form: FormData): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Sign in again." };
   const file = form.get("file");
@@ -38,6 +42,8 @@ export async function uploadAvatarAction(form: FormData): Promise<Result> {
 }
 
 export async function removeAvatarAction(): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Sign in again." };
   const supabase = await createClient();

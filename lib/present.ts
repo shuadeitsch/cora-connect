@@ -5,6 +5,7 @@ import { monthKey, fullAddress } from "@/lib/format";
 import { legMiles } from "@/lib/model";
 import {
   allowedHouseholdIds,
+  householdVisibleTo,
   buildActivity,
   canEditContact,
   canMarkNotDuplicate,
@@ -103,7 +104,10 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
   const db: Database = removedIds.size ? { ...source, visits: source.visits.filter((visit) => !removedIds.has(visit.id)) } : source;
   const perms = viewerPermissions(user, today);
   const allowed = allowedHouseholdIds(user, db.routes);
-  const visibleHouseholds = db.households.filter((household) => !allowed || allowed.has(household.id));
+  const visibleHouseholds = db.households.filter((household) => {
+    if (allowed && !allowed.has(household.id)) return false;
+    return householdVisibleTo(user, household, db.users);
+  });
   const peopleBy = new Map<string, typeof db.people>();
   for (const person of db.people) {
     const list = peopleBy.get(person.householdId);

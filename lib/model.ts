@@ -86,6 +86,24 @@ function inTerritory(state: string, city: string, territory: { state: string; ar
   return territory.some((row) => sameState(row.state, state) && (!row.area.trim() || row.area.trim().toLowerCase() === city.trim().toLowerCase()));
 }
 
+
+/** Households this role may see. Used by present() so Beta preview matches live role views. */
+export function householdVisibleTo(user: User, household: Household, users: User[]): boolean {
+  if (user.role === "admin") return true;
+  if (user.role === "limited") return true; // allowedHouseholdIds handles limited
+  if (user.role === "bochur") {
+    // Live bochur lists are already RLS-scoped. Beta preview approximates with shared contacts.
+    return user.previewing ? household.sharedWithCora : true;
+  }
+  if (user.role === "shliach") {
+    if (household.ownerId === user.id) return true;
+    if (users.some((member) => member.id === household.ownerId && member.leaderId === user.id)) return true;
+    if (household.sharedWithCora && household.state && inTerritory(household.state, household.city, user.territory ?? [])) return true;
+    return false;
+  }
+  return true;
+}
+
 export function allowedHouseholdIds(user: User, routes: Route[]): Set<string> | null {
   if (user.role !== "limited") return null;
   const ids = new Set<string>();

@@ -1,5 +1,7 @@
 "use server";
 
+import { assertNotPreview } from "@/lib/preview";
+
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -39,20 +41,28 @@ async function updateBochur(id: string, patch: Record<string, unknown>, failText
 
 /** Final approval by his shliach. Access runs one month from today. */
 export async function approveBochurAction(id: string) {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   return updateBochur(id, { status: "approved", expires_at: monthFromToday() }, "Couldn't approve. A Cora Connect admin has to approve him first.");
 }
 
 /** Another month from today. Also turns a disabled or expired bochur back on. */
 export async function extendBochurAction(id: string) {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   return updateBochur(id, { status: "approved", expires_at: monthFromToday() }, "Couldn't extend his access.");
 }
 
 export async function disableBochurAction(id: string) {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   return updateBochur(id, { status: "disabled" }, "Couldn't disable his access.");
 }
 
 /** Admins only: set or change the shliach a bochur is under. */
 export async function setBochurShliachAction(id: string, shliachId: string): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const user = await who();
   if (!user || user.role !== "admin") return { ok: false, error: "Only a Cora Connect admin can change his shliach." };
   const supabase = await createClient();
@@ -63,6 +73,8 @@ export async function setBochurShliachAction(id: string, shliachId: string): Pro
 
 /** Share or unshare many contacts with one bochur. */
 export async function shareWithBochurAction(householdIds: string[], bochurId: string, share: boolean): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
   const user = await who();
   if (!user) return { ok: false, error: "Only a shliach or a Cora Connect admin can share contacts." };
   if (!householdIds.length || !bochurId) return { ok: false, error: "Pick contacts and a bochur." };

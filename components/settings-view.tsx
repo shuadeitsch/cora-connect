@@ -5,10 +5,8 @@ import { useRouter } from "next/navigation";
 import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { logoutAction, saveOrganizationAction } from "@/lib/actions";
-import { geocodeAddress } from "@/lib/geo";
 import { AccountPassword } from "@/components/account-password";
 import { AvatarPicker } from "@/components/avatar-picker";
 import { ThemePicker } from "@/components/theme-picker";
@@ -95,7 +93,7 @@ function HouseForm({ data }: { data: AppData }) {
           const result = await saveOrganizationAction(form);
           if (!result.ok) setError(result.error);
           else {
-            setMessage("Chabad House and start point saved.");
+            setMessage("Chabad House saved.");
             router.refresh();
           }
         });
@@ -117,40 +115,8 @@ function HouseForm({ data }: { data: AppData }) {
         <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">State</span><Input value={form.state} onChange={(event) => set("state", event.target.value)} /></label>
         <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">ZIP</span><Input value={form.zip} onChange={(event) => set("zip", event.target.value)} /></label>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Country</span><Input value={form.country} onChange={(event) => set("country", event.target.value)} /></label>
-        <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Map starting state</span><Input value={form.defaultState} onChange={(event) => set("defaultState", event.target.value)} placeholder="Optional" /></label>
-      </div>
-      <label className="flex items-center justify-between gap-3 rounded-xl bg-background px-3 py-2 text-sm">
-        Use the Chabad House as the route start point
-        <Switch checked={form.useHouseAsStart} onCheckedChange={(checked) => set("useHouseAsStart", checked)} />
-      </label>
-      {form.useHouseAsStart ? null : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Start latitude</span><Input value={form.startLat} onChange={(event) => set("startLat", event.target.value)} /></label>
-          <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Start longitude</span><Input value={form.startLng} onChange={(event) => set("startLng", event.target.value)} /></label>
-        </div>
-      )}
+      <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Country</span><Input value={form.country} onChange={(event) => set("country", event.target.value)} /></label>
       <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="rounded-full"
-          onClick={() => {
-            const point = geocodeAddress(form.city, form.state, form.street);
-            if (!point) {
-              setError("That city is outside the built-in rural gazetteer. Enter coordinates directly.");
-              return;
-            }
-            set("startLat", String(point.lat));
-            set("startLng", String(point.lng));
-            set("useHouseAsStart", false);
-            setError("");
-            setMessage("Filled the start point from the address. Save to keep it.");
-          }}
-        >
-          Look up coordinates
-        </Button>
         <Button type="submit" className="rounded-full" disabled={pending || !data.viewer.canManage}>{pending ? "Saving…" : "Save house"}</Button>
       </div>
       {error ? <Notice>{error}</Notice> : null}
