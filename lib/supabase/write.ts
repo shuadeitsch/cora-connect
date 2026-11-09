@@ -39,6 +39,7 @@ function householdRow(household: Household) {
     owner_id: household.ownerId,
     visit_reaction: household.visitReaction,
     created_at: household.createdAt,
+    created_by: household.createdBy ?? null,
   };
 }
 
@@ -67,15 +68,17 @@ export async function writeHousehold(
     }
     await done(inserted, "Save contact");
   } else {
-    const { id, created_at, ...patch } = flagged;
+    const { id, created_at, created_by, ...patch } = flagged;
     void id;
     void created_at;
+    void created_by;
     let updated = await supabase.from("households").update(patch).eq("id", household.id);
     if (updated.error && extras && missingColumn(updated.error.message)) {
       const plain = householdRow(household);
-      const { id: plainId, created_at: created, ...plainPatch } = plain;
+      const { id: plainId, created_at: created, created_by: createdBy, ...plainPatch } = plain;
       void plainId;
       void created;
+      void createdBy;
       updated = await supabase.from("households").update(plainPatch).eq("id", household.id);
     }
     await done(updated, "Save contact");

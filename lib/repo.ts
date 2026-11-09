@@ -207,6 +207,7 @@ function householdFromInput(db: Database, actor: User, input: HouseholdInput, ex
       categoryIds: input.categoryIds.filter((categoryId) => db.categories.some((category) => category.id === categoryId && category.kind === "regular")),
       tags,
       customFields,
+      createdBy: existing?.createdBy ?? actor.id,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     },
     people,

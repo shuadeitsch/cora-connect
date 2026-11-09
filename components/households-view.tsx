@@ -52,6 +52,7 @@ import { CANONICAL_HEADERS, toCsv } from "@/lib/csv";
 import { VisitedPicker } from "@/components/visited-picker";
 import { isRealVisit } from "@/lib/visited";
 import { setViewingState } from "@/lib/viewing-state";
+import { isNewContact } from "@/lib/new-contacts";
 import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { CONTACT_TAGS, officialTags } from "@/lib/contact-tags";
@@ -77,12 +78,19 @@ export function HouseholdsView({
   data,
   openNew,
   openImport,
+  initialDue,
+  initialFound = false,
+  initialProject = "",
+  initialState = "",
   focusId,
 }: {
   data: AppData;
   openNew: boolean;
   openImport: boolean;
   initialDue: boolean;
+  initialFound?: boolean;
+  initialProject?: string;
+  initialState?: string;
   focusId: string;
 }) {
   const router = useRouter();
@@ -140,8 +148,32 @@ export function HouseholdsView({
     });
   }, [data.households]);
 
+  const [onlyFound, setOnlyFound] = useState(initialFound);
+  useEffect(() => {
+    setOnlyFound(initialFound);
+  }, [initialFound]);
+  useEffect(() => {
+    if (!initialState) return;
+    filterCtl.setFilters((current) => ({ ...current, state: initialState }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialState]);
+
   const filtered = useMemo(() => {
-    const rows = [...filterCtl.matched];
+    let rows = [...filterCtl.matched];
+    if (onlyFound) {
+      const projectName = data.projects.find((p) => p.id === initialProject)?.name?.trim().toLowerCase() ?? "";
+      rows = rows.filter((house) => {
+        if (!isNewContact(house)) return false;
+        if (!initialProject) return true;
+        if (house.projectId === initialProject) return true;
+        if (!house.projectId && projectName) {
+          return house.contactVisits.some(
+            (cv) => cv.projectId === initialProject || cv.visited.trim().toLowerCase() === projectName,
+          );
+        }
+        return false;
+      });
+    }
     rows.sort((a, b) => {
       if (sort === "name_desc") return b.name.localeCompare(a.name);
       if (sort === "state") return a.state.localeCompare(b.state) || a.city.localeCompare(b.city) || a.name.localeCompare(b.name);
@@ -152,7 +184,7 @@ export function HouseholdsView({
       return a.name.localeCompare(b.name);
     });
     return rows;
-  }, [filterCtl.matched, sort]);
+  }, [data.projects, filterCtl.matched, initialProject, onlyFound, sort]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pages);
@@ -271,6 +303,17 @@ export function HouseholdsView({
         <div className="mb-3"><Notice>A Cora Connect admin still needs to assign your states before you can add contacts.</Notice></div>
       ) : null}
       {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
+      {onlyFound ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+          <p className="text-foreground">
+            Showing <span className="font-semibold">new contacts found</span>
+            {initialProject ? ` for ${data.projects.find((p) => p.id === initialProject)?.name ?? "this project"}` : ""}.
+          </p>
+          <button type="button" className="rounded-full border px-3 py-1 text-xs" onClick={() => { setOnlyFound(false); setPage(1); }}>
+            Show all contacts
+          </button>
+        </div>
+      ) : null}
       <ContactStateTabs ctl={filterCtl} className="mb-3" onChange={() => setPage(1)} />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <ContactFilterControls ctl={filterCtl} onChange={() => setPage(1)} />

@@ -75,7 +75,7 @@ function accessLabel(expiresAt: string | null) {
     : { label: "Valid", tone: "ok" as const };
 }
 
-export function TeamView({ data, startInvite }: { data: AppData; startInvite: boolean }) {
+export function TeamView({ data, startInvite, embedded = false }: { data: AppData; startInvite: boolean; embedded?: boolean }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -143,7 +143,15 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
   const shliach = data.viewer.role === "shliach";
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className={embedded ? "" : "p-4 sm:p-6"}>
+      {embedded ? (
+        <div className="mb-4">
+          <h2 className="font-heading text-xl font-semibold text-foreground">My Team</h2>
+          {shliach ? (
+            <p className="mt-1 text-sm text-muted-foreground">Your participating bochurim — approve, extend, or disable them here.</p>
+          ) : null}
+        </div>
+      ) : (
       <PageHeader
         title="My Team"
         crumb="My Team"
@@ -163,9 +171,10 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
           ) : null
         }
       />
+      )}
       {error && !open ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
       {info && !open ? <div className="mb-3"><Notice tone="ok">{info}</Notice></div> : null}
-      {shliach ? (
+      {shliach && !embedded ? (
         <p className="mb-4 text-sm text-muted-foreground">Your participating bochurim — approve, extend, or disable them here.</p>
       ) : null}
       {admin ? (

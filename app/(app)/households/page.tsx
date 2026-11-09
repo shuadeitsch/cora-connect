@@ -26,6 +26,9 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
       openNew={flag(params, "new")}
       openImport={flag(params, "import")}
       initialDue={flag(params, "due")}
+      initialFound={flag(params, "found")}
+      initialProject={text(params, "project")}
+      initialState={text(params, "state")}
       focusId={text(params, "focus")}
     />
   );

@@ -11,9 +11,12 @@ import {
   PenLine,
   ScrollText,
   Sigma,
+  UserPlus,
   Users,
 } from "lucide-react";
-import { reactionMeta, statusMeta, VISIT_ACTIVITIES } from "@/lib/constants";
+import Link from "next/link";
+import { reactionMeta, sameState, statusMeta, VISIT_ACTIVITIES } from "@/lib/constants";
+import { isNewContact } from "@/lib/new-contacts";
 import { toCsv } from "@/lib/csv";
 import { formatMedium } from "@/lib/format";
 import { activityCountsFor, visitCoverage } from "@/lib/visit-activities";
@@ -44,6 +47,7 @@ function stateCode(raw: string) {
 
 const ACTIVITY_ICON: Record<string, typeof Users> = {
   Visits: Users,
+  "New contacts found": UserPlus,
   Tefillin: HandHeart,
   "Menorah/package": Flame,
   Mezuzah: ScrollText,
@@ -58,22 +62,25 @@ function StatTile({
   tone = "default",
   detail,
   progress,
+  href,
 }: {
   label: string;
   count: number;
   tone?: "default" | "accent" | "muted";
   detail?: string;
   progress?: number;
+  href?: string;
 }) {
   const Icon = ACTIVITY_ICON[label] ?? BookOpen;
-  return (
+  const body = (
     <div
       className={cn(
-        "flex min-h-[5.5rem] flex-col justify-between rounded-2xl border p-3 sm:p-3.5",
+        "flex min-h-[5.5rem] h-full flex-col justify-between rounded-2xl border p-3 sm:p-3.5",
         tone === "accent" && "border-primary/30 bg-primary/5",
         tone === "muted" && "bg-muted/40",
         tone === "default" && "bg-card",
         detail && "sm:col-span-2 lg:col-span-2",
+        href && "transition hover:ring-2 hover:ring-primary/40",
       )}
     >
       <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -97,6 +104,14 @@ function StatTile({
       )}
     </div>
   );
+  if (href) {
+    return (
+      <Link href={href} className={cn("block", detail && "sm:col-span-2 lg:col-span-2")} aria-label={`${label}: ${detail ?? count}`}>
+        {body}
+      </Link>
+    );
+  }
+  return body;
 }
 
 /** One Visits box: activity tiles (always, including 0) + people list. Filters from the Dashboard bar. */
@@ -222,6 +237,21 @@ export function DashboardReports({
     [data.households, projectId, projectName, state],
   );
 
+  const newContactsFound = useMemo(() => {
+    const pname = projectName?.trim().toLowerCase() ?? "";
+    return data.households.filter((house) => {
+      if (!isNewContact(house)) return false;
+      if (state !== "ALL" && !sameState(house.state, state)) return false;
+      if (!projectId) return true;
+      if (house.projectId === projectId) return true;
+      // Visits tagged to this project also count the contact as found during it when project_id is blank.
+      if (!house.projectId && pname) {
+        return house.contactVisits.some((cv) => cv.visited.trim().toLowerCase() === pname || cv.projectId === projectId);
+      }
+      return false;
+    }).length;
+  }, [data.households, projectId, projectName, state]);
+
   const rows = useMemo(() => {
     // Prefer contact_visits — the visits log can be empty/soft-deleted while history still has rows.
     const nameById = new Map(data.members.filter((m) => m.kind === "member").map((m) => [m.id, m.name]));
@@ -299,6 +329,7 @@ export function DashboardReports({
     tone?: "default" | "accent" | "muted";
     detail?: string;
     progress?: number;
+    href?: string;
   }[] = [
     {
       label: "Visits",
@@ -306,6 +337,11 @@ export function DashboardReports({
       tone: "accent",
       detail: `${coverage.visited} of ${coverage.total} contacts`,
       progress: coverage.percent,
+    },
+    {
+      label: "New contacts found",
+      count: newContactsFound,
+      href: `/households?found=1&project=${encodeURIComponent(projectId)}${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`,
     },
     ...VISIT_ACTIVITIES.map((label) => ({
       label,
@@ -340,9 +376,9 @@ export function DashboardReports({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
         {tiles.map((tile) => (
-          <StatTile key={tile.label} label={tile.label} count={tile.count} tone={tile.tone} detail={tile.detail} progress={tile.progress} />
+          <StatTile key={tile.label} label={tile.label} count={tile.count} tone={tile.tone} detail={tile.detail} progress={tile.progress} href={tile.href} />
         ))}
       </div>
 

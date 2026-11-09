@@ -11,6 +11,7 @@ import { saveShliachPrefsAction } from "@/lib/shliach-prefs-actions";
 import { AccountPassword } from "@/components/account-password";
 import { AvatarPicker } from "@/components/avatar-picker";
 import { ThemePicker } from "@/components/theme-picker";
+import { TeamView } from "@/components/team-view";
 import type { AppData, OrgInput } from "@/lib/types";
 
 function AccountSection({ data, recovery }: { data: AppData; recovery: boolean }) {
@@ -29,6 +30,7 @@ function AccountSection({ data, recovery }: { data: AppData; recovery: boolean }
 
 export function SettingsView({ data, initialTab, recovery }: { data: AppData; initialTab: string; recovery: boolean }) {
   const bochur = data.viewer.role === "bochur";
+  const shliach = data.viewer.role === "shliach";
   // Bochur: Account only (name, picture, theme, password). No Chabad house / org settings.
   if (bochur) {
     return (
@@ -38,7 +40,8 @@ export function SettingsView({ data, initialTab, recovery }: { data: AppData; in
       </div>
     );
   }
-  const allowed = ["house", "account"];
+  // Shliach: My Team lives here (not in the sidebar). Admins keep /team.
+  const allowed = shliach ? ["house", "account", "team"] : ["house", "account"];
   const tab = allowed.includes(initialTab) ? initialTab : "house";
   return (
     <div className="p-4 sm:p-6">
@@ -50,11 +53,17 @@ export function SettingsView({ data, initialTab, recovery }: { data: AppData; in
         <TabsList className="mb-4 h-auto flex-wrap bg-card">
           <TabsTrigger value="house">Chabad House</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
+          {shliach ? <TabsTrigger value="team">My Team</TabsTrigger> : null}
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
         <TabsContent value="account">
           <AccountSection data={data} recovery={recovery} />
         </TabsContent>
+        {shliach ? (
+          <TabsContent value="team">
+            <TeamView data={data} startInvite={false} embedded />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </div>
   );

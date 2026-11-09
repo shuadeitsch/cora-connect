@@ -62,8 +62,14 @@ const BOCHUR_HIDDEN = new Set(["/team", "/beta"]);
 /** Bottom bar slots (phones / Chromebooks). Everything else opens from More. */
 const PHONE_BAR_HREFS = new Set(["/dashboard", "/households", "/saved-routes", "/planner"]);
 
-function visibleItems(items: NavItem[], canManage: boolean, bochur: boolean) {
-  return items.filter((item) => (canManage || !item.adminOnly) && !(bochur && BOCHUR_HIDDEN.has(item.href)));
+function visibleItems(items: NavItem[], canManage: boolean, bochur: boolean, shliach = false) {
+  return items.filter((item) => {
+    if (!canManage && item.adminOnly) return false;
+    if (bochur && BOCHUR_HIDDEN.has(item.href)) return false;
+    // Shliach (and Beta View as shliach): My Team is under Settings, not the sidebar.
+    if (shliach && item.href === "/team") return false;
+    return true;
+  });
 }
 
 function NavLinks({
@@ -71,14 +77,16 @@ function NavLinks({
   onNavigate,
   canManage,
   bochur = false,
+  shliach = false,
 }: {
   items: NavItem[];
   onNavigate?: () => void;
   canManage: boolean;
   bochur?: boolean;
+  shliach?: boolean;
 }) {
   const pathname = usePathname();
-  const visible = visibleItems(items, canManage, bochur);
+  const visible = visibleItems(items, canManage, bochur, shliach);
   return (
     <nav className="flex flex-col gap-1 px-3">
       {visible.map((item) => {
@@ -110,13 +118,15 @@ function MoreGroup({
   items,
   canManage,
   bochur,
+  shliach = false,
 }: {
   items: NavItem[];
   canManage: boolean;
   bochur: boolean;
+  shliach?: boolean;
 }) {
   const pathname = usePathname();
-  const visible = visibleItems(items, canManage, bochur);
+  const visible = visibleItems(items, canManage, bochur, shliach);
   const [open, setOpen] = useState(() => visible.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)));
   if (!visible.length) return null;
   return (
@@ -201,14 +211,15 @@ export function Shell({
     };
   }, [viewer.backgroundUrl]);
   const bochur = viewer.role === "bochur";
+  const shliach = viewer.role === "shliach";
   // Real admins (not in preview) manage; preview uses the role's canManage (false).
   const canManage = viewer.canManage && !preview;
   const showAdminChrome = viewer.role === "admin" && !preview;
   const navItems = [...PRIMARY, ...SIDEBAR_EXTRA];
   const fullSidebar = [...PRIMARY, ...SIDEBAR_EXTRA, ...MORE_ITEMS];
-  const primary = visibleItems(PRIMARY, canManage || showAdminChrome, bochur).filter((item) => PHONE_BAR_HREFS.has(item.href));
-  const moreForPhone = visibleItems(MORE_ITEMS, showAdminChrome || canManage, bochur);
-  const mobileMenuItems = visibleItems(fullSidebar, showAdminChrome || canManage, bochur);
+  const primary = visibleItems(PRIMARY, canManage || showAdminChrome, bochur, shliach).filter((item) => PHONE_BAR_HREFS.has(item.href));
+  const moreForPhone = visibleItems(MORE_ITEMS, showAdminChrome || canManage, bochur, shliach);
+  const mobileMenuItems = visibleItems(fullSidebar, showAdminChrome || canManage, bochur, shliach);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -259,7 +270,7 @@ export function Shell({
               <p className="truncate px-2.5 py-1.5 text-xs text-muted-foreground">{viewer.name}</p>
               {[
                 { href: "/settings?tab=account", label: "Settings", icon: Settings },
-                ...(bochur ? [] : [{ href: "/team", label: "My Team", icon: Users }]),
+                ...(bochur ? [] : shliach ? [{ href: "/settings?tab=team", label: "My Team", icon: Users }] : [{ href: "/team", label: "My Team", icon: Users }]),
               ].map((item) => (
                 <Link key={item.href} href={item.href} className="flex min-h-11 items-center gap-2 rounded-xl px-2.5 text-sm text-foreground hover:bg-muted"><item.icon className="size-4" /> {item.label}</Link>
               ))}
@@ -291,8 +302,8 @@ export function Shell({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/cora-connect-logo.png" alt="Cora Connect" className="block h-auto w-full object-contain dark:brightness-0 dark:invert" />
           </Link>
-          <NavLinks items={navItems} canManage={canManage || showAdminChrome} bochur={bochur} />
-          <MoreGroup items={MORE_ITEMS} canManage={showAdminChrome || canManage} bochur={bochur} />
+          <NavLinks items={navItems} canManage={canManage || showAdminChrome} bochur={bochur} shliach={shliach} />
+          <MoreGroup items={MORE_ITEMS} canManage={showAdminChrome || canManage} bochur={bochur} shliach={shliach} />
           <Link href="/settings?tab=account" className="mx-3 mt-2 flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
             <Avatar name={viewer.name} src={viewer.avatarUrl} className="size-9" />
             <span className="min-w-0">
