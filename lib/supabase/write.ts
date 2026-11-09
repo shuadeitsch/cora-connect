@@ -229,6 +229,7 @@ export async function writeContactVisit(visit: ContactVisit, isNew: boolean) {
     org_id: visit.orgId,
     household_id: visit.householdId,
     visited: visit.visited,
+    visited_by: visit.visitedBy ?? null,
     reaction: visit.reaction,
     notes: visit.notes,
     visit_date: visit.visitDate,
@@ -253,6 +254,7 @@ export async function writeContactVisit(visit: ContactVisit, isNew: boolean) {
     if (/status/i.test(result.error.message)) delete payload.status;
     if (/import_batch/i.test(result.error.message)) delete payload.import_batch_id;
     if (/activities/i.test(result.error.message)) delete payload.activities;
+    if (/visited_by/i.test(result.error.message)) delete payload.visited_by;
     if (!/status|import_batch/i.test(result.error.message)) {
       delete payload.status;
       delete payload.import_batch_id;

@@ -171,6 +171,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       const contactVisits = outreachFor(db, household).map((visit) => ({
         id: visit.id,
         visited: visit.visited,
+        visitedBy: hideHistory ? null : (visit.visitedBy ?? null),
         reaction: hideHistory ? null : visit.reaction,
         notes: hideHistory ? "" : visit.notes,
         visitDate: visit.visitDate,

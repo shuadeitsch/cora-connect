@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.34
+- Visits: `visited_by` on contact history. Maine Summer 5786 visits set to “Mendel Baitelman & Mendele Lustig” (notes untouched). Shown as Visited by in contact form, visit history, and Home Visits people list.
+
 ## 1.8.33
 - Audit/backup: `public.change_log` + SECURITY DEFINER triggers on user-data tables (insert/update/delete). Admins can read; clients cannot write. Shliach soft-hide unchanged; hard deletes logged. Restore how-to in `docs/RESTORE.md`.
 

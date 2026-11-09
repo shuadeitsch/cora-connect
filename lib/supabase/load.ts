@@ -251,6 +251,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     orgId: text(row, "org_id"),
     householdId: text(row, "household_id"),
     visited: text(row, "visited"),
+    visitedBy: nullableText(row, "visited_by"),
     activities: list(row.activities),
     reaction: parseHouseholdReaction(text(row, "reaction")) as HouseholdReaction | null,
     notes: text(row, "notes"),

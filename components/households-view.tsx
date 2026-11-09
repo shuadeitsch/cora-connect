@@ -875,10 +875,12 @@ function fromHousehold(household: HouseholdView, data: AppData): HouseholdInput 
       .map((visit) => ({
         id: visit.id,
         visited: visit.visited,
+        visitedBy: visit.visitedBy ?? "",
         reaction: visit.reaction ?? "",
         notes: visit.notes,
         visitDate: visit.visitDate ?? "",
         status: visit.status ?? "",
+        activities: visit.activities ?? [],
       })),
     people: [{
       id: household.people[0]?.id,
@@ -1040,7 +1042,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                 size="sm"
                 variant="outline"
                 className="rounded-full"
-                onClick={() => setForm({ ...form, visits: [...form.visits, { visited: "", status: "completed", reaction: "", notes: "", visitDate: "" }] })}
+                onClick={() => setForm({ ...form, visits: [...form.visits, { visited: "", visitedBy: "", status: "completed", reaction: "", notes: "", visitDate: "", activities: [] }] })}
               >
                 Add visit
               </Button>
@@ -1052,6 +1054,17 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                     const visits = form.visits.map((item, at) => at === index ? { ...item, visited } : item);
                     setForm({ ...form, visits });
                   }} />
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visited by</span>
+                    <Input
+                      value={visit.visitedBy ?? ""}
+                      placeholder="e.g. Mendel Baitelman & Mendele Lustig"
+                      onChange={(event) => {
+                        const visits = form.visits.map((item, at) => at === index ? { ...item, visitedBy: event.target.value } : item);
+                        setForm({ ...form, visits });
+                      }}
+                    />
+                  </label>
                   <label className="grid gap-1 text-sm">
                     <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visit date</span>
                     <Input type="date" value={visit.visitDate} onChange={(event) => {
@@ -1339,6 +1352,12 @@ function HistoryDialog({ household, canHistory, onClose }: { household: Househol
                       </button>
                     ) : null}
                   </div>
+                  {visit.visitedBy?.trim() ? (
+                    <p className="mt-2 text-sm text-foreground">
+                      <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visited by</span>
+                      <span className="mt-0.5 block">{visit.visitedBy.trim()}</span>
+                    </p>
+                  ) : null}
                   {reaction ? <p className="mt-2"><ReactionBadge reaction={visit.reaction} /></p> : null}
                   {visit.notes ? (
                     <div className="mt-2">

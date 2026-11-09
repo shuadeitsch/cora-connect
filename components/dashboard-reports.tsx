@@ -137,6 +137,7 @@ export function DashboardReports({
           orgId: data.viewer.orgId,
           householdId: h.id,
           visited: v.visited,
+          visitedBy: v.visitedBy ?? null,
           reaction: v.reaction,
           notes: v.notes,
           visitDate: v.visitDate,
@@ -275,7 +276,7 @@ export function DashboardReports({
           city: house.city,
           state: house.state,
           visitDate,
-          visitorName: (cv.createdBy && nameById.get(cv.createdBy)) || "—",
+          visitorName: (cv.visitedBy && cv.visitedBy.trim()) || (cv.createdBy && nameById.get(cv.createdBy)) || "—",
           status: cv.status ?? "completed",
           reaction: (cv.reaction as Reaction | null) ?? null,
           activities: cv.activities ?? [],
@@ -300,7 +301,7 @@ export function DashboardReports({
 
   function download() {
     const csv = toCsv(
-      ["Name", "City", "State", "Date", "Visitor", "Status", "Reaction", "Visited", "Activities", "Details"],
+      ["Name", "City", "State", "Date", "Visited by", "Status", "Reaction", "Visited", "Activities", "Details"],
       rows.map((row) => [
         row.householdName,
         row.city,
@@ -387,7 +388,7 @@ export function DashboardReports({
           <table className="w-full min-w-[720px] text-left text-[12.5px]">
             <thead className="text-[11px] tracking-wide text-muted-foreground uppercase">
               <tr className="border-b bg-muted/30">
-                {["Name", "City / State", "Date", "Visitor", "Status", "Reaction", "Visited", "Activities"].map((label) => (
+                {["Name", "City / State", "Date", "Visited by", "Status", "Reaction", "Visited", "Activities"].map((label) => (
                   <th key={label} className="px-2 py-2 font-medium">{label}</th>
                 ))}
               </tr>

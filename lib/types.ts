@@ -151,6 +151,8 @@ export interface ContactVisit {
   orgId: string;
   householdId: string;
   visited: string;
+  /** Free-text who visited, e.g. "Mendel Baitelman & Mendele Lustig". */
+  visitedBy?: string | null;
   reaction: HouseholdReaction | null;
   notes: string;
   visitDate: string | null;
@@ -335,6 +337,7 @@ export interface HouseholdView {
 export interface ContactVisitView {
   id: string;
   visited: string;
+  visitedBy?: string | null;
   reaction: HouseholdReaction | null;
   notes: string;
   visitDate: string | null;
@@ -479,6 +482,7 @@ export interface HouseholdInput {
   visits: {
     id?: string;
     visited: string;
+    visitedBy?: string;
     status: string;
     reaction: string;
     notes: string;

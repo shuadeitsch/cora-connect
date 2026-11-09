@@ -237,6 +237,7 @@ function visitsFromForm(actor: User, householdId: string, orgId: string, input: 
       orgId,
       householdId,
       visited: visit.visited.trim(),
+      visitedBy: (visit.visitedBy ?? prior?.visitedBy ?? "").trim() || null,
       reaction,
       notes: visit.notes.trim(),
       visitDate: date || null,
