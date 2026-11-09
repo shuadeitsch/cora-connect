@@ -177,6 +177,21 @@ export function Shell({
   useEffect(() => {
     if (isThemeId(viewer.theme) && !window.localStorage.getItem(THEME_KEY)) applyTheme(viewer.theme);
   }, [viewer.theme]);
+  useEffect(() => {
+    const root = document.documentElement;
+    const url = viewer.backgroundUrl?.trim();
+    if (url) {
+      root.style.setProperty("--custom-page-bg", `url("${url.replace(/"/g, "%22")}")`);
+      root.setAttribute("data-custom-bg", "1");
+    } else {
+      root.style.removeProperty("--custom-page-bg");
+      root.removeAttribute("data-custom-bg");
+    }
+    return () => {
+      root.style.removeProperty("--custom-page-bg");
+      root.removeAttribute("data-custom-bg");
+    };
+  }, [viewer.backgroundUrl]);
   const bochur = viewer.role === "bochur";
   // Real admins (not in preview) manage; preview uses the role's canManage (false).
   const canManage = viewer.canManage && !preview;

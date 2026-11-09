@@ -441,6 +441,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       leaderId: user.leaderId ?? null,
       avatarUrl: user.avatarUrl ?? null,
       theme: user.theme ?? null,
+      backgroundUrl: user.backgroundUrl ?? null,
       shareNewWithBochurim: Boolean(user.shareNewWithBochurim),
       bochurimEditPlanner:
         user.role === "bochur"

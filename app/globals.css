@@ -171,9 +171,18 @@
     background-repeat: no-repeat;
     background-size: cover;
   }
+  html[data-custom-bg] body::before {
+    background-image: var(--custom-page-bg);
+  }
   body::after {
     z-index: -1;
     background-color: rgba(243, 239, 232, 0.72);
+  }
+  html[data-custom-bg] body::after {
+    background-color: rgba(243, 239, 232, 0.78);
+  }
+  html[data-custom-bg].dark body::after {
+    background-color: rgba(18, 17, 15, 0.72);
   }
   .dark body::before {
     background-color: #12110f;
@@ -185,6 +194,9 @@
     body::before {
       background-image: url("/770-bg-mobile.jpg");
       background-image: image-set(url("/770-bg-mobile.webp") type("image/webp"), url("/770-bg-mobile.jpg") type("image/jpeg"));
+    }
+    html[data-custom-bg] body::before {
+      background-image: var(--custom-page-bg);
     }
   }
   h1, h2, h3, .font-heading {

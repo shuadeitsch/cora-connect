@@ -175,6 +175,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     assignedRouteIds: assignmentsByUser.get(text(profile, "id")) ?? [],
     leaderId: nullableText(profile, "leader_id"),
     avatarUrl: nullableText(profile, "avatar_url"),
+    backgroundUrl: nullableText(profile, "background_url"),
     theme: nullableText(profile, "theme"),
     shareNewWithBochurim: Boolean(profile.share_new_with_bochurim),
     bochurimEditPlanner: Boolean(profile.bochurim_edit_planner),

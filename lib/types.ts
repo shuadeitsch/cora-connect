@@ -51,6 +51,7 @@ export interface User {
   /** Public URL of his profile picture, if he set one. */
   avatarUrl?: string | null;
   theme?: string | null;
+  backgroundUrl?: string | null;
   shareNewWithBochurim?: boolean;
   bochurimEditPlanner?: boolean;
   /** Default for new planner days: whether bochurim can see them. */
@@ -247,6 +248,7 @@ export interface Viewer {
   territory: Territory[];
   avatarUrl: string | null;
   theme: string | null;
+  backgroundUrl: string | null;
   shareNewWithBochurim: boolean;
   bochurimEditPlanner: boolean;
   bochurimSeePlannerDefault: boolean;

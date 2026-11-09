@@ -18,7 +18,7 @@ function AccountSection({ data, recovery }: { data: AppData; recovery: boolean }
     <>
       <AccountPassword name={data.viewer.name} email={data.viewer.email} recovery={recovery} />
       <AvatarPicker name={data.viewer.name} url={data.viewer.avatarUrl} />
-      <ThemePicker saved={data.viewer.theme} />
+      <ThemePicker saved={data.viewer.theme} backgroundUrl={data.viewer.backgroundUrl ?? null} />
       {data.viewer.role === "shliach" ? <ShliachPrefsForm data={data} /> : null}
       <form action={logoutAction} className="mt-4">
         <Button type="submit" variant="outline" className="min-h-11 rounded-full">Log out</Button>

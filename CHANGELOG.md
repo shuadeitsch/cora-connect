@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.28
+- Settings › Theme: upload your own full-page background photo (every role, including bochur Account-only). Client resize to ~1920px JPEG, stored in `backgrounds/<uid>/…` with own-only Storage RLS; URL on `profiles.background_url`. Cover render with a light overlay; Remove photo returns to the preset.
+
 ## 1.8.27
 
 - Home: Dashboard renamed to Home everywhere; first item in the sidebar. `/dashboard` still works.
