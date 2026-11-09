@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.33
+- Audit/backup: `public.change_log` + SECURITY DEFINER triggers on user-data tables (insert/update/delete). Admins can read; clients cannot write. Shliach soft-hide unchanged; hard deletes logged. Restore how-to in `docs/RESTORE.md`.
+
 ## 1.8.32
 - Home › Visits: **New contacts found** tile (after `NEW_CONTACTS_SINCE`, no imports), scoped by project + admin state; tap opens Contacts filtered to those. `created_by` / `created_at` set on every household add path.
 - Shliach: **My Team** moves into Settings (tab); removed from sidebar / mobile menu; `/team` redirects to Settings. Admins keep `/team`. Applies in Beta View as shliach.
