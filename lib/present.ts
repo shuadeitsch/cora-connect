@@ -435,6 +435,10 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         user.role === "bochur"
           ? Boolean(db.users.find((member) => member.id === user.leaderId)?.bochurimEditPlanner)
           : Boolean(user.bochurimEditPlanner),
+      bochurimSeePlannerDefault:
+        user.role === "bochur"
+          ? (db.users.find((member) => member.id === user.leaderId)?.bochurimSeePlannerDefault !== false)
+          : user.bochurimSeePlannerDefault !== false,
       projectId: user.projectId ?? null,
       territory: user.territory ?? [],
       ...perms,

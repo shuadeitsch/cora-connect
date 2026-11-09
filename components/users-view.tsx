@@ -51,9 +51,9 @@ export function UsersView({ data, embedded = false }: { data: AppData; embedded?
 
   const intro = embedded ? (
     <div className="mb-3">
-      <h2 className="font-heading text-lg font-semibold text-foreground">User management</h2>
+      <h2 className="font-heading text-lg font-semibold text-foreground">Cora admins &amp; approvals</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-        Approve new accounts, set roles, or disable access. A bochur also needs his shliach to approve him under Participating bochurim.
+        Cora Connect admins, pending signups, roles, and access — in one place. A bochur also needs his shliach to approve him under Participating bochurim.
       </p>
     </div>
   ) : (

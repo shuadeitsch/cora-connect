@@ -53,6 +53,8 @@ export interface User {
   theme?: string | null;
   shareNewWithBochurim?: boolean;
   bochurimEditPlanner?: boolean;
+  /** Default for new planner days: whether bochurim can see them. */
+  bochurimSeePlannerDefault?: boolean;
   projectId?: string | null;
   /** True while an admin is in Beta preview as this role. */
   previewing?: boolean;
@@ -242,6 +244,7 @@ export interface Viewer {
   theme: string | null;
   shareNewWithBochurim: boolean;
   bochurimEditPlanner: boolean;
+  bochurimSeePlannerDefault: boolean;
   projectId: string | null;
   /** Set when a Cora admin is viewing the app as another role (Beta). */
   preview?: { role: "shliach" | "bochur"; state: string | null } | null;

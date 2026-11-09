@@ -14,7 +14,7 @@ import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, removePlannerItemAction, updatePlannerItemAction } from "@/lib/planner-actions";
+import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, removePlannerItemAction, setBochurimEditPlannerAction, setBochurimSeePlannerAction, setPlannerDayVisibleAction, updatePlannerItemAction } from "@/lib/planner-actions";
 import type { PlannerDay, PlannerItem } from "@/lib/planner";
 import type { AppData } from "@/lib/types";
 
@@ -87,20 +87,29 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
     data.viewer.role === "admin" ||
     data.viewer.role === "shliach" ||
     (data.viewer.role === "bochur" && Boolean(data.viewer.bochurimEditPlanner));
+  const manageVisibility = data.viewer.role === "admin" || data.viewer.role === "shliach";
+  const bochur = data.viewer.role === "bochur";
+  // Live bochurim are RLS-scoped; Beta preview still loads all days as admin — filter here.
+  const visibleDays = useMemo(
+    () => (bochur ? days.filter((day) => day.visibleToBochurim) : days),
+    [bochur, days],
+  );
+  const [seePlanner, setSeePlanner] = useState(data.viewer.bochurimSeePlannerDefault !== false);
+  const [editPlanner, setEditPlanner] = useState(Boolean(data.viewer.bochurimEditPlanner));
   const [newDate, setNewDate] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const planned = useMemo(() => {
     const map = new Map<string, Planned[]>();
-    for (const day of [...days].sort((a, b) => a.date.localeCompare(b.date))) {
+    for (const day of [...visibleDays].sort((a, b) => a.date.localeCompare(b.date))) {
       for (const item of day.items) {
         if (!item.routeId) continue;
         map.set(item.routeId, [...(map.get(item.routeId) ?? []), { dayId: day.id, itemId: item.id, date: day.date }]);
       }
     }
     return map;
-  }, [days]);
-  const dates = days.map((day) => day.date).sort();
+  }, [visibleDays]);
+  const dates = visibleDays.map((day) => day.date).sort();
   const before = dates.length ? shiftDate(dates[0]!, -1) : "";
   const after = dates.length ? shiftDate(dates[dates.length - 1]!, 1) : "";
   const quick = (date: string, label: string) => (
@@ -132,9 +141,49 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
   return (
     <PlannedContext.Provider value={planned}>
     <div className="mx-auto max-w-3xl p-4 sm:p-6">
-      <PageHeader title="Daily planner" crumb="Daily planner" />
+      <PageHeader
+        title={bochur ? "Daily schedule" : "Daily planner"}
+        crumb={bochur ? "Daily schedule" : "Daily planner"}
+      />
+      {bochur && !canEdit ? (
+        <p className="mb-3 rounded-2xl bg-muted/60 px-3 py-2 text-sm text-muted-foreground">View only — ask your shliach if you need to edit the schedule.</p>
+      ) : null}
       {loadError ? <div className="mb-3"><Notice>{loadError}</Notice></div> : null}
       {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
+      {manageVisibility ? (
+        <div className="mb-4 flex flex-col gap-2 rounded-2xl border border-border bg-card px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={seePlanner}
+              disabled={pending || Boolean(data.viewer.preview)}
+              onChange={(event) => {
+                const next = event.target.checked;
+                setSeePlanner(next);
+                run(() => setBochurimSeePlannerAction(next));
+              }}
+            />
+            <span>Bochurim can see the planner</span>
+          </label>
+          {data.viewer.role === "shliach" ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4"
+                checked={editPlanner}
+                disabled={pending || Boolean(data.viewer.preview)}
+                onChange={(event) => {
+                  const next = event.target.checked;
+                  setEditPlanner(next);
+                  run(() => setBochurimEditPlannerAction(next));
+                }}
+              />
+              <span>Let bochurim edit the planner</span>
+            </label>
+          ) : null}
+        </div>
+      ) : null}
       {canEdit ? (
         <form
           className="mb-4 flex flex-wrap items-center gap-2"
@@ -149,11 +198,11 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
       ) : null}
       <div className="grid gap-3">
         {canEdit && !loadError ? (dates.length ? quick(before, "Add day before") : quick(todayIso(), "Add day")) : null}
-        {days.map((day) => (
-          <DayCard key={day.id} data={data} day={day} canEdit={canEdit} pending={pending} run={run} />
+        {visibleDays.map((day) => (
+          <DayCard key={day.id} data={data} day={day} canEdit={canEdit} manageVisibility={manageVisibility} pending={pending} run={run} />
         ))}
         {canEdit && !loadError && dates.length ? quick(after, "Add day after") : null}
-        {!days.length && !loadError ? <p className="panel rounded-3xl px-4 py-10 text-center text-sm text-muted-foreground">No days in the planner.</p> : null}
+        {!visibleDays.length && !loadError ? <p className="panel rounded-3xl px-4 py-10 text-center text-sm text-muted-foreground">No days in the planner.</p> : null}
       </div>
     </div>
     </PlannedContext.Provider>
@@ -164,12 +213,14 @@ function DayCard({
   data,
   day,
   canEdit,
+  manageVisibility,
   pending,
   run,
 }: {
   data: AppData;
   day: PlannerDay;
   canEdit: boolean;
+  manageVisibility: boolean;
   pending: boolean;
   run: (task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) => void;
 }) {
@@ -177,6 +228,18 @@ function DayCard({
 
   return (
     <section className="panel rounded-3xl p-4">
+      {manageVisibility ? (
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={day.visibleToBochurim}
+            disabled={pending || Boolean(data.viewer.preview)}
+            onChange={(event) => run(() => setPlannerDayVisibleAction(day.id, event.target.checked))}
+          />
+          <span>Bochurim can see this day</span>
+        </label>
+      ) : null}
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="font-heading text-lg font-semibold text-foreground">{gregorianLabel(day.date)}</h2>

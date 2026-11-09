@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
-  ClipboardList,
   FlaskConical,
   House,
   LayoutGrid,
@@ -44,7 +43,6 @@ const PRIMARY: NavItem[] = [
 
 /** Sidebar only; on phones these sit in the avatar menu at the top. */
 const SIDEBAR_EXTRA: NavItem[] = [
-  { href: "/reports", label: "Reports", icon: ClipboardList, desktopOnly: true },
   { href: "/team", label: "My Team", icon: Users, desktopOnly: true },
   { href: "/settings", label: "Settings", icon: Settings, desktopOnly: true },
 ];
@@ -57,7 +55,6 @@ const MORE_ITEMS: NavItem[] = [
 
 /** A bochur has no Dashboard, so his few extra pages sit in the bar itself. */
 const BOCHUR_EXTRA: NavItem[] = [
-  { href: "/reports", label: "Reports", icon: ClipboardList },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -236,7 +233,6 @@ export function Shell({
               <p className="truncate px-2.5 py-1.5 text-xs text-muted-foreground">{viewer.name}</p>
               {[
                 { href: "/settings?tab=account", label: "Settings", icon: Settings },
-                { href: "/reports", label: "Reports", icon: ClipboardList },
                 ...(bochur ? [] : [{ href: "/team", label: "My Team", icon: Users }]),
               ].map((item) => (
                 <Link key={item.href} href={item.href} className="flex min-h-11 items-center gap-2 rounded-xl px-2.5 text-sm text-foreground hover:bg-muted"><item.icon className="size-4" /> {item.label}</Link>

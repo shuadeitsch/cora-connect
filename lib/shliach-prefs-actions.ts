@@ -10,6 +10,7 @@ import type { ActionResult } from "@/lib/types";
 export async function saveShliachPrefsAction(input: {
   shareNewWithBochurim?: boolean;
   bochurimEditPlanner?: boolean;
+  bochurimSeePlannerDefault?: boolean;
 }): Promise<ActionResult> {
   const gate = await assertNotPreview();
   if (!gate.ok) return gate;
@@ -20,6 +21,7 @@ export async function saveShliachPrefsAction(input: {
   const patch: Record<string, boolean> = {};
   if (typeof input.shareNewWithBochurim === "boolean") patch.share_new_with_bochurim = input.shareNewWithBochurim;
   if (typeof input.bochurimEditPlanner === "boolean") patch.bochurim_edit_planner = input.bochurimEditPlanner;
+  if (typeof input.bochurimSeePlannerDefault === "boolean") patch.bochurim_see_planner_default = input.bochurimSeePlannerDefault;
   if (!Object.keys(patch).length) return { ok: true };
   const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
   if (error) return { ok: false, error: error.message };

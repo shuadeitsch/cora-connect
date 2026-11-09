@@ -16,6 +16,7 @@ export interface PlannerItem {
 export interface PlannerDay {
   id: string;
   date: string;
+  visibleToBochurim: boolean;
   items: PlannerItem[];
 }
 
@@ -23,7 +24,7 @@ export async function loadPlanner(): Promise<{ days: PlannerDay[]; error: string
   if (!isSupabaseMode()) return { days: [], error: "The planner needs the live database." };
   const supabase = await createClient();
   const [days, items] = await Promise.all([
-    supabase.from("planner_days").select("id, date").order("date"),
+    supabase.from("planner_days").select("id, date, visible_to_bochurim").order("date"),
     supabase.from("planner_items").select("id, day_id, kind, route_id, title, time, notes, address, sort, created_at").order("sort").order("created_at"),
   ]);
   if (days.error || items.error) return { days: [], error: "Couldn't load the planner. Reload to try again." };
@@ -46,6 +47,7 @@ export async function loadPlanner(): Promise<{ days: PlannerDay[]; error: string
     days: (days.data ?? []).map((row) => ({
       id: row.id,
       date: row.date,
+      visibleToBochurim: row.visible_to_bochurim !== false,
       items: (byDay.get(row.id) ?? []).sort((a, b) => (a.time ?? "99").localeCompare(b.time ?? "99") || a.sort - b.sort),
     })),
     error: "",

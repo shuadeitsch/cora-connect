@@ -2,66 +2,122 @@
 
 import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
-import { FOCUS_STATES, reactionMeta, statusMeta } from "@/lib/constants";
+import { reactionMeta, statusMeta } from "@/lib/constants";
 import { toCsv } from "@/lib/csv";
 import { formatMedium } from "@/lib/format";
-import type { AppData } from "@/lib/types";
+import type { AppData, Reaction, VisitStatus } from "@/lib/types";
 
-const STATES = FOCUS_STATES.filter((item) => item.code !== "Unsorted");
+type SortMode = "recent" | "name";
 
-/** Dashboard Reports table: people visited in a project (and state for admins). */
-export function DashboardReports({ data }: { data: AppData }) {
-  const admin = data.viewer.role === "admin" && !data.viewer.preview;
-  const bochur = data.viewer.role === "bochur";
+type ReportRow = {
+  id: string;
+  householdId: string;
+  householdName: string;
+  city: string;
+  state: string;
+  visitDate: string;
+  visitorName: string;
+  status: VisitStatus | null;
+  reaction: Reaction | null;
+  activities: string[];
+  visitedProjects: string[];
+  details: string;
+};
+
+function stateCode(raw: string) {
+  const map: Record<string, string> = { Maine: "ME", "New Hampshire": "NH", Wisconsin: "WI", ME: "ME", NH: "NH", WI: "WI" };
+  return map[raw] ?? raw.toUpperCase();
+}
+
+/** Dashboard Reports box. Shared wording for every role; filters come from the Dashboard bar. */
+export function DashboardReports({
+  data,
+  projectId = "ALL",
+  state = "ALL",
+}: {
+  data: AppData;
+  projectId?: string;
+  state?: string;
+}) {
   const projects = data.projects;
-  const lockedProjectId = bochur ? (data.viewer.projectId ?? "ALL") : null;
-  const [projectId, setProjectId] = useState(lockedProjectId ?? projects[0]?.id ?? "ALL");
-  const [state, setState] = useState("ALL");
-  const activeProjectId = lockedProjectId ?? projectId;
+  const [sort, setSort] = useState<SortMode>("recent");
+
+  const visitedFor = useMemo(() => {
+    const names = new Map(projects.map((project) => [project.name.trim().toLowerCase(), project.name]));
+    const map = new Map<string, string[]>();
+    for (const household of data.households) {
+      const list = [
+        ...new Set(
+          household.contactVisits
+            .filter((visit) => visit.status === "completed")
+            .map((visit) => names.get(visit.visited.trim().toLowerCase()))
+            .filter((name): name is string => Boolean(name)),
+        ),
+      ];
+      list.sort((a, b) => b.localeCompare(a));
+      map.set(household.id, list);
+    }
+    return map;
+  }, [data.households, projects]);
 
   const rows = useMemo(() => {
     const houseById = new Map(data.households.map((h) => [h.id, h]));
-    return data.visits
+    const filtered = data.visits
       .filter((visit) => {
         const house = houseById.get(visit.householdId);
         if (!house) return false;
-        if (activeProjectId !== "ALL") {
-          const projectName = projects.find((p) => p.id === activeProjectId)?.name;
+        if (projectId !== "ALL") {
+          const projectName = projects.find((p) => p.id === projectId)?.name;
           const ok =
-            house.projectId === activeProjectId ||
+            house.projectId === projectId ||
             house.contactVisits.some(
               (cv) =>
                 cv.id === visit.id &&
                 projectName &&
                 cv.visited.trim().toLowerCase() === projectName.trim().toLowerCase(),
             );
-          if (!ok && house.projectId !== activeProjectId) return false;
+          if (!ok && house.projectId !== projectId) return false;
         }
-        if (admin && state !== "ALL") {
-          const code = STATES.find((s) => s.code === state || s.name === state)?.code ?? state;
-          if ((house.state || "").toUpperCase() !== code && house.state !== state) {
-            const map: Record<string, string> = { Maine: "ME", "New Hampshire": "NH", Wisconsin: "WI", ME: "ME", NH: "NH", WI: "WI" };
-            if ((map[house.state] ?? house.state) !== code) return false;
-          }
+        if (state !== "ALL") {
+          if (stateCode(house.state || "") !== stateCode(state)) return false;
         }
         return true;
       })
-      .map((visit) => {
+      .map((visit): ReportRow => {
         const house = houseById.get(visit.householdId)!;
         const contact = house.contactVisits.find((cv) => cv.id === visit.id);
         return {
-          ...visit,
+          id: visit.id,
+          householdId: house.id,
+          householdName: visit.householdName,
           city: house.city,
           state: house.state,
+          visitDate: visit.visitDate,
+          visitorName: visit.visitorName,
+          status: visit.status ?? null,
+          reaction: visit.reaction ?? null,
           activities: contact?.activities ?? [],
+          visitedProjects: visitedFor.get(house.id) ?? [],
+          details: visit.details ?? "",
         };
-      })
-      .sort((a, b) => b.visitDate.localeCompare(a.visitDate));
-  }, [activeProjectId, admin, data.households, data.visits, projects, state]);
+      });
+
+    const latest = new Map<string, ReportRow>();
+    for (const row of filtered.sort((a, b) => b.visitDate.localeCompare(a.visitDate) || b.id.localeCompare(a.id))) {
+      if (!latest.has(row.householdId)) latest.set(row.householdId, row);
+    }
+    const people = [...latest.values()];
+    if (sort === "name") {
+      people.sort((a, b) => a.householdName.localeCompare(b.householdName) || b.visitDate.localeCompare(a.visitDate));
+    } else {
+      people.sort((a, b) => b.visitDate.localeCompare(a.visitDate) || a.householdName.localeCompare(b.householdName));
+    }
+    return people;
+  }, [data.households, data.visits, projectId, projects, sort, state, visitedFor]);
 
   function download() {
     const csv = toCsv(
-      ["Name", "City", "State", "Date", "Visitor", "Status", "Reaction", "Activities", "Details"],
+      ["Name", "City", "State", "Date", "Visitor", "Status", "Reaction", "Visited", "Activities", "Details"],
       rows.map((row) => [
         row.householdName,
         row.city,
@@ -70,6 +126,7 @@ export function DashboardReports({ data }: { data: AppData }) {
         row.visitorName,
         row.status ?? "",
         row.reaction ?? "",
+        row.visitedProjects.join("; "),
         row.activities.join("; "),
         row.details,
       ]),
@@ -89,36 +146,18 @@ export function DashboardReports({ data }: { data: AppData }) {
         <div>
           <h2 className="font-heading text-xl font-semibold text-foreground">Reports</h2>
           <p className="text-sm text-muted-foreground">
-            {bochur
-              ? (projects.find((p) => p.id === activeProjectId)?.name
-                  ? `People visited in ${projects.find((p) => p.id === activeProjectId)!.name}.`
-                  : "People visited in your project.")
-              : "People visited in the selected project."}
+            People visited — one row per person, most recent first.
+            {rows.length ? ` · ${rows.length} ${rows.length === 1 ? "person" : "people"}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!bochur ? (
-            <label className="text-xs text-muted-foreground">
-              Project
-              <select className="ml-1 h-9 rounded-lg border bg-background px-2 text-sm text-foreground" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-                <option value="ALL">All projects</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {admin ? (
-            <label className="text-xs text-muted-foreground">
-              State
-              <select className="ml-1 h-9 rounded-lg border bg-background px-2 text-sm text-foreground" value={state} onChange={(e) => setState(e.target.value)}>
-                <option value="ALL">All states</option>
-                {STATES.map((s) => (
-                  <option key={s.code} value={s.code}>{s.name}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
+          <label className="text-xs text-muted-foreground">
+            Sort
+            <select className="ml-1 h-9 rounded-lg border bg-background px-2 text-sm text-foreground" value={sort} onChange={(e) => setSort(e.target.value as SortMode)}>
+              <option value="recent">Recently visited</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </label>
           <button type="button" className="inline-flex h-9 items-center gap-1 rounded-full border px-3 text-xs" onClick={download}>
             <Download className="size-3.5" /> CSV
           </button>
@@ -126,23 +165,34 @@ export function DashboardReports({ data }: { data: AppData }) {
       </div>
       {rows.length ? (
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-[12.5px]">
+          <table className="w-full min-w-[720px] text-left text-[12.5px]">
             <thead className="text-[11px] tracking-wide text-muted-foreground uppercase">
               <tr className="border-b">
-                {["Name", "City / State", "Date", "Visitor", "Status", "Reaction", "Activities"].map((label) => (
+                {["Name", "City / State", "Date", "Visitor", "Status", "Reaction", "Visited", "Activities"].map((label) => (
                   <th key={label} className="px-2 py-2 font-medium">{label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.slice(0, 100).map((row) => (
-                <tr key={row.id} className="border-b last:border-0">
+                <tr key={row.householdId} className="border-b last:border-0">
                   <td className="px-2 py-2 font-medium text-foreground">{row.householdName}</td>
                   <td className="px-2 py-2 text-muted-foreground">{[row.city, row.state].filter(Boolean).join(", ")}</td>
                   <td className="px-2 py-2 tabular-nums">{formatMedium(row.visitDate)}</td>
                   <td className="px-2 py-2">{row.visitorName}</td>
                   <td className="px-2 py-2"><span className={`rounded-full px-2 py-0.5 text-[11px] ring-1 ${statusMeta(row.status).className}`}>{statusMeta(row.status).label}</span></td>
                   <td className="px-2 py-2">{reactionMeta(row.reaction)?.label ?? "—"}</td>
+                  <td className="px-2 py-2">
+                    {row.visitedProjects.length ? (
+                      <span className="flex flex-wrap gap-1">
+                        {row.visitedProjects.map((name) => (
+                          <span key={name} className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground">{name}</span>
+                        ))}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="px-2 py-2 text-muted-foreground">{row.activities.length ? row.activities.join(" · ") : "—"}</td>
                 </tr>
               ))}

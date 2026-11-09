@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.24
+
+- Planner: shliach pref “Bochurim can see new planner days by default” (default on); per-day “Bochurim can see this day”; top-level “Bochurim can see the planner” syncs all days + Settings. Bochur Daily schedule shows only visible days (RLS).
+- Dashboard: shared Project (+ State for admin) filter bar; Reports (Recently visited, Visited column, CSV) + Visit activities for every role; admin also keeps Feedback and Households by state. Sidebar Reports removed; `/reports` redirects to Dashboard.
+- My Team: one Cora admins & approvals box (admins no longer duplicated on the roster).
+
 ## 1.8.23
 
 - Bochur dashboard: project visit count plus locked Reports table and activity totals for his project (no project dropdown).

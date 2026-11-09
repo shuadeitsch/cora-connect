@@ -151,6 +151,7 @@ function ShliachPrefsForm({ data }: { data: AppData }) {
   const [pending, start] = useTransition();
   const [shareNew, setShareNew] = useState(Boolean(data.viewer.shareNewWithBochurim));
   const [editPlanner, setEditPlanner] = useState(Boolean(data.viewer.bochurimEditPlanner));
+  const [seePlanner, setSeePlanner] = useState(data.viewer.bochurimSeePlannerDefault !== false);
   const [message, setMessage] = useState("");
   const preview = Boolean(data.viewer.preview);
   return (
@@ -161,7 +162,7 @@ function ShliachPrefsForm({ data }: { data: AppData }) {
         if (preview) { setMessage("Preview only"); return; }
         setMessage("");
         start(async () => {
-          const result = await saveShliachPrefsAction({ shareNewWithBochurim: shareNew, bochurimEditPlanner: editPlanner });
+          const result = await saveShliachPrefsAction({ shareNewWithBochurim: shareNew, bochurimEditPlanner: editPlanner, bochurimSeePlannerDefault: seePlanner });
           if (!result.ok) setMessage(result.error);
           else { setMessage("Saved."); router.refresh(); }
         });
@@ -171,6 +172,10 @@ function ShliachPrefsForm({ data }: { data: AppData }) {
       <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" className="mt-1 size-4" checked={shareNew} disabled={pending || preview} onChange={(e) => setShareNew(e.target.checked)} />
         <span>Share new contacts with bochurim by default</span>
+      </label>
+      <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" className="mt-1 size-4" checked={seePlanner} disabled={pending || preview} onChange={(e) => setSeePlanner(e.target.checked)} />
+        <span>Bochurim can see new planner days by default</span>
       </label>
       <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" className="mt-1 size-4" checked={editPlanner} disabled={pending || preview} onChange={(e) => setEditPlanner(e.target.checked)} />

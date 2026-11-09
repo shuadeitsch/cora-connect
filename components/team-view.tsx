@@ -85,8 +85,9 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [pending, start] = useTransition();
+  // Admins appear only in the User management / Cora admins box below (not twice).
   const rows = useMemo(
-    () => data.members.filter((member) => `${member.name} ${member.email}`.toLowerCase().includes(query.trim().toLowerCase())),
+    () => data.members.filter((member) => member.role !== "admin" && `${member.name} ${member.email}`.toLowerCase().includes(query.trim().toLowerCase())),
     [data.members, query],
   );
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -169,7 +170,7 @@ export function TeamView({ data, startInvite }: { data: AppData; startInvite: bo
       ) : null}
       {admin ? (
       <section className="mb-4 panel rounded-3xl p-4">
-        <h2 className="font-heading text-lg font-semibold text-foreground">People on this account</h2>
+        <h2 className="font-heading text-lg font-semibold text-foreground">Team roster</h2>
         {volunteers.length ? (
           <p className="text-sm text-mutedink">{volunteers.length} teammate{volunteers.length === 1 ? "" : "s"} besides Cora Connect admins.</p>
         ) : (

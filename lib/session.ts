@@ -47,6 +47,7 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
     theme: profile.theme ?? null,
     shareNewWithBochurim: Boolean(profile.share_new_with_bochurim),
     bochurimEditPlanner: Boolean(profile.bochurim_edit_planner),
+    bochurimSeePlannerDefault: profile.bochurim_see_planner_default !== false,
     projectId: profile.project_id ?? null,
   };
 });

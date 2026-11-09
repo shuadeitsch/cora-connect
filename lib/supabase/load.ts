@@ -178,6 +178,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     theme: nullableText(profile, "theme"),
     shareNewWithBochurim: Boolean(profile.share_new_with_bochurim),
     bochurimEditPlanner: Boolean(profile.bochurim_edit_planner),
+    bochurimSeePlannerDefault: profile.bochurim_see_planner_default !== false,
     projectId: nullableText(profile, "project_id"),
     adminApprovedAt: nullableText(profile, "admin_approved_at"),
     finalApprovedAt: nullableText(profile, "final_approved_at"),
