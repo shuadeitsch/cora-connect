@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.27
+
+- Home: Dashboard renamed to Home everywhere; first item in the sidebar. `/dashboard` still works.
+- Mobile: bottom-nav More sheet lists every sidebar item (Home first, My Team, Settings, Map, Beta) in desktop order.
+- Visits box: people list reads from contact history (the visits log was soft-deleted). Activity tiles always show, including 0.
+- Feedback: admins can delete messages (confirm + multi-select); RLS `feedback_delete` via `is_admin()`.
+
 ## 1.8.26
 
 - Dashboard: one combined **Visits** box (activity tiles + people list). Activity tiles always show Tefillin, Menorah/package, Mezuzah, Challah, Write-in, and Total — including 0. Bento layout: compact stat tiles, wider content boxes. Separate Visit activities box removed.

@@ -103,3 +103,18 @@ export async function archiveFeedbackAction(id: string): Promise<ActionResult> {
   revalidatePath("/dashboard");
   return { ok: true };
 }
+
+
+export async function deleteFeedbackAction(ids: string[]): Promise<ActionResult> {
+  const gate = await assertNotPreview();
+  if (!gate.ok) return gate;
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") return { ok: false, error: "Admins only." };
+  const clean = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  if (!clean.length) return { ok: false, error: "Pick a message to delete." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("feedback").delete().in("id", clean);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/dashboard");
+  return { ok: true };
+}

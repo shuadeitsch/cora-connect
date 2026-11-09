@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   LogOut,
   Map,
+  Menu,
   Route,
   Search,
   Settings,
@@ -25,6 +26,7 @@ import { VersionBadge } from "@/components/version-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { applyTheme, isThemeId, THEME_KEY } from "@/lib/themes";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { logoutAction } from "@/lib/actions";
 import { scopeLabel } from "@/lib/constants";
 import { useViewingState } from "@/lib/viewing-state";
@@ -34,32 +36,30 @@ import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; short?: string; icon: typeof House; adminOnly?: boolean; desktopOnly?: boolean };
 
+/** Full sidebar order (Home first). Mobile More sheet uses the same order. */
 const PRIMARY: NavItem[] = [
+  { href: "/dashboard", label: "Home", short: "Home", icon: LayoutGrid },
   { href: "/households", label: "Contacts", icon: House },
   { href: "/saved-routes", label: "Routes", icon: Route },
   { href: "/planner", label: "Daily planner", short: "Planner", icon: CalendarDays },
-  { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutGrid },
 ];
 
-/** Sidebar only; on phones these sit in the avatar menu at the top. */
 const SIDEBAR_EXTRA: NavItem[] = [
-  { href: "/team", label: "My Team", icon: Users, desktopOnly: true },
-  { href: "/settings", label: "Settings", icon: Settings, desktopOnly: true },
+  { href: "/team", label: "My Team", icon: Users },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** Map and Beta live under More at the very bottom of the sidebar (and phone avatar menu). */
+/** Map and Beta sit under More at the bottom of the desktop sidebar. */
 const MORE_ITEMS: NavItem[] = [
   { href: "/map", label: "Map", icon: Map },
   { href: "/beta", label: "Beta", icon: FlaskConical, adminOnly: true },
 ];
 
-/** A bochur has no Dashboard, so his few extra pages sit in the bar itself. */
-const BOCHUR_EXTRA: NavItem[] = [
-  { href: "/settings", label: "Settings", icon: Settings },
-];
-
 /** A bochur only works with contacts shared with him. */
 const BOCHUR_HIDDEN = new Set(["/team", "/beta"]);
+
+/** Bottom bar slots (phones / Chromebooks). Everything else opens from More. */
+const PHONE_BAR_HREFS = new Set(["/dashboard", "/households", "/saved-routes", "/planner"]);
 
 function visibleItems(items: NavItem[], canManage: boolean, bochur: boolean) {
   return items.filter((item) => (canManage || !item.adminOnly) && !(bochur && BOCHUR_HIDDEN.has(item.href)));
@@ -170,6 +170,7 @@ export function Shell({
   const pathname = usePathname();
   const viewingState = useViewingState();
   const [search, setSearch] = useState(false);
+  const [mobileMore, setMobileMore] = useState(false);
   const mapPage = pathname.startsWith("/map") || pathname === "/saved-routes/new";
   const preview = viewer.preview ?? null;
   // A theme saved on the account follows the person to a new device.
@@ -180,9 +181,11 @@ export function Shell({
   // Real admins (not in preview) manage; preview uses the role's canManage (false).
   const canManage = viewer.canManage && !preview;
   const showAdminChrome = viewer.role === "admin" && !preview;
-  const navItems = bochur ? [...PRIMARY, ...BOCHUR_EXTRA] : [...PRIMARY, ...SIDEBAR_EXTRA];
-  const primary = navItems.filter((item) => (canManage || !item.adminOnly) && !item.desktopOnly && !(bochur && BOCHUR_HIDDEN.has(item.href)));
+  const navItems = [...PRIMARY, ...SIDEBAR_EXTRA];
+  const fullSidebar = [...PRIMARY, ...SIDEBAR_EXTRA, ...MORE_ITEMS];
+  const primary = visibleItems(PRIMARY, canManage || showAdminChrome, bochur).filter((item) => PHONE_BAR_HREFS.has(item.href));
   const moreForPhone = visibleItems(MORE_ITEMS, showAdminChrome || canManage, bochur);
+  const mobileMenuItems = visibleItems(fullSidebar, showAdminChrome || canManage, bochur);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -199,7 +202,7 @@ export function Shell({
     <div className="safe-page app-frame flex flex-col">
       <header className="glass z-30 mx-2 mt-2 flex min-h-14 shrink-0 items-center justify-between gap-2 rounded-2xl px-2 py-1 sm:mx-3 sm:px-3">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 pl-1">
-          <Link href="/households" aria-label="Cora Connect home" className="min-w-0">
+          <Link href="/dashboard" aria-label="Cora Connect home" className="min-w-0">
             {/* The header mark is the Cora logo file. next/image is not configured for it. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/cora-logo.png" alt="Cora" className="h-10 w-auto max-w-[9.5rem] object-contain object-left sm:h-11 sm:max-w-[13rem]" />
@@ -260,7 +263,7 @@ export function Shell({
       </header>
       <div className="flex min-h-0 flex-1">
         <aside className="glass mx-3 my-3 hidden w-[220px] shrink-0 flex-col rounded-3xl py-4 lg:flex">
-          <Link href="/households" className="mb-3 block w-full px-2">
+          <Link href="/dashboard" className="mb-3 block w-full px-2">
             {/* The side bar mark is the Cora Connect logo with a clear background (old map photo kept at public/crm-logo.jpeg). next/image is not configured for it. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/cora-connect-logo.png" alt="Cora Connect" className="block h-auto w-full object-contain dark:brightness-0 dark:invert" />
@@ -291,7 +294,7 @@ export function Shell({
           </main>
         </div>
       </div>
-      <nav className="glass fixed inset-x-3 z-40 grid rounded-3xl px-1 py-1 bottom-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden" style={{ gridTemplateColumns: `repeat(${primary.length}, minmax(0, 1fr))` }}>
+      <nav className="glass fixed inset-x-3 z-40 grid rounded-3xl px-1 py-1 bottom-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden" style={{ gridTemplateColumns: `repeat(${primary.length + 1}, minmax(0, 1fr))` }}>
         {primary.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
@@ -302,7 +305,51 @@ export function Shell({
             </Link>
           );
         })}
+        <button
+          type="button"
+          aria-label="More pages"
+          className={cn(
+            "flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium",
+            mobileMenuItems.some((item) => !PHONE_BAR_HREFS.has(item.href) && (pathname === item.href || pathname.startsWith(`${item.href}/`)))
+              ? "bg-accent text-foreground"
+              : "text-muted-foreground",
+          )}
+          onClick={() => setMobileMore(true)}
+        >
+          <Menu className="size-5" />
+          More
+        </button>
       </nav>
+      <Sheet open={mobileMore} onOpenChange={setMobileMore}>
+        <SheetContent side="bottom" className="max-h-[85vh] rounded-t-3xl px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+          <SheetHeader className="pb-2 text-left">
+            <SheetTitle className="font-heading text-lg">Menu</SheetTitle>
+          </SheetHeader>
+          <nav className="flex flex-col gap-1 overflow-y-auto">
+            {mobileMenuItems.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const Icon = item.icon;
+              const label = bochur && item.href === "/planner" ? "Daily schedule" : item.label;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMore(false)}
+                  className={cn(
+                    "flex min-h-12 items-center gap-3 rounded-2xl px-2.5 text-sm font-medium",
+                    active ? "bg-accent text-foreground" : "text-foreground hover:bg-muted",
+                  )}
+                >
+                  <span className={cn("flex size-9 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                    <Icon className="size-4" />
+                  </span>
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+        </SheetContent>
+      </Sheet>
       <CommandPalette open={search} onOpenChange={setSearch} households={households} canManage={viewer.canManage && !preview} />
     </div>
   );

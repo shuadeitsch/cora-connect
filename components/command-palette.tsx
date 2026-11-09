@@ -15,7 +15,7 @@ export type PaletteHousehold = {
 };
 
 const PAGES = [
-  { href: "/dashboard", label: "Dashboard", hint: "Overview" },
+  { href: "/dashboard", label: "Home", hint: "Overview" },
   { href: "/households", label: "Contacts", hint: "People" },
   { href: "/map", label: "Map", hint: "Pins and routes" },
   { href: "/saved-routes", label: "Saved routes", hint: "Driving order" },

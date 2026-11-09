@@ -193,46 +193,40 @@ export function DashboardReports({
   }, [data.households, projects]);
 
   const rows = useMemo(() => {
-    const houseById = new Map(data.households.map((h) => [h.id, h]));
-    const filtered = data.visits
-      .filter((visit) => {
-        const house = houseById.get(visit.householdId);
-        if (!house) return false;
-        if (projectId !== "ALL") {
-          const projectName = projects.find((p) => p.id === projectId)?.name;
-          const ok =
-            house.projectId === projectId ||
-            house.contactVisits.some(
-              (cv) =>
-                cv.id === visit.id &&
-                projectName &&
-                cv.visited.trim().toLowerCase() === projectName.trim().toLowerCase(),
-            );
-          if (!ok && house.projectId !== projectId) return false;
-        }
-        if (state !== "ALL") {
-          if (stateCode(house.state || "") !== stateCode(state)) return false;
-        }
-        return true;
-      })
-      .map((visit): ReportRow => {
-        const house = houseById.get(visit.householdId)!;
-        const contact = house.contactVisits.find((cv) => cv.id === visit.id);
-        return {
-          id: visit.id,
+    // Prefer contact_visits — the visits log can be empty/soft-deleted while history still has rows.
+    const nameById = new Map(data.members.filter((m) => m.kind === "member").map((m) => [m.id, m.name]));
+    const filtered: ReportRow[] = [];
+    for (const house of data.households) {
+      if (projectId !== "ALL") {
+        const projectName = projects.find((p) => p.id === projectId)?.name;
+        const onProject =
+          house.projectId === projectId ||
+          house.contactVisits.some(
+            (cv) => projectName && cv.visited.trim().toLowerCase() === projectName.trim().toLowerCase(),
+          );
+        if (!onProject) continue;
+      }
+      if (state !== "ALL" && stateCode(house.state || "") !== stateCode(state)) continue;
+      for (const cv of house.contactVisits) {
+        if (cv.status && cv.status !== "completed") continue;
+        const visitDate = cv.visitDate || cv.createdAt.slice(0, 10);
+        if (!visitDate) continue;
+        filtered.push({
+          id: cv.id,
           householdId: house.id,
-          householdName: visit.householdName,
+          householdName: house.name,
           city: house.city,
           state: house.state,
-          visitDate: visit.visitDate,
-          visitorName: visit.visitorName,
-          status: visit.status ?? null,
-          reaction: visit.reaction ?? null,
-          activities: contact?.activities ?? [],
+          visitDate,
+          visitorName: (cv.createdBy && nameById.get(cv.createdBy)) || "—",
+          status: cv.status ?? "completed",
+          reaction: (cv.reaction as Reaction | null) ?? null,
+          activities: cv.activities ?? [],
           visitedProjects: visitedFor.get(house.id) ?? [],
-          details: visit.details ?? "",
-        };
-      });
+          details: cv.notes ?? "",
+        });
+      }
+    }
 
     const latest = new Map<string, ReportRow>();
     for (const row of filtered.sort((a, b) => b.visitDate.localeCompare(a.visitDate) || b.id.localeCompare(a.id))) {
@@ -245,7 +239,7 @@ export function DashboardReports({
       people.sort((a, b) => b.visitDate.localeCompare(a.visitDate) || a.householdName.localeCompare(b.householdName));
     }
     return people;
-  }, [data.households, data.visits, projectId, projects, sort, state, visitedFor]);
+  }, [data.households, data.members, projectId, projects, sort, state, visitedFor]);
 
   const peopleCount = rows.length;
 
