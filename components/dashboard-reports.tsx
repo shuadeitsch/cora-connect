@@ -16,7 +16,7 @@ import {
 import { reactionMeta, statusMeta, VISIT_ACTIVITIES } from "@/lib/constants";
 import { toCsv } from "@/lib/csv";
 import { formatMedium } from "@/lib/format";
-import { activityCountsFor } from "@/lib/visit-activities";
+import { activityCountsFor, visitCoverage } from "@/lib/visit-activities";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -56,10 +56,14 @@ function StatTile({
   label,
   count,
   tone = "default",
+  detail,
+  progress,
 }: {
   label: string;
   count: number;
   tone?: "default" | "accent" | "muted";
+  detail?: string;
+  progress?: number;
 }) {
   const Icon = ACTIVITY_ICON[label] ?? BookOpen;
   return (
@@ -69,13 +73,28 @@ function StatTile({
         tone === "accent" && "border-primary/30 bg-primary/5",
         tone === "muted" && "bg-muted/40",
         tone === "default" && "bg-card",
+        detail && "sm:col-span-2 lg:col-span-2",
       )}
     >
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Icon className="size-3.5 shrink-0" aria-hidden />
         <span className="truncate text-[11px] font-medium tracking-wide uppercase">{label}</span>
       </div>
-      <p className="font-heading text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">{count}</p>
+      {detail ? (
+        <div className="mt-1 space-y-1.5">
+          <p className="font-heading text-2xl font-semibold tabular-nums text-foreground sm:text-3xl">{detail}</p>
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-[width]"
+              style={{ width: `${Math.min(100, Math.max(0, progress ?? 0))}%` }}
+              aria-hidden
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground tabular-nums">{progress ?? 0}% of contacts</p>
+        </div>
+      ) : (
+        <p className="font-heading text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">{count}</p>
+      )}
     </div>
   );
 }
@@ -83,14 +102,15 @@ function StatTile({
 /** One Visits box: activity tiles (always, including 0) + people list. Filters from the Dashboard bar. */
 export function DashboardReports({
   data,
-  projectId = "ALL",
+  projectId,
   state = "ALL",
 }: {
   data: AppData;
-  projectId?: string;
+  projectId: string;
   state?: string;
 }) {
   const projects = data.projects;
+  const projectName = projects.find((p) => p.id === projectId)?.name;
   const [sort, setSort] = useState<SortMode>("recent");
   const viewer = data.viewer;
 
@@ -170,9 +190,9 @@ export function DashboardReports({
         territory: viewer.territory,
         projectId: viewer.projectId,
       },
-      { state, projectId },
+      { state, projectId, projectName },
     );
-  }, [contactVisits, householdsForCounts, projectId, state, viewer]);
+  }, [contactVisits, householdsForCounts, projectId, projectName, state, viewer]);
 
   const visitedFor = useMemo(() => {
     const names = new Map(projects.map((project) => [project.name.trim().toLowerCase(), project.name]));
@@ -192,23 +212,30 @@ export function DashboardReports({
     return map;
   }, [data.households, projects]);
 
+  const coverage = useMemo(
+    () =>
+      visitCoverage(data.households, {
+        state,
+        projectId,
+        projectName,
+      }),
+    [data.households, projectId, projectName, state],
+  );
+
   const rows = useMemo(() => {
     // Prefer contact_visits — the visits log can be empty/soft-deleted while history still has rows.
     const nameById = new Map(data.members.filter((m) => m.kind === "member").map((m) => [m.id, m.name]));
+    const pname = projectName?.trim().toLowerCase() ?? "";
     const filtered: ReportRow[] = [];
     for (const house of data.households) {
-      if (projectId !== "ALL") {
-        const projectName = projects.find((p) => p.id === projectId)?.name;
-        const onProject =
-          house.projectId === projectId ||
-          house.contactVisits.some(
-            (cv) => projectName && cv.visited.trim().toLowerCase() === projectName.trim().toLowerCase(),
-          );
-        if (!onProject) continue;
-      }
       if (state !== "ALL" && stateCode(house.state || "") !== stateCode(state)) continue;
       for (const cv of house.contactVisits) {
         if (cv.status && cv.status !== "completed") continue;
+        const onProject =
+          cv.projectId === projectId ||
+          house.projectId === projectId ||
+          (pname && cv.visited.trim().toLowerCase() === pname);
+        if (!onProject) continue;
         const visitDate = cv.visitDate || cv.createdAt.slice(0, 10);
         if (!visitDate) continue;
         filtered.push({
@@ -239,9 +266,7 @@ export function DashboardReports({
       people.sort((a, b) => b.visitDate.localeCompare(a.visitDate) || a.householdName.localeCompare(b.householdName));
     }
     return people;
-  }, [data.households, data.members, projectId, projects, sort, state, visitedFor]);
-
-  const peopleCount = rows.length;
+  }, [data.households, data.members, projectId, projectName, sort, state, visitedFor]);
 
   function download() {
     const csv = toCsv(
@@ -268,8 +293,20 @@ export function DashboardReports({
     URL.revokeObjectURL(url);
   }
 
-  const tiles: { label: string; count: number; tone?: "default" | "accent" | "muted" }[] = [
-    { label: "Visits", count: peopleCount, tone: "accent" },
+  const tiles: {
+    label: string;
+    count: number;
+    tone?: "default" | "accent" | "muted";
+    detail?: string;
+    progress?: number;
+  }[] = [
+    {
+      label: "Visits",
+      count: coverage.visited,
+      tone: "accent",
+      detail: `${coverage.visited} of ${coverage.total} contacts`,
+      progress: coverage.percent,
+    },
     ...VISIT_ACTIVITIES.map((label) => ({
       label,
       count: activityRows.find((r) => r.label === label)?.count ?? 0,
@@ -284,8 +321,9 @@ export function DashboardReports({
         <div>
           <h2 className="font-heading text-xl font-semibold text-foreground">Visits</h2>
           <p className="text-sm text-muted-foreground">
-            Activity totals and people visited — one row per person, most recent first.
-            {peopleCount ? ` · ${peopleCount} ${peopleCount === 1 ? "person" : "people"}` : ""}
+            {projectName ? `${projectName}: ` : ""}
+            {coverage.visited} of {coverage.total} contacts visited
+            {coverage.total ? ` (${coverage.percent}%)` : ""}. Activity totals and people list follow this project.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -304,7 +342,7 @@ export function DashboardReports({
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         {tiles.map((tile) => (
-          <StatTile key={tile.label} label={tile.label} count={tile.count} tone={tile.tone} />
+          <StatTile key={tile.label} label={tile.label} count={tile.count} tone={tile.tone} detail={tile.detail} progress={tile.progress} />
         ))}
       </div>
 

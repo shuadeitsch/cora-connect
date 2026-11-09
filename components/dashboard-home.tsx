@@ -8,7 +8,7 @@ import { FeedbackCard } from "@/components/feedback-card";
 import { SuggestedEditsCard } from "@/components/suggested-edits-card";
 import { FOCUS_STATES } from "@/lib/constants";
 import { isNewContact } from "@/lib/new-contacts";
-import { activityCountsFor } from "@/lib/visit-activities";
+import { activityCountsFor, defaultProjectId } from "@/lib/visit-activities";
 import type { AppData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -35,24 +35,24 @@ function MiniStat({
 }
 
 /**
- * Dashboard (1.8.26): bento layout. Shared Project (+ State for admin) filters.
- * One Visits box (activity tiles + people list). Admin: Feedback + Households by state.
+ * Home: Project (+ State for admin) filters. A project is always selected (no All projects).
+ * One Visits box (coverage + activity tiles + people list). Admin: Feedback + Households by state.
  */
 export function DashboardHome({ data }: { data: AppData }) {
   const { viewer } = data;
   const admin = viewer.role === "admin" && !viewer.preview;
   const bochur = viewer.role === "bochur";
-  const lockedProjectId = bochur ? (viewer.projectId ?? "ALL") : null;
-  const [projectId, setProjectId] = useState(lockedProjectId ?? "ALL");
+  const lockedProjectId = bochur ? viewer.projectId ?? null : null;
+  const initialProject =
+    lockedProjectId && data.projects.some((p) => p.id === lockedProjectId)
+      ? lockedProjectId
+      : defaultProjectId(data.projects, data.households, lockedProjectId);
+  const [projectId, setProjectId] = useState(initialProject);
   const [state, setState] = useState("ALL");
-  const activeProjectId = lockedProjectId ?? projectId;
+  const activeProjectId = lockedProjectId && data.projects.some((p) => p.id === lockedProjectId) ? lockedProjectId : projectId || initialProject;
 
   const filteredHouseholds = useMemo(() => {
     return data.households.filter((house) => {
-      if (activeProjectId !== "ALL" && house.projectId && house.projectId !== activeProjectId) {
-        if (house.projectId !== activeProjectId) return false;
-      }
-      if (activeProjectId !== "ALL" && !house.projectId) return false;
       if (admin && state !== "ALL") {
         const map: Record<string, string> = { Maine: "ME", "New Hampshire": "NH", Wisconsin: "WI", ME: "ME", NH: "NH", WI: "WI" };
         const code = STATES.find((s) => s.code === state)?.code ?? state;
@@ -60,7 +60,7 @@ export function DashboardHome({ data }: { data: AppData }) {
       }
       return true;
     });
-  }, [activeProjectId, admin, data.households, state]);
+  }, [admin, data.households, state]);
 
   const stateCounts = new Map<string, number>();
   for (const household of filteredHouseholds) {
@@ -125,6 +125,7 @@ export function DashboardHome({ data }: { data: AppData }) {
       importBatchId: h.importBatchId,
       createdBy: h.createdBy ?? null,
     }));
+    const projectName = data.projects.find((p) => p.id === project)?.name;
     const activities = activityCountsFor(
       activityVisits as never,
       households as never,
@@ -145,7 +146,7 @@ export function DashboardHome({ data }: { data: AppData }) {
         territory: viewer.territory,
         projectId: viewer.projectId,
       },
-      { projectId: project ?? "ALL", state: "ALL" },
+      { projectId: project ?? activeProjectId, projectName, state: "ALL" },
     );
     const newPeople = data.households.filter((h) => {
       const createdBy = h.createdBy ?? h.ownerId;
@@ -153,7 +154,12 @@ export function DashboardHome({ data }: { data: AppData }) {
       return isNewContact({ createdAt: h.createdAt, importBatchId: h.importBatchId });
     }).length;
     return { peopleVisited, activities, newPeople };
-  }, [bochur, data.households, viewer]);
+  }, [activeProjectId, bochur, data.households, data.projects, viewer]);
+
+  const projectOptions = data.projects;
+  const safeProjectId = projectOptions.some((p) => p.id === activeProjectId)
+    ? activeProjectId
+    : projectOptions[0]?.id ?? "";
 
   return (
     <div className="space-y-4 p-3 sm:p-6">
@@ -162,22 +168,28 @@ export function DashboardHome({ data }: { data: AppData }) {
       <div className="flex flex-wrap items-center gap-2" aria-label="Dashboard filters">
         {bochur ? (
           <p className="text-sm text-muted-foreground">
-            Project: <span className="font-medium text-foreground">{data.projects.find((p) => p.id === activeProjectId)?.name ?? "Your project"}</span>
+            Project:{" "}
+            <span className="font-medium text-foreground">
+              {data.projects.find((p) => p.id === safeProjectId)?.name ?? "Your project"}
+            </span>
           </p>
-        ) : (
+        ) : projectOptions.length ? (
           <label className="text-xs text-muted-foreground">
             Project
             <select
               className="ml-1 h-9 rounded-lg border bg-background px-2 text-sm text-foreground"
-              value={projectId}
+              value={safeProjectId}
               onChange={(e) => setProjectId(e.target.value)}
             >
-              <option value="ALL">All projects</option>
-              {data.projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+              {projectOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
             </select>
           </label>
+        ) : (
+          <p className="text-sm text-muted-foreground">No projects yet.</p>
         )}
         {admin ? (
           <label className="text-xs text-muted-foreground">
@@ -189,7 +201,9 @@ export function DashboardHome({ data }: { data: AppData }) {
             >
               <option value="ALL">All states</option>
               {STATES.map((s) => (
-                <option key={s.code} value={s.code}>{s.name}</option>
+                <option key={s.code} value={s.code}>
+                  {s.name}
+                </option>
               ))}
             </select>
           </label>
@@ -211,10 +225,10 @@ export function DashboardHome({ data }: { data: AppData }) {
         </section>
       ) : null}
 
-      <DashboardReports data={data} projectId={filters.projectId} state={filters.state} />
+      <DashboardReports data={data} projectId={safeProjectId} state={filters.state} />
 
       <div className={cn("grid gap-4", admin ? "lg:grid-cols-3" : "lg:grid-cols-1")}>
-        {(admin || viewer.role === "shliach") ? (
+        {admin || viewer.role === "shliach" ? (
           <div className={admin ? "lg:col-span-2" : undefined}>
             <SuggestedEditsCard state={admin ? state : "ALL"} />
           </div>

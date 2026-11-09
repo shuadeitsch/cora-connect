@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.31
+- Home › Visits: drop All projects — a project is always selected (current/most recent; bochur locked). Visits tile shows unique contacts visited in that project out of visible contacts (e.g. `40 of 155 contacts`) with a progress bar; activity tiles and people list follow the project. Admin All states still OK.
+
 ## 1.8.30
 - Admin version badge: compact inline pill (white, w-fit) hugging `v1.8.30 · Nov 9, 6:20 PM` — no longer stretches full width in the header.
 
