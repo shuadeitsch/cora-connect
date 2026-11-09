@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.30
+- Admin version badge: compact inline pill (white, w-fit) hugging `v1.8.30 · Nov 9, 6:20 PM` — no longer stretches full width in the header.
+
 ## 1.8.29
 - Settings › Theme: checkbox **Match colors to my photo** next to the background upload. Client canvas sample (no new deps) pulls dominant/accent colors, panel tint, overlay strength, and light/dark from the picture; WCAG contrast kept for text and buttons. Saved on the profile with the theme; uncheck returns to the chosen preset.
 

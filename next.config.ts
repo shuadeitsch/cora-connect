@@ -13,11 +13,10 @@ function updatedLabel() {
     timeZone: "America/New_York",
     month: "short",
     day: "numeric",
-    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date());
-  return `${formatted} ET`;
+  return formatted;
 }
 
 function buildId() {

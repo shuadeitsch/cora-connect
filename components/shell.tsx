@@ -230,8 +230,8 @@ export function Shell({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/cora-logo.png" alt="Cora" className="h-10 w-auto max-w-[9.5rem] object-contain object-left sm:h-11 sm:max-w-[13rem]" />
           </Link>
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-1">
-            {showAdminChrome ? <VersionBadge className="min-w-0 flex-1" /> : null}
+          <div className="flex w-fit max-w-full min-w-0 flex-wrap items-center gap-1">
+            {showAdminChrome ? <VersionBadge /> : null}
             <ReloadButton />
           </div>
         </div>
