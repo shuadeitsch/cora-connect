@@ -209,6 +209,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     possibleDuplicate: Boolean(row.possible_duplicate),
     duplicateOf: nullableText(row, "duplicate_of"),
     importBatchId: nullableText(row, "import_batch_id"),
+    createdBy: nullableText(row, "created_by"),
     customFields:
       row.custom_fields && typeof row.custom_fields === "object"
         ? Object.fromEntries(Object.entries(row.custom_fields as Record<string, unknown>).map(([k, v]) => [k, String(v ?? "")]))
@@ -239,6 +240,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     details: text(row, "details"),
     followUpDate: nullableText(row, "follow_up_date")?.slice(0, 10) ?? null,
     createdAt: text(row, "created_at"),
+    projectId: nullableText(row, "project_id"),
   }));
 
   const contactVisits: ContactVisit[] = contactVisitLoad.rows.filter(alive).map((row) => ({
@@ -255,6 +257,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     createdBy: nullableText(row, "created_by"),
     createdAt: text(row, "created_at"),
     importBatchId: nullableText(row, "import_batch_id"),
+    projectId: nullableText(row, "project_id"),
   }));
 
   const routes: Route[] = routeRows.map((row) => ({

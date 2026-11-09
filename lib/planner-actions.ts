@@ -40,11 +40,13 @@ export async function addPlannerDayAction(date: string): Promise<Result> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   const visible = user?.role === "shliach" ? user.bochurimSeePlannerDefault !== false : true;
+  const editable = user?.role === "shliach" ? Boolean(user.bochurimEditPlanner) : false;
   const { error } = await supabase.from("planner_days").insert({
     org_id: who.orgId,
     date,
     created_by: who.id,
     visible_to_bochurim: visible,
+    editable_by_bochurim: editable,
   });
   return error ? fail(error.message, "Couldn't add the day.") : done();
 }
@@ -155,7 +157,8 @@ export async function addTripDayToPlannerAction(input: {
   if (!day) {
     const actor = await getCurrentUser();
     const visible = actor?.role === "shliach" ? actor.bochurimSeePlannerDefault !== false : true;
-    const inserted = await supabase.from("planner_days").insert({ org_id: who.orgId, date: input.date, created_by: who.id, visible_to_bochurim: visible }).select("id").single();
+    const editable = actor?.role === "shliach" ? Boolean(actor.bochurimEditPlanner) : false;
+    const inserted = await supabase.from("planner_days").insert({ org_id: who.orgId, date: input.date, created_by: who.id, visible_to_bochurim: visible, editable_by_bochurim: editable }).select("id").single();
     if (inserted.error) return fail(inserted.error.message, "Couldn't add the day.") as { ok: false; error: string };
     day = inserted.data;
   }
@@ -207,11 +210,26 @@ export async function setBochurimEditPlannerAction(allowed: boolean): Promise<Re
   if (!previewGate.ok) return previewGate;
   const user = await getCurrentUser();
   if (!user || (user.role !== "admin" && user.role !== "shliach")) return { ok: false, error: "Only a shliach or admin can change this." };
-  if (user.role !== "shliach") return { ok: false, error: "This preference belongs to a shliach account." };
   const supabase = await createClient();
-  const { error } = await supabase.from("profiles").update({ bochurim_edit_planner: allowed }).eq("id", user.id);
-  if (error) return fail(error.message, "Couldn't save the edit preference.");
+  const { error: daysError } = await supabase.from("planner_days").update({ editable_by_bochurim: allowed }).eq("org_id", user.orgId);
+  if (daysError) return fail(daysError.message, "Couldn't update planner days.");
+  if (user.role === "shliach") {
+    const { error } = await supabase.from("profiles").update({ bochurim_edit_planner: allowed }).eq("id", user.id);
+    if (error) return fail(error.message, "Couldn't save the edit preference.");
+  }
   revalidatePath("/planner");
   revalidatePath("/settings");
   return { ok: true };
+}
+
+export async function setPlannerDayEditableAction(dayId: string, editable: boolean): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
+  const who = await plannerActor();
+  if (typeof who === "string") return { ok: false, error: who };
+  const user = await getCurrentUser();
+  if (!user || (user.role !== "admin" && user.role !== "shliach")) return { ok: false, error: "Only a shliach or admin can change day editing." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("planner_days").update({ editable_by_bochurim: editable }).eq("id", dayId);
+  return error ? fail(error.message, "Couldn't update day editing.") : done();
 }

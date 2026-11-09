@@ -17,7 +17,7 @@ export function BetaView() {
   function open(role: "bochur" | "shliach") {
     setError("");
     start(async () => {
-      const result = await startPreviewAction(role, role === "shliach" ? state : undefined);
+      const result = await startPreviewAction(role, state);
       if (result && !result.ok) setError(result.error);
     });
   }
@@ -31,7 +31,20 @@ export function BetaView() {
       <div className="grid gap-3 sm:grid-cols-2">
         <section className="panel rounded-3xl p-4">
           <h2 className="font-heading text-lg font-semibold text-foreground">View as bochur</h2>
-          <p className="mt-1 text-sm text-muted-foreground">The bochur sidebar, dashboard, and permissions.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Pick a state. He only sees shared contacts in that shliach territory.</p>
+          <label className="mt-3 grid gap-1 text-sm">
+            <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">State</span>
+            <select
+              aria-label="Bochur state"
+              className="h-10 rounded-lg border border-input bg-card px-3 text-sm"
+              value={state}
+              onChange={(event) => setState(event.target.value)}
+            >
+              {STATES.map((item) => (
+                <option key={item.code} value={item.code}>{item.name}</option>
+              ))}
+            </select>
+          </label>
           <Button type="button" className="mt-4 min-h-11 rounded-full" disabled={pending} onClick={() => open("bochur")}>
             Open bochur view
           </Button>

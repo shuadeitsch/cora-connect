@@ -484,6 +484,19 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
     if (existing && existing.visitorId && existing.visitorId !== actor.id && !perms(actor).canManage) {
       throw new Error("You can edit visits you logged. An admin can edit any visit.");
     }
+    if (
+      existing
+      && actor.role === "bochur"
+      && actor.projectId
+      && existing.projectId
+      && existing.projectId !== actor.projectId
+    ) {
+      throw new Error("You can only edit visits for your project.");
+    }
+    const visitProjectId =
+      existing?.projectId
+      ?? (actor.role === "bochur" ? actor.projectId ?? null : null)
+      ?? null;
     const visit: Visit = {
       id: existing?.id ?? newId(),
       orgId: actor.orgId,
@@ -496,6 +509,7 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
       details: input.details.trim(),
       followUpDate: existing?.followUpDate ?? null,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
+      projectId: visitProjectId,
     };
     const household = db.households.find((item) => item.id === input.householdId);
     const project = db.projects.find((item) => item.id === household?.projectId)?.name ?? "";
@@ -516,6 +530,7 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
       createdAt: priorHistory?.createdAt ?? visit.createdAt,
       importBatchId: priorHistory?.importBatchId ?? null,
       activities,
+      projectId: priorHistory?.projectId ?? visit.projectId ?? household?.projectId ?? null,
     };
     const undo: UndoPayload = existing ? { type: "replace-visit", visit: existing } : { type: "delete-visit", id: visit.id };
     if (isSupabaseMode()) {
@@ -610,8 +625,13 @@ export async function removeContactVisitFromContact(actor: User, id: string): Pr
     const householdId = history?.householdId ?? log?.householdId ?? "";
     const household = db.households.find((item) => item.id === householdId);
     const creator = history?.createdBy ?? log?.visitorId ?? null;
+    const visitProject = history?.projectId ?? log?.projectId ?? household?.projectId ?? null;
+    const ownProjectOk =
+      actor.role !== "bochur"
+      || Boolean(actor.projectId && visitProject && visitProject === actor.projectId);
     assert(
-      (allowed.canDeleteContacts && canEditContact(actor, household?.ownerId ?? null, db.users, todayIso())) || (allowed.canLogVisit && creator === actor.id),
+      (allowed.canDeleteContacts && canEditContact(actor, household?.ownerId ?? null, db.users, todayIso()))
+        || (allowed.canLogVisit && creator === actor.id && ownProjectOk),
       "You can't remove this visit.",
     );
     if (isSupabaseMode()) {

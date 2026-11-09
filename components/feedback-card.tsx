@@ -75,10 +75,11 @@ export function FeedbackCard() {
             <li key={row.id} className={cn("space-y-1.5 py-3", !row.readAt && "bg-primary/5 -mx-2 rounded-2xl px-2")}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm font-medium text-foreground">
-                  {row.name || "Someone"}
+                  {row.name || "Unknown"}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    {ROLE_LABEL[row.role] ?? row.role}
+                    {(ROLE_LABEL[row.role] ?? row.role) || "—"}
                     {row.state ? ` · ${row.state}` : ""}
+                    {row.email ? ` · ${row.email}` : ""}
                   </span>
                 </p>
                 <span className="text-xs tabular-nums text-muted-foreground">{when(row.createdAt)} ET</span>

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.25
+
+- Planner: “Let bochurim edit the daily planner by default” + per-day “Bochurim can edit this day” (RLS via `editable_by_bochurim`).
+- Bochur contacts: live RLS now requires share **and** shliach territory (both live RLS and Beta preview were wrong before). Beta “View as bochur” has a state picker and filters client-side like shliach.
+- Bochur dashboard: personal tiles — people he visited, his activity totals, new people he found (`households.created_by`, default `auth.uid()`; visits already had `created_by`/`visitor_id`). Reports + activities unchanged.
+- Bochur visit edit/delete: only visits tagged with his `project_id` (new column on `visits` / `contact_visits`); other projects read-only; cannot delete contacts.
+- Suggested contact edits: bochur “Suggest edit” → pending rows; shliach/admin Dashboard “Suggested edits” with Approve/Reject (RLS + security-definer apply/reject).
+- Share with bochurim: quick checkbox on every contact card/row and on the contact detail/edit form (was only buried in the edit form as “Shared with bochurim”); defaults from Settings; read-only in Beta.
+- Admin Feedback: shows sender name, role, state, email, and date via `feedback_admin_rows()` (older rows without a sender show Unknown).
+
 ## 1.8.24
 
 - Planner: shliach pref “Bochurim can see new planner days by default” (default on); per-day “Bochurim can see this day”; top-level “Bochurim can see the planner” syncs all days + Settings. Bochur Daily schedule shows only visible days (RLS).

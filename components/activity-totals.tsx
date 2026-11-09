@@ -32,6 +32,7 @@ export function ActivityTotals({
         createdAt: v.createdAt,
         importBatchId: null,
         activities: v.activities ?? [],
+        projectId: v.projectId ?? null,
       })),
     );
     const households = data.households.map((h) => ({

@@ -139,6 +139,8 @@ export interface Household {
   createdAt: string;
   /** Set when the contact came from a spreadsheet import. */
   importBatchId?: string | null;
+  /** Who created the contact (auth user). */
+  createdBy?: string | null;
 }
 
 export interface ContactVisit {
@@ -157,6 +159,8 @@ export interface ContactVisit {
   importBatchId: string | null;
   /** Built-in chips and write-ins, e.g. Tefillin, Menorah/package, custom text. */
   activities: string[];
+  /** Project this visit belongs to (bochur edit/delete scope). */
+  projectId?: string | null;
 }
 
 export interface Visit {
@@ -171,6 +175,7 @@ export interface Visit {
   details: string;
   followUpDate: string | null;
   createdAt: string;
+  projectId?: string | null;
 }
 
 export interface RouteStop {
@@ -312,6 +317,7 @@ export interface HouseholdView {
   visitCount: number;
   createdAt: string;
   importBatchId: string | null;
+  createdBy?: string | null;
   people: Person[];
   lastVisitAt: string | null;
   lastStatus: VisitStatus | null;
@@ -332,6 +338,8 @@ export interface ContactVisitView {
   /** Who logged it (null for imported history). */
   createdBy: string | null;
   canRemove: boolean;
+  /** Bochur may edit/remove only when this matches his project. */
+  projectId?: string | null;
   activities: string[];
 }
 

@@ -9,10 +9,11 @@ import type { ActionResult } from "@/lib/types";
 
 export type FeedbackRow = {
   id: string;
-  userId: string;
+  userId: string | null;
   name: string;
   role: string;
   state: string;
+  email: string;
   message: string;
   page: string;
   createdAt: string;
@@ -54,12 +55,7 @@ export async function listFeedbackAction(): Promise<ActionResult<{ rows: Feedbac
   const user = await getCurrentUser();
   if (!user || user.role !== "admin") return { ok: false, error: "Admins only." };
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("feedback")
-    .select("id, user_id, name, role, state, message, page, created_at, read_at, archived_at")
-    .is("archived_at", null)
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const { data, error } = await supabase.rpc("feedback_admin_rows");
   if (error) {
     if (/does not exist|schema cache/i.test(error.message)) return { ok: true, data: { rows: [] } };
     return { ok: false, error: error.message };
@@ -67,12 +63,13 @@ export async function listFeedbackAction(): Promise<ActionResult<{ rows: Feedbac
   return {
     ok: true,
     data: {
-      rows: (data ?? []).map((row) => ({
+      rows: (data ?? []).map((row: Record<string, unknown>) => ({
         id: String(row.id),
-        userId: String(row.user_id),
-        name: String(row.name ?? ""),
+        userId: row.user_id ? String(row.user_id) : null,
+        name: String(row.name ?? "") || "Unknown",
         role: String(row.role ?? ""),
         state: String(row.state ?? ""),
+        email: String(row.email ?? ""),
         message: String(row.message ?? ""),
         page: String(row.page ?? ""),
         createdAt: String(row.created_at ?? ""),

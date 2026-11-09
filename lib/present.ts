@@ -69,6 +69,7 @@ function outreachFor(db: Database, household: Household): ContactVisit[] {
       createdAt: log.createdAt,
       activities: [],
       importBatchId: null,
+      projectId: log.projectId ?? household.projectId ?? null,
     });
   }
   if (byId.size || db.contactVisitsReady) return sortOutreach([...byId.values()]);
@@ -87,6 +88,7 @@ function outreachFor(db: Database, household: Household): ContactVisit[] {
     createdAt: household.createdAt,
     activities: [],
     importBatchId: null,
+    projectId: household.projectId ?? null,
   }];
 }
 
@@ -109,7 +111,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
   const allowed = allowedHouseholdIds(user, db.routes);
   const visibleHouseholds = db.households.filter((household) => {
     if (allowed && !allowed.has(household.id)) return false;
-    return householdVisibleTo(user, household, db.users);
+    return householdVisibleTo(user, household, db.users, db.contactShares);
   });
   const peopleBy = new Map<string, typeof db.people>();
   for (const person of db.people) {
@@ -175,11 +177,19 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         status: visit.status,
         createdAt: visit.createdAt,
         createdBy: visit.createdBy,
+        projectId: visit.projectId ?? household.projectId ?? null,
         activities: visit.activities ?? [],
-        // A shliach or bochur can remove only a visit he logged himself.
-        canRemove: visit.id.startsWith("legacy-")
-          ? editsContact && perms.canDeleteContacts
-          : (editsContact && perms.canDeleteContacts) || (perms.canLogVisit && visit.createdBy === user.id),
+        // Admin/editor may remove; shliach only with delete rights; bochur only his own visits for his project.
+        canRemove: (() => {
+          if (visit.id.startsWith("legacy-")) return editsContact && perms.canDeleteContacts;
+          if (editsContact && perms.canDeleteContacts) return true;
+          if (!(perms.canLogVisit && visit.createdBy === user.id)) return false;
+          if (user.role === "bochur") {
+            const visitProject = visit.projectId ?? household.projectId ?? null;
+            return Boolean(user.projectId && visitProject && visitProject === user.projectId);
+          }
+          return true;
+        })(),
       }));
       const latest = contactVisits[0] ?? null;
       const realVisits = contactVisits.filter((visit) => isRealVisit(visit.visited));
@@ -254,6 +264,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         visitCount: realVisits.length,
         createdAt: household.createdAt,
         importBatchId: household.importBatchId ?? null,
+        createdBy: household.createdBy ?? null,
         people,
         lastVisitAt: last?.visitDate ?? null,
         lastStatus: last?.status ?? null,
@@ -441,6 +452,9 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
           : user.bochurimSeePlannerDefault !== false,
       projectId: user.projectId ?? null,
       territory: user.territory ?? [],
+      preview: user.previewing
+        ? { role: user.role === "bochur" ? "bochur" as const : "shliach" as const, state: user.territory?.[0]?.state ?? null }
+        : null,
       ...perms,
     },
     org: db.organization,

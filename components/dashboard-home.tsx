@@ -5,13 +5,16 @@ import { Greeting } from "@/components/greeting";
 import { ActivityTotals } from "@/components/activity-totals";
 import { DashboardReports } from "@/components/dashboard-reports";
 import { FeedbackCard } from "@/components/feedback-card";
+import { SuggestedEditsCard } from "@/components/suggested-edits-card";
 import { FOCUS_STATES } from "@/lib/constants";
+import { isNewContact } from "@/lib/new-contacts";
+import { activityCountsFor } from "@/lib/visit-activities";
 import type { AppData } from "@/lib/types";
 
 const STATES = FOCUS_STATES.filter((item) => item.code !== "Unsorted");
 
 /**
- * Dashboard (1.8.24): shared Project (+ State for admin) filter bar drives every box.
+ * Dashboard (1.8.25): shared Project (+ State for admin) filter bar drives every box.
  * All roles: Reports + Visit activities. Admin also: Feedback + Households by state.
  */
 export function DashboardHome({ data }: { data: AppData }) {
@@ -48,6 +51,85 @@ export function DashboardHome({ data }: { data: AppData }) {
   const maxState = Math.max(...states.map(([, count]) => count), 1);
 
   const filters = { projectId: activeProjectId, state: admin ? state : "ALL" };
+
+  const bochurStats = useMemo(() => {
+    if (!bochur) return null;
+    const myId = viewer.id;
+    const project = viewer.projectId;
+    const myVisits = data.households.flatMap((h) =>
+      (h.contactVisits ?? [])
+        .filter((v) => v.createdBy === myId)
+        .filter((v) => !project || (v.projectId ?? h.projectId) === project)
+        .map((v) => ({ ...v, householdId: h.id, house: h })),
+    );
+    const peopleVisited = new Set(myVisits.map((v) => v.householdId)).size;
+    const activityVisits = myVisits.map((v) => ({
+      id: v.id,
+      orgId: viewer.orgId,
+      householdId: v.householdId,
+      visited: v.visited,
+      reaction: v.reaction,
+      notes: v.notes,
+      visitDate: v.visitDate,
+      status: v.status,
+      arrived: "",
+      createdBy: v.createdBy,
+      createdAt: v.createdAt,
+      importBatchId: null,
+      activities: v.activities ?? [],
+      projectId: v.projectId ?? null,
+    }));
+    const households = data.households.map((h) => ({
+      id: h.id,
+      orgId: viewer.orgId,
+      name: h.name,
+      street: h.street,
+      city: h.city,
+      state: h.state,
+      zip: h.zip,
+      country: h.country,
+      lat: h.lat,
+      lng: h.lng,
+      notes: h.notes,
+      projectId: h.projectId,
+      scheduleCategoryId: h.scheduleCategoryId,
+      categoryIds: h.categoryIds,
+      tags: h.tags,
+      customFields: h.customFields,
+      sharedWithCora: h.sharedWithCora,
+      ownerId: h.ownerId,
+      visitReaction: h.visitReaction,
+      possibleDuplicate: h.possibleDuplicate,
+      duplicateOf: h.duplicateOf,
+      createdAt: h.createdAt,
+      importBatchId: h.importBatchId,
+      createdBy: (h as { createdBy?: string | null }).createdBy ?? null,
+    }));
+    // Count only activities on visits he logged (already filtered).
+    const activities = activityCountsFor(activityVisits as never, households as never, {
+      id: viewer.id,
+      orgId: viewer.orgId,
+      name: viewer.name,
+      email: viewer.email,
+      passwordHash: "",
+      role: viewer.role,
+      status: viewer.status,
+      expiresAt: viewer.expiresAt,
+      canViewHistory: viewer.canViewHistory,
+      canViewContact: viewer.canViewContact,
+      canEdit: viewer.canEdit,
+      assignedRouteIds: [],
+      leaderId: viewer.leaderId,
+      territory: viewer.territory,
+      projectId: viewer.projectId,
+    }, { projectId: project ?? "ALL", state: "ALL" });
+    const newPeople = data.households.filter((h) => {
+      const createdBy = (h as { createdBy?: string | null }).createdBy ?? h.ownerId;
+      if (createdBy !== myId) return false;
+      return isNewContact({ createdAt: h.createdAt, importBatchId: h.importBatchId });
+    }).length;
+    return { peopleVisited, activities, newPeople };
+  }, [bochur, data.households, viewer]);
 
   return (
     <div className="space-y-4 p-3 sm:p-6">
@@ -90,8 +172,30 @@ export function DashboardHome({ data }: { data: AppData }) {
         ) : null}
       </div>
 
+
+      {bochur && bochurStats ? (
+        <section className="grid gap-3 sm:grid-cols-3" aria-label="Your stats">
+          <div className="panel rounded-3xl p-4">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">People you visited</p>
+            <p className="mt-2 font-heading text-3xl font-semibold tabular-nums text-foreground">{bochurStats.peopleVisited}</p>
+          </div>
+          <div className="panel rounded-3xl p-4">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Your activities</p>
+            <p className="mt-2 text-sm text-foreground">
+              {bochurStats.activities.length
+                ? bochurStats.activities.map((r) => `${r.count} ${r.label}`).join(" · ")
+                : "No activities logged yet."}
+            </p>
+          </div>
+          <div className="panel rounded-3xl p-4">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">New people you found</p>
+            <p className="mt-2 font-heading text-3xl font-semibold tabular-nums text-foreground">{bochurStats.newPeople}</p>
+          </div>
+        </section>
+      ) : null}
       <DashboardReports data={data} projectId={filters.projectId} state={filters.state} />
       <ActivityTotals data={data} projectId={filters.projectId} state={filters.state} />
+      {(admin || viewer.role === "shliach") ? <SuggestedEditsCard state={admin ? state : "ALL"} /> : null}
       {admin ? <FeedbackCard /> : null}
       {admin ? (
         <section className="panel rounded-3xl p-4" aria-label="Households by state">

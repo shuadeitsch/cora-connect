@@ -9,9 +9,8 @@ import type { ActionResult } from "@/lib/types";
 export async function startPreviewAction(role: "bochur" | "shliach", state?: string): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user || user.role !== "admin") return { ok: false, error: "Admins only." };
-  const preview: PreviewMode =
-    role === "bochur" ? { role: "bochur" } : { role: "shliach", state: (state || "ME").toUpperCase() };
-  if (preview.role === "shliach" && !preview.state) return { ok: false, error: "Pick a state." };
+  const preview: PreviewMode = { role, state: (state || "ME").toUpperCase() };
+  if (!preview.state) return { ok: false, error: "Pick a state." };
   const jar = await cookies();
   jar.set(PREVIEW_COOKIE, encodePreview(preview), { path: "/", httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 8 });
   redirect("/dashboard");

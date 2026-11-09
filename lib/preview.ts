@@ -7,7 +7,7 @@ export const PREVIEW_COOKIE = "cora_preview";
 
 export type PreviewMode = {
   role: "shliach" | "bochur";
-  /** State code for shliach preview, e.g. ME. */
+  /** State code for shliach/bochur preview territory, e.g. ME. */
   state?: string;
 };
 
@@ -18,7 +18,10 @@ const STATE_CODES = new Set<string>(
 export function parsePreview(raw: string | undefined | null): PreviewMode | null {
   if (!raw) return null;
   const [role, state] = raw.split(":");
-  if (role === "bochur") return { role: "bochur" };
+  if (role === "bochur" && state && STATE_CODES.has(state.toUpperCase())) {
+    return { role: "bochur", state: state.toUpperCase() };
+  }
+  if (role === "bochur") return { role: "bochur", state: "ME" };
   if (role === "shliach" && state && STATE_CODES.has(state.toUpperCase())) {
     return { role: "shliach", state: state.toUpperCase() };
   }
@@ -26,8 +29,7 @@ export function parsePreview(raw: string | undefined | null): PreviewMode | null
 }
 
 export function encodePreview(preview: PreviewMode): string {
-  if (preview.role === "bochur") return "bochur";
-  return `shliach:${preview.state ?? "ME"}`;
+  return `${preview.role}:${preview.state ?? "ME"}`;
 }
 
 export async function readPreview(): Promise<PreviewMode | null> {
@@ -46,7 +48,7 @@ export function applyPreview(user: User, preview: PreviewMode | null): User {
       canViewHistory: true,
       canViewContact: true,
       leaderId: user.id,
-      territory: [],
+      territory: [{ state: preview.state ?? "ME", area: "" }],
       previewing: true,
     };
   }

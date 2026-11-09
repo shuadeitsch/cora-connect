@@ -44,6 +44,7 @@ import {
   saveHouseholdAction,
 } from "@/lib/actions";
 import { restoreShliachHiddenAction, shareContactWithBochurimAction } from "@/lib/shliach-prefs-actions";
+import { listMySuggestionsForContactAction, submitContactEditSuggestionAction } from "@/lib/suggestion-actions";
 import { useUndoToast } from "@/components/undo-toast";
 import { useRouter } from "next/navigation";
 import { shareWithBochurAction } from "@/lib/bochur-actions";
@@ -371,6 +372,7 @@ export function HouseholdsView({
                     ) : null}
                   </div>
                   <NotePreview notes={notesFor(household, data.viewer.canViewHistory)} compact />
+                  <ShareWithBochurimToggle household={household} data={data} />
                   <div className="mt-auto flex gap-2">
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" onClick={() => setContact(household)}>Contact</Button>
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!data.viewer.canLogVisit} onClick={() => setVisitFor(household)}>Visit</Button>
@@ -401,6 +403,9 @@ export function HouseholdsView({
                 <th className="px-2 py-2 font-medium">History</th>
                 <th className="px-2 py-2 font-medium">Visited</th>
                 <th className="px-2 py-2 font-medium">Reaction</th>
+                {(data.viewer.role === "shliach" || data.viewer.role === "admin") ? (
+                  <th className="px-2 py-2 font-medium">Bochurim</th>
+                ) : null}
                 <th className="w-10" />
               </tr>
             </thead>
@@ -441,6 +446,9 @@ export function HouseholdsView({
                     <DuplicateNote household={household} onOpen={openById} className="mt-1 block text-[11px]" />
                   </td>
                   <td className="px-2"><ReactionBadge reaction={household.latestReaction} /></td>
+                  {(data.viewer.role === "shliach" || data.viewer.role === "admin") ? (
+                    <td className="px-2"><ShareWithBochurimToggle household={household} data={data} /></td>
+                  ) : null}
                   <td className="px-2">
                     <button type="button" aria-label={`Delete ${household.name}`} disabled={!data.viewer.canDeleteContacts} className="text-muted-foreground hover:text-red-600 disabled:opacity-30" onClick={() => setPendingDelete([household.id])}>
                       <Trash2 className="size-4" />
@@ -458,7 +466,7 @@ export function HouseholdsView({
 
       <HouseholdDialog
         open={creating || Boolean(editing)}
-        title={editing ? "Edit contact" : "New contact"}
+        title={editing ? (data.viewer.role === "bochur" ? "Suggest edit" : "Edit contact") : "New contact"}
         data={data}
         household={editing}
         onClose={() => { setCreating(false); setEditing(null); }}
@@ -467,6 +475,7 @@ export function HouseholdsView({
       <ContactDialog
         household={contact}
         households={data.households}
+        data={data}
         canEdit={data.viewer.canEdit}
         canContact={data.viewer.canViewContact}
         canHistory={data.viewer.canViewHistory}
@@ -686,6 +695,67 @@ function EmptyHouseholds() {
   );
 }
 
+
+
+function BochurSuggestionStatus({ householdId }: { householdId: string }) {
+  const [rows, setRows] = useState<{ id: string; status: string; createdAt: string }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    listMySuggestionsForContactAction(householdId).then((result) => {
+      if (!alive || !result.ok) return;
+      setRows((result.data?.rows ?? []).map((r) => ({ id: r.id, status: r.status, createdAt: r.createdAt })));
+    });
+    return () => { alive = false; };
+  }, [householdId]);
+  if (!rows.length) return null;
+  return (
+    <div className="rounded-2xl border px-3 py-2 text-xs text-muted-foreground">
+      <p className="font-medium text-foreground">Your suggestions</p>
+      <ul className="mt-1 space-y-0.5">
+        {rows.slice(0, 5).map((row) => (
+          <li key={row.id}>{row.status} · {row.createdAt.slice(0, 10)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ShareWithBochurimToggle({
+  household,
+  data,
+  readOnly = false,
+}: {
+  household: HouseholdView;
+  data: AppData;
+  readOnly?: boolean;
+}) {
+  const toast = useToast();
+  const [pending, start] = useTransition();
+  const preview = Boolean(data.viewer.preview);
+  const canToggle = (data.viewer.role === "shliach" || data.viewer.role === "admin") && !preview && !readOnly;
+  if (data.viewer.role !== "shliach" && data.viewer.role !== "admin") return null;
+  return (
+    <label className="inline-flex items-center gap-1.5 text-xs text-foreground" title="Share with bochurim">
+      <input
+        type="checkbox"
+        className="size-4 accent-primary"
+        checked={Boolean(household.sharedWithBochurim)}
+        disabled={!canToggle || pending}
+        aria-label={`Share ${household.name} with bochurim`}
+        onChange={(event) => {
+          const share = event.target.checked;
+          start(async () => {
+            const result = await shareContactWithBochurimAction(household.id, share);
+            if (!result.ok) toast({ title: result.error, tone: "error" });
+            else toast({ title: share ? "Shared with bochurim" : "Unshared with bochurim" });
+          });
+        }}
+      />
+      <span className="whitespace-nowrap">Share with bochurim</span>
+    </label>
+  );
+}
+
 function IconAction({ label, onClick, icon: Icon, disabled }: { label: string; onClick: () => void; icon: typeof History; disabled?: boolean }) {
   return (
     <button type="button" aria-label={label} disabled={disabled} onClick={onClick} className="inline-flex size-7 items-center justify-center rounded-full bg-accent text-primary hover:bg-accent disabled:opacity-30">
@@ -728,6 +798,7 @@ function blankInput(data: AppData): HouseholdInput {
     tags: "",
     customFields: Object.fromEntries(data.customFields.map((field) => [field.id, ""])),
     sharedWithCora: true,
+    sharedWithBochurim: Boolean(data.viewer.shareNewWithBochurim),
     ownerId: "",
     visitReaction: "",
     visits: [],
@@ -828,6 +899,30 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
             };
             start(async () => {
               try {
+                if (data.viewer.role === "bochur" && household) {
+                  const fields: Array<{ field: string; old: string; new: string }> = [];
+                  const pairs: Array<[string, string, string]> = [
+                    ["name", household.name, payload.name],
+                    ["street", household.street, payload.street],
+                    ["city", household.city, payload.city],
+                    ["state", household.state, payload.state],
+                    ["zip", household.zip, payload.zip],
+                    ["country", household.country, payload.country],
+                    ["notes", household.notes, payload.notes],
+                  ];
+                  for (const [field, oldVal, newVal] of pairs) {
+                    if ((oldVal ?? "") !== (newVal ?? "")) fields.push({ field, old: oldVal ?? "", new: newVal ?? "" });
+                  }
+                  const result = await submitContactEditSuggestionAction({ householdId: household.id, changes: fields });
+                  if (!result.ok) {
+                    setError(result.error);
+                    toast({ title: result.error, tone: "error" });
+                    return;
+                  }
+                  toast({ title: "Suggestion sent" });
+                  onClose();
+                  return;
+                }
                 const result = await saveHouseholdAction(payload);
                 if (!result.ok) {
                   setError(result.error);
@@ -1013,15 +1108,15 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
               ) : null}
               <label className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm">
                 <span>
-                  <span className="block font-medium text-foreground">Shared with bochurim</span>
+                  <span className="block font-medium text-foreground">Share with bochurim</span>
                   <span className="text-xs text-muted-foreground">All of your bochurim can see this contact.</span>
                 </span>
-                <input type="checkbox" className="size-5 accent-primary" checked={Boolean(form.sharedWithBochurim)} onChange={(event) => setForm({ ...form, sharedWithBochurim: event.target.checked })} />
+                <input type="checkbox" className="size-5 accent-primary" checked={Boolean(form.sharedWithBochurim)} disabled={Boolean(data.viewer.preview)} onChange={(event) => setForm({ ...form, sharedWithBochurim: event.target.checked })} />
               </label>
             </>
           ) : null}
           {error ? <Notice>{error}</Notice> : null}
-          <div className="flex justify-end"><Button type="submit" disabled={pending} className="rounded-full">{pending ? "Saving…" : "Save contact"}</Button></div>
+          <div className="flex justify-end"><Button type="submit" disabled={pending} className="rounded-full">{pending ? "Saving…" : data.viewer.role === "bochur" ? "Send suggestion" : "Save contact"}</Button></div>
         </form>
       </DialogContent>
     </Dialog>
@@ -1031,6 +1126,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
 function ContactDialog({
   household,
   households,
+  data,
   canEdit,
   canContact,
   canHistory,
@@ -1042,6 +1138,7 @@ function ContactDialog({
 }: {
   household: HouseholdView | null;
   households: HouseholdView[];
+  data: AppData;
   canEdit: boolean;
   canContact: boolean;
   canHistory: boolean;
@@ -1067,12 +1164,19 @@ function ContactDialog({
               <div className="flex items-center justify-between gap-2 pr-8">
                 <DialogTitle className="font-heading text-foreground">Contact</DialogTitle>
                 {canEdit ? <Button size="sm" variant="outline" className="rounded-full" onClick={onEdit}><Pencil className="size-3.5" /> Edit</Button> : null}
+                {!canEdit && data.viewer.role === "bochur" ? (
+                  <Button size="sm" variant="outline" className="rounded-full" onClick={onEdit} disabled={Boolean(data.viewer.preview)}>
+                    <Pencil className="size-3.5" /> Suggest edit
+                  </Button>
+                ) : null}
               </div>
             </DialogHeader>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" className="rounded-full" onClick={onHistory}><History className="size-4" /> History</Button>
               <Button type="button" variant="outline" className="rounded-full" onClick={onVisit}><Pencil className="size-4" /> Report</Button>
             </div>
+            {household ? <div className="pt-1"><ShareWithBochurimToggle household={household} data={data} /></div> : null}
+            {household && data.viewer.role === "bochur" ? <BochurSuggestionStatus householdId={household.id} /> : null}
             <section>
               <p className="font-heading text-2xl font-semibold text-foreground">{household.name}</p>
               {household.possibleDuplicate ? (

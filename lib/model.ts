@@ -88,13 +88,22 @@ function inTerritory(state: string, city: string, territory: { state: string; ar
 
 
 /** Households this role may see. Used by present() so Beta preview matches live role views. */
-export function householdVisibleTo(user: User, household: Household, users: User[]): boolean {
+export function householdVisibleTo(
+  user: User,
+  household: Household,
+  users: User[],
+  contactShares?: { householdId: string; bochurId: string }[],
+): boolean {
   if (user.role === "admin") return true;
   if (household.deletedByShliachAt) return false;
   if (user.role === "limited") return true; // allowedHouseholdIds handles limited
   if (user.role === "bochur") {
-    // Live bochur lists are already RLS-scoped. Beta preview approximates with shared contacts.
-    return user.previewing ? household.sharedWithCora : true;
+    // Live bochur lists are already RLS-scoped (share + leader territory).
+    // Beta preview approximates: shared with some bochur AND in the picked state territory.
+    if (!user.previewing) return true;
+    const shared = (contactShares ?? []).some((share) => share.householdId === household.id) || household.sharedWithCora;
+    const inTerr = inTerritory(household.state, household.city, user.territory ?? []);
+    return shared && inTerr;
   }
   if (user.role === "shliach") {
     if (household.ownerId === user.id) return true;

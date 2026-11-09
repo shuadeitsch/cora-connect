@@ -171,15 +171,24 @@ function ShliachPrefsForm({ data }: { data: AppData }) {
       <h2 className="font-heading text-lg font-semibold text-foreground">Bochurim</h2>
       <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" className="mt-1 size-4" checked={shareNew} disabled={pending || preview} onChange={(e) => setShareNew(e.target.checked)} />
-        <span>Share new contacts with bochurim by default</span>
+        <span>
+          <span className="block">Share new contacts with bochurim by default</span>
+          <span className="text-xs text-muted-foreground">New contacts start shared. You can change each one on the contact.</span>
+        </span>
       </label>
       <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" className="mt-1 size-4" checked={seePlanner} disabled={pending || preview} onChange={(e) => setSeePlanner(e.target.checked)} />
-        <span>Bochurim can see new planner days by default</span>
+        <span>
+          <span className="block">Bochurim can see new planner days by default</span>
+          <span className="text-xs text-muted-foreground">New days start visible. You can change each day on the planner.</span>
+        </span>
       </label>
       <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" className="mt-1 size-4" checked={editPlanner} disabled={pending || preview} onChange={(e) => setEditPlanner(e.target.checked)} />
-        <span>Let bochurim edit the planner</span>
+        <span>
+          <span className="block">Let bochurim edit the daily planner by default</span>
+          <span className="text-xs text-muted-foreground">New days start editable. You can change each day on the planner.</span>
+        </span>
       </label>
       {message ? <Notice tone={message === "Saved." ? "ok" : "error"}>{message}</Notice> : null}
       <Button type="submit" className="rounded-full" disabled={pending || preview}>{pending ? "Saving…" : "Save"}</Button>
