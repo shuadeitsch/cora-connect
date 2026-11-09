@@ -133,3 +133,20 @@ export function taggedAlongRoute<T extends { id: string; name: string; city: str
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/** Contacts tagged Not Jewish / Probably doesn't exist (off the main list). */
+export function countRemovedTagged(
+  households: { state: string; tags: string[] }[],
+  stateFilter?: string,
+): number {
+  return households.filter((house) => {
+    if (stateFilter && stateFilter !== "ALL") {
+      const a = house.state.trim().toUpperCase();
+      const b = stateFilter.trim().toUpperCase();
+      const map: Record<string, string> = { MAINE: "ME", "NEW HAMPSHIRE": "NH", WISCONSIN: "WI" };
+      const code = (s: string) => map[s] ?? s;
+      if (code(a) !== code(b) && a !== b) return false;
+    }
+    return isTaggedContact(house.tags);
+  }).length;
+}

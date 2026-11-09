@@ -122,3 +122,41 @@ export function defaultProjectId(
   });
   return ranked[0]?.id ?? projects[0].id;
 }
+
+/** Unique contacts in scope by latest visit status (completed vs deferred) for a project. */
+export function visitStatusSplit(
+  households: {
+    id: string;
+    state: string;
+    projectId?: string | null;
+    contactVisits: { status?: string | null; projectId?: string | null; visited: string; visitDate?: string | null; createdAt?: string | null }[];
+  }[],
+  filters: { state?: string; projectId: string; projectName?: string },
+): { completed: number; deferred: number } {
+  const pname = filters.projectName?.trim().toLowerCase() ?? "";
+  let completed = 0;
+  let deferred = 0;
+  for (const house of households) {
+    if (filters.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
+    const onProject = (cv: (typeof house.contactVisits)[number]) =>
+      cv.projectId === filters.projectId ||
+      house.projectId === filters.projectId ||
+      (pname && cv.visited.trim().toLowerCase() === pname);
+    const ranked = [...house.contactVisits]
+      .filter((cv) => {
+        const st = cv.status ?? "completed";
+        if (st !== "completed" && st !== "deferred") return false;
+        return onProject(cv);
+      })
+      .sort((a, b) => {
+        const da = (a.visitDate || a.createdAt || "").toString();
+        const db = (b.visitDate || b.createdAt || "").toString();
+        return db.localeCompare(da);
+      });
+    const latest = ranked[0];
+    if (!latest) continue;
+    if ((latest.status ?? "completed") === "deferred") deferred += 1;
+    else completed += 1;
+  }
+  return { completed, deferred };
+}

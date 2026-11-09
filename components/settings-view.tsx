@@ -1,5 +1,6 @@
 "use client";
 
+import { usePractice } from "@/components/practice-provider";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Notice, PageHeader } from "@/components/page-header";
@@ -157,10 +158,12 @@ function HouseForm({ data }: { data: AppData }) {
 
 function ShliachPrefsForm({ data }: { data: AppData }) {
   const router = useRouter();
+  const practice = usePractice();
+  const live = practice.mergeData(data);
   const [pending, start] = useTransition();
-  const [shareNew, setShareNew] = useState(Boolean(data.viewer.shareNewWithBochurim));
-  const [editPlanner, setEditPlanner] = useState(Boolean(data.viewer.bochurimEditPlanner));
-  const [seePlanner, setSeePlanner] = useState(data.viewer.bochurimSeePlannerDefault !== false);
+  const [shareNew, setShareNew] = useState(Boolean(live.viewer.shareNewWithBochurim));
+  const [editPlanner, setEditPlanner] = useState(Boolean(live.viewer.bochurimEditPlanner));
+  const [seePlanner, setSeePlanner] = useState(live.viewer.bochurimSeePlannerDefault !== false);
   const [message, setMessage] = useState("");
   const preview = Boolean(data.viewer.preview);
   return (
@@ -168,8 +171,14 @@ function ShliachPrefsForm({ data }: { data: AppData }) {
       className="panel mt-4 space-y-3 rounded-3xl p-4"
       onSubmit={(event) => {
         event.preventDefault();
-        if (preview) { setMessage("Preview only"); return; }
         setMessage("");
+        if (preview && practice.active) {
+          practice.setPref("shareNewWithBochurim", shareNew);
+          practice.setPref("bochurimEditPlanner", editPlanner);
+          practice.setPref("bochurimSeePlannerDefault", seePlanner);
+          setMessage("Saved in practice mode.");
+          return;
+        }
         start(async () => {
           const result = await saveShliachPrefsAction({ shareNewWithBochurim: shareNew, bochurimEditPlanner: editPlanner, bochurimSeePlannerDefault: seePlanner });
           if (!result.ok) setMessage(result.error);
@@ -179,28 +188,28 @@ function ShliachPrefsForm({ data }: { data: AppData }) {
     >
       <h2 className="font-heading text-lg font-semibold text-foreground">Bochurim</h2>
       <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" className="mt-1 size-4" checked={shareNew} disabled={pending || preview} onChange={(e) => setShareNew(e.target.checked)} />
+        <input type="checkbox" className="mt-1 size-4" checked={shareNew} disabled={pending} onChange={(e) => setShareNew(e.target.checked)} />
         <span>
           <span className="block">Share new contacts with bochurim by default</span>
           <span className="text-xs text-muted-foreground">New contacts start shared. You can change each one on the contact.</span>
         </span>
       </label>
       <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" className="mt-1 size-4" checked={seePlanner} disabled={pending || preview} onChange={(e) => setSeePlanner(e.target.checked)} />
+        <input type="checkbox" className="mt-1 size-4" checked={seePlanner} disabled={pending} onChange={(e) => setSeePlanner(e.target.checked)} />
         <span>
           <span className="block">Bochurim can see new planner days by default</span>
           <span className="text-xs text-muted-foreground">New days start visible. You can change each day on the planner.</span>
         </span>
       </label>
       <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" className="mt-1 size-4" checked={editPlanner} disabled={pending || preview} onChange={(e) => setEditPlanner(e.target.checked)} />
+        <input type="checkbox" className="mt-1 size-4" checked={editPlanner} disabled={pending} onChange={(e) => setEditPlanner(e.target.checked)} />
         <span>
           <span className="block">Let bochurim edit the daily planner by default</span>
           <span className="text-xs text-muted-foreground">New days start editable. You can change each day on the planner.</span>
         </span>
       </label>
-      {message ? <Notice tone={message === "Saved." ? "ok" : "error"}>{message}</Notice> : null}
-      <Button type="submit" className="rounded-full" disabled={pending || preview}>{pending ? "Saving…" : "Save"}</Button>
+      {message ? <Notice tone={message.startsWith("Saved") ? "ok" : "error"}>{message}</Notice> : null}
+      <Button type="submit" className="rounded-full" disabled={pending}>{pending ? "Saving…" : preview ? "Save (practice)" : "Save"}</Button>
     </form>
   );
 }

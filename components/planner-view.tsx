@@ -17,6 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, removePlannerItemAction, setBochurimEditPlannerAction, setBochurimSeePlannerAction, setPlannerDayEditableAction, setPlannerDayVisibleAction, updatePlannerItemAction } from "@/lib/planner-actions";
 import type { PlannerDay, PlannerItem } from "@/lib/planner";
 import type { AppData } from "@/lib/types";
+import { usePractice } from "@/components/practice-provider";
+import { applyPracticeDays } from "@/lib/practice";
 
 type Planned = { dayId: string; itemId: string; date: string };
 const PlannedContext = createContext<Map<string, Planned[]>>(new Map());
@@ -82,20 +84,25 @@ function timeLabel(time: string | null) {
 
 export function PlannerView({ data, days, loadError }: { data: AppData; days: PlannerDay[]; loadError: string }) {
   const router = useRouter();
+  const practice = usePractice();
+  const live = practice.mergeData(data);
+  const toast = useToast();
   // Admin + shliach always edit. Bochur edits only when his shliach's toggle is on (RLS enforces too).
   const canEdit =
-    data.viewer.role === "admin" ||
-    data.viewer.role === "shliach" ||
-    (data.viewer.role === "bochur" && Boolean(data.viewer.bochurimEditPlanner));
-  const manageVisibility = data.viewer.role === "admin" || data.viewer.role === "shliach";
-  const bochur = data.viewer.role === "bochur";
+    live.viewer.role === "admin" ||
+    live.viewer.role === "shliach" ||
+    (live.viewer.role === "bochur" && Boolean(live.viewer.bochurimEditPlanner));
+  const manageVisibility = live.viewer.role === "admin" || live.viewer.role === "shliach";
+  const bochur = live.viewer.role === "bochur";
+  const preview = Boolean(live.viewer.preview);
   // Live bochurim are RLS-scoped; Beta preview still loads all days as admin — filter here.
+  // Practice patches day visibility/edit, then bochur view hides invisible days.
   const visibleDays = useMemo(
-    () => (bochur ? days.filter((day) => day.visibleToBochurim) : days),
-    [bochur, days],
+    () => applyPracticeDays(days, practice.patch, bochur),
+    [bochur, days, practice.patch],
   );
-  const [seePlanner, setSeePlanner] = useState(data.viewer.bochurimSeePlannerDefault !== false);
-  const [editPlanner, setEditPlanner] = useState(Boolean(data.viewer.bochurimEditPlanner));
+  const [seePlanner, setSeePlanner] = useState(live.viewer.bochurimSeePlannerDefault !== false);
+  const [editPlanner, setEditPlanner] = useState(Boolean(live.viewer.bochurimEditPlanner));
   const [newDate, setNewDate] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
@@ -123,8 +130,6 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
       <CalendarPlus className="size-4" /> {label} · {shortLabel(date)} · {hebrewLabel(date)}
     </Button>
   );
-
-  const toast = useToast();
 
   function run(task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) {
     setError("");
@@ -157,25 +162,35 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
               type="checkbox"
               className="size-4"
               checked={seePlanner}
-              disabled={pending || Boolean(data.viewer.preview)}
+              disabled={pending}
               onChange={(event) => {
                 const next = event.target.checked;
                 setSeePlanner(next);
+                if (preview && practice.active) {
+                  practice.setPref("bochurimSeePlannerDefault", next);
+                  toast({ title: "Saved in practice mode" });
+                  return;
+                }
                 run(() => setBochurimSeePlannerAction(next));
               }}
             />
             <span>Bochurim can see the planner</span>
           </label>
-          {data.viewer.role === "shliach" ? (
+          {live.viewer.role === "shliach" ? (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 className="size-4"
                 checked={editPlanner}
-                disabled={pending || Boolean(data.viewer.preview)}
+                disabled={pending}
                 onChange={(event) => {
                   const next = event.target.checked;
                   setEditPlanner(next);
+                  if (preview && practice.active) {
+                    practice.setPref("bochurimEditPlanner", next);
+                    toast({ title: "Saved in practice mode" });
+                    return;
+                  }
                   run(() => setBochurimEditPlannerAction(next));
                 }}
               />
@@ -200,11 +215,11 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
         {canEdit && !loadError ? (dates.length ? quick(before, "Add day before") : quick(todayIso(), "Add day")) : null}
         {visibleDays.map((day) => {
           const dayCanEdit =
-            data.viewer.role === "admin" ||
-            data.viewer.role === "shliach" ||
-            (data.viewer.role === "bochur" && day.editableByBochurim);
+            live.viewer.role === "admin" ||
+            live.viewer.role === "shliach" ||
+            (live.viewer.role === "bochur" && day.editableByBochurim);
           return (
-            <DayCard key={day.id} data={data} day={day} canEdit={dayCanEdit} manageVisibility={manageVisibility} pending={pending} run={run} />
+            <DayCard key={day.id} data={live} day={day} canEdit={dayCanEdit} manageVisibility={manageVisibility} pending={pending} run={run} />
           );
         })}
         {canEdit && !loadError && dates.length ? quick(after, "Add day after") : null}
@@ -231,6 +246,9 @@ function DayCard({
   run: (task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) => void;
 }) {
   const [adding, setAdding] = useState<"" | "route" | "event">("");
+  const practice = usePractice();
+  const toast = useToast();
+  const preview = Boolean(data.viewer.preview);
 
   return (
     <section className="panel rounded-3xl p-4">
@@ -241,8 +259,16 @@ function DayCard({
               type="checkbox"
               className="size-4"
               checked={day.visibleToBochurim}
-              disabled={pending || Boolean(data.viewer.preview)}
-              onChange={(event) => run(() => setPlannerDayVisibleAction(day.id, event.target.checked))}
+              disabled={pending}
+              onChange={(event) => {
+                const next = event.target.checked;
+                if (preview && practice.active) {
+                  practice.setPlannerVisible(day.id, next);
+                  toast({ title: next ? "Day visible (practice)" : "Day hidden (practice)" });
+                  return;
+                }
+                run(() => setPlannerDayVisibleAction(day.id, next));
+              }}
             />
             <span>Bochurim can see this day</span>
           </label>
@@ -251,8 +277,16 @@ function DayCard({
               type="checkbox"
               className="size-4"
               checked={day.editableByBochurim}
-              disabled={pending || Boolean(data.viewer.preview)}
-              onChange={(event) => run(() => setPlannerDayEditableAction(day.id, event.target.checked))}
+              disabled={pending}
+              onChange={(event) => {
+                const next = event.target.checked;
+                if (preview && practice.active) {
+                  practice.setPlannerEditable(day.id, next);
+                  toast({ title: next ? "Day editable (practice)" : "Day locked (practice)" });
+                  return;
+                }
+                run(() => setPlannerDayEditableAction(day.id, next));
+              }}
             />
             <span>Bochurim can edit this day</span>
           </label>

@@ -29,6 +29,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
       initialFound={flag(params, "found")}
       initialProject={text(params, "project")}
       initialState={text(params, "state")}
+      initialList={text(params, "list")}
       focusId={text(params, "focus")}
     />
   );

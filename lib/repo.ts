@@ -346,6 +346,38 @@ export async function deleteHouseholds(actor: User, ids: string[]): Promise<Acti
   }
 }
 
+
+export async function markContactsRemoved(
+  actor: User,
+  ids: string[],
+  reason: "not_jewish" | "doesnt_exist",
+): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canEdit || perms(actor).canDeleteContacts, "You don't have permission to update contacts.");
+    assert(ids.length, "Select a contact first.");
+    const tag = reason === "not_jewish" ? "Not Jewish" : "Probably doesn't exist";
+    const db = await loadDatabase();
+    for (const id of ids) {
+      const household = db.households.find((item) => item.id === id);
+      if (!household) continue;
+      const tags = [...new Set([...(household.tags ?? []), tag])];
+      if (isSupabaseMode()) {
+        const supabase = await (await import("@/lib/supabase/server")).createClient();
+        const { error } = await supabase.from("households").update({ tags }).eq("id", id);
+        if (error) throw new Error(error.message);
+      } else {
+        applyDemo((draft) => {
+          const row = draft.households.find((item) => item.id === id);
+          if (row) row.tags = tags;
+        });
+      }
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not tag the contact." };
+  }
+}
+
 export async function setHouseholdSchedule(actor: User, householdId: string, scheduleCategoryId: string): Promise<ActionResult> {
   try {
     assert(perms(actor).canEdit, "You don't have permission to edit households.");

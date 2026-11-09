@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.35
+- Home › Visits: **Removed: not Jewish / not existent** tile (count from Not Jewish / Probably doesn't exist tags); tap opens Contacts tagged view. Delete contact offers removal reasons (tag vs hard delete).
+- Home › Visits: status tile **Completed X / Deferred Y**; people list includes deferred; green/amber row colors + legend.
+- Beta: practice sandbox — View as shliach/bochur checkboxes, toggles, and buttons are interactive; changes stay in sessionStorage only (never the DB). Banner: “Practice mode: changes here aren't saved.” Reset button. Live effects (unshare hides contact in View as bochur; planner day visibility/edit updates).
+
 ## 1.8.34
 - Visits: `visited_by` on contact history. Maine Summer 5786 visits set to “Mendel Baitelman & Mendele Lustig” (notes untouched). Shown as Visited by in contact form, visit history, and Home Visits people list.
 

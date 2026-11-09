@@ -11,15 +11,17 @@ import {
   PenLine,
   ScrollText,
   Sigma,
+  UserMinus,
   UserPlus,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { reactionMeta, sameState, statusMeta, VISIT_ACTIVITIES } from "@/lib/constants";
 import { isNewContact } from "@/lib/new-contacts";
+import { countRemovedTagged } from "@/lib/contact-tags";
 import { toCsv } from "@/lib/csv";
 import { formatMedium } from "@/lib/format";
-import { activityCountsFor, visitCoverage } from "@/lib/visit-activities";
+import { activityCountsFor, visitCoverage, visitStatusSplit } from "@/lib/visit-activities";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +50,8 @@ function stateCode(raw: string) {
 const ACTIVITY_ICON: Record<string, typeof Users> = {
   Visits: Users,
   "New contacts found": UserPlus,
+  "Removed: not Jewish / not existent": UserMinus,
+  Status: Users,
   Tefillin: HandHeart,
   "Menorah/package": Flame,
   Mezuzah: ScrollText,
@@ -217,7 +221,7 @@ export function DashboardReports({
       const list = [
         ...new Set(
           household.contactVisits
-            .filter((visit) => visit.status === "completed")
+            .filter((visit) => !visit.status || visit.status === "completed" || visit.status === "deferred")
             .map((visit) => names.get(visit.visited.trim().toLowerCase()))
             .filter((name): name is string => Boolean(name)),
         ),
@@ -253,6 +257,16 @@ export function DashboardReports({
     }).length;
   }, [data.households, projectId, projectName, state]);
 
+  const statusSplit = useMemo(
+    () => visitStatusSplit(data.households, { state, projectId, projectName }),
+    [data.households, projectId, projectName, state],
+  );
+
+  const removedTagged = useMemo(
+    () => countRemovedTagged(data.households, state),
+    [data.households, state],
+  );
+
   const rows = useMemo(() => {
     // Prefer contact_visits — the visits log can be empty/soft-deleted while history still has rows.
     const nameById = new Map(data.members.filter((m) => m.kind === "member").map((m) => [m.id, m.name]));
@@ -261,7 +275,8 @@ export function DashboardReports({
     for (const house of data.households) {
       if (state !== "ALL" && stateCode(house.state || "") !== stateCode(state)) continue;
       for (const cv of house.contactVisits) {
-        if (cv.status && cv.status !== "completed") continue;
+        const st = cv.status ?? "completed";
+        if (st !== "completed" && st !== "deferred") continue;
         const onProject =
           cv.projectId === projectId ||
           house.projectId === projectId ||
@@ -277,7 +292,7 @@ export function DashboardReports({
           state: house.state,
           visitDate,
           visitorName: (cv.visitedBy && cv.visitedBy.trim()) || (cv.createdBy && nameById.get(cv.createdBy)) || "—",
-          status: cv.status ?? "completed",
+          status: (cv.status === "deferred" ? "deferred" : "completed") as VisitStatus,
           reaction: (cv.reaction as Reaction | null) ?? null,
           activities: cv.activities ?? [],
           visitedProjects: visitedFor.get(house.id) ?? [],
@@ -344,6 +359,16 @@ export function DashboardReports({
       count: newContactsFound,
       href: `/households?found=1&project=${encodeURIComponent(projectId)}${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`,
     },
+    {
+      label: "Status",
+      count: statusSplit.completed + statusSplit.deferred,
+      detail: `Completed ${statusSplit.completed} / Deferred ${statusSplit.deferred}`,
+    },
+    {
+      label: "Removed: not Jewish / not existent",
+      count: removedTagged,
+      href: `/households?list=tagged${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`,
+    },
     ...VISIT_ACTIVITIES.map((label) => ({
       label,
       count: activityRows.find((r) => r.label === label)?.count ?? 0,
@@ -377,14 +402,20 @@ export function DashboardReports({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-9">
         {tiles.map((tile) => (
           <StatTile key={tile.label} label={tile.label} count={tile.count} tone={tile.tone} detail={tile.detail} progress={tile.progress} href={tile.href} />
         ))}
       </div>
 
       {rows.length ? (
-        <div className="overflow-x-auto rounded-2xl border">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="font-medium uppercase tracking-wide">Status colors</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-emerald-500" aria-hidden /> Completed</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-amber-500" aria-hidden /> Deferred</span>
+          </div>
+          <div className="overflow-x-auto rounded-2xl border">
           <table className="w-full min-w-[720px] text-left text-[12.5px]">
             <thead className="text-[11px] tracking-wide text-muted-foreground uppercase">
               <tr className="border-b bg-muted/30">
@@ -395,7 +426,13 @@ export function DashboardReports({
             </thead>
             <tbody>
               {rows.slice(0, 100).map((row) => (
-                <tr key={row.householdId} className="border-b last:border-0">
+                <tr
+                  key={row.householdId}
+                  className={cn(
+                    "border-b last:border-0",
+                    row.status === "deferred" ? "bg-amber-50/80 dark:bg-amber-950/30" : "bg-emerald-50/50 dark:bg-emerald-950/20",
+                  )}
+                >
                   <td className="px-2 py-2 font-medium text-foreground">{row.householdName}</td>
                   <td className="px-2 py-2 text-muted-foreground">{[row.city, row.state].filter(Boolean).join(", ")}</td>
                   <td className="px-2 py-2 tabular-nums">{formatMedium(row.visitDate)}</td>
@@ -419,6 +456,7 @@ export function DashboardReports({
             </tbody>
           </table>
           {rows.length > 100 ? <p className="px-2 py-2 text-xs text-muted-foreground">Showing 100 of {rows.length}. Download CSV for all.</p> : null}
+        </div>
         </div>
       ) : (
         <p className="flex items-center gap-2 py-8 text-center text-sm text-muted-foreground">

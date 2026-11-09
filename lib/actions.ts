@@ -17,6 +17,7 @@ import {
   deleteCustomField,
   applyUndo,
   deleteHouseholds,
+  markContactsRemoved,
   dismissDuplicate,
   deleteMember,
   deleteProject,
@@ -143,6 +144,15 @@ export async function deleteHouseholdsAction(ids: string[]) {
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteHouseholds(user, ids));
+}
+
+/** Tag contacts as Not Jewish / Probably doesn't exist (hides from main list). Does not hard-delete. */
+export async function markContactsRemovedAction(ids: string[], reason: "not_jewish" | "doesnt_exist") {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await markContactsRemoved(user, ids, reason));
 }
 
 export async function undoAction(undo: UndoPayload) {

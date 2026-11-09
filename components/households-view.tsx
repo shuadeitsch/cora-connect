@@ -38,6 +38,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import {
   deleteHouseholdsAction,
+  markContactsRemovedAction,
   dismissDuplicateAction,
   mergeContactsAction,
   removeContactVisitAction,
@@ -53,6 +54,7 @@ import { VisitedPicker } from "@/components/visited-picker";
 import { isRealVisit } from "@/lib/visited";
 import { setViewingState } from "@/lib/viewing-state";
 import { isNewContact } from "@/lib/new-contacts";
+import { usePractice } from "@/components/practice-provider";
 import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { CONTACT_TAGS, officialTags } from "@/lib/contact-tags";
@@ -82,6 +84,7 @@ export function HouseholdsView({
   initialFound = false,
   initialProject = "",
   initialState = "",
+  initialList = "",
   focusId,
 }: {
   data: AppData;
@@ -91,16 +94,19 @@ export function HouseholdsView({
   initialFound?: boolean;
   initialProject?: string;
   initialState?: string;
+  initialList?: string;
   focusId: string;
 }) {
   const router = useRouter();
   const toast = useToast();
   const announce = useUndoToast();
+  const practice = usePractice();
+  const live = practice.mergeData(data);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"cards" | "table">("cards");
   const [gone, setGone] = useState<string[]>([]);
   const [sort, setSort] = useState("name");
-  const filterCtl = useContactFilters(data, query, gone);
+  const filterCtl = useContactFilters(live, query, gone);
   const { filters } = filterCtl;
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -112,7 +118,7 @@ export function HouseholdsView({
   const [contact, setContact] = useState<HouseholdView | null>(null);
   const [history, setHistory] = useState<HouseholdView | null>(null);
   const openById = (id: string) => {
-    const match = data.households.find((item) => item.id === id);
+    const match = live.households.find((item) => item.id === id);
     if (match) setContact(match);
   };
   const [visitFor, setVisitFor] = useState<HouseholdView | null>(null);
@@ -133,20 +139,22 @@ export function HouseholdsView({
 
   useEffect(() => {
     if (!focusId) return;
-    const match = data.households.find((household) => household.id === focusId);
+    const match = live.households.find((household) => household.id === focusId);
     if (match) setContact(match);
-  }, [focusId, data.households]);
+  }, [focusId, data.households, practice.patch, live.households]);
 
   useEffect(() => {
     setHistory((current) => {
       if (!current) return current;
-      return data.households.find((household) => household.id === current.id) ?? current;
+      return live.households.find((household) => household.id === current.id) ?? current;
     });
     setContact((current) => {
       if (!current) return current;
-      return data.households.find((household) => household.id === current.id) ?? current;
+      // Drop from open dialog if practice-unshared while viewing as bochur
+      const match = live.households.find((household) => household.id === current.id);
+      return match ?? (live.viewer.role === "bochur" ? null : current);
     });
-  }, [data.households]);
+  }, [data.households, practice.patch, live.households, live.viewer.role]);
 
   const [onlyFound, setOnlyFound] = useState(initialFound);
   useEffect(() => {
@@ -157,6 +165,15 @@ export function HouseholdsView({
     filterCtl.setFilters((current) => ({ ...current, state: initialState }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialState]);
+  useEffect(() => {
+    if (initialList !== "tagged" && initialList !== "shliach-deleted") return;
+    filterCtl.setFilters((current) => ({
+      ...current,
+      list: initialList as "tagged" | "shliach-deleted",
+      mode: initialList === "tagged" ? "tags" : "shliach-deleted",
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialList]);
 
   const filtered = useMemo(() => {
     let rows = [...filterCtl.matched];
@@ -203,7 +220,7 @@ export function HouseholdsView({
       rows.flatMap((row) => {
         const person = row.people[0];
         const visits = (row.contactVisits ?? []).filter((visit) => !visit.id.startsWith("legacy-"));
-        const unattached = notesFor(row, data.viewer.canViewHistory).filter((note) => note.id === "household-notes");
+        const unattached = notesFor(row, live.viewer.canViewHistory).filter((note) => note.id === "household-notes");
         const lines = visits.length
           ? visits
           : [{ visited: unattached.length ? "Summer 5786" : row.latestVisited, status: unattached.length ? "deferred" as const : "completed" as const, reaction: row.latestReaction, notes: unattached.map((note) => note.notes).join("\n\n"), visitDate: "" }];
@@ -273,19 +290,19 @@ export function HouseholdsView({
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
-        title={scopeLabel(data.viewer.role, data.viewer.territory, filters.state)}
+        title={scopeLabel(live.viewer.role, live.viewer.territory, filters.state)}
         crumb="Contacts"
         action={
-          data.viewer.canEdit || data.viewer.canManage ? (
+          live.viewer.canEdit || live.viewer.canManage ? (
             <div className="flex flex-wrap gap-2">
-              {data.viewer.canManage ? (
+              {live.viewer.canManage ? (
                 <Button variant="outline" className="rounded-full" onClick={() => download(selected.length ? filtered.filter((row) => selected.includes(row.id)) : filtered)}>
                   <Download /> Export
                 </Button>
               ) : null}
-              {data.viewer.canEdit ? (
+              {live.viewer.canEdit ? (
                 <>
-                  {data.viewer.canImport ? (
+                  {live.viewer.canImport ? (
                     <Button variant="outline" className="rounded-full" onClick={() => setImportOpen(true)}>
                       <Upload /> Import
                     </Button>
@@ -299,7 +316,7 @@ export function HouseholdsView({
           ) : null
         }
       />
-      {data.viewer.role === "shliach" && !data.viewer.territory.length ? (
+      {live.viewer.role === "shliach" && !live.viewer.territory.length ? (
         <div className="mb-3"><Notice>A Cora Connect admin still needs to assign your states before you can add contacts.</Notice></div>
       ) : null}
       {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
@@ -333,20 +350,20 @@ export function HouseholdsView({
         >
           All contacts
         </button>
-        {selected.length && data.viewer.canCreateRoute ? (
+        {selected.length && live.viewer.canCreateRoute ? (
           <button type="button" className={pill} onClick={() => setRouteFromPicked(true)}>
             <RouteIcon className="size-3.5" /> Build route ({selected.length})
           </button>
         ) : null}
-        {selected.length && data.viewer.canShare ? (
-          <ShareWithBochur data={data} ids={selected} className={pill} />
+        {selected.length && live.viewer.canShare ? (
+          <ShareWithBochur data={live} ids={selected} className={pill} />
         ) : null}
-        {selected.length && data.viewer.canDeleteContacts && filters.list !== "shliach-deleted" ? (
+        {selected.length && live.viewer.canDeleteContacts && filters.list !== "shliach-deleted" ? (
           <button type="button" className={`${pill} text-red-600`} onClick={() => setPendingDelete(selected)}>
             <Trash2 className="size-3.5" /> Delete {selected.length} contact{selected.length === 1 ? "" : "s"}
           </button>
         ) : null}
-        {selected.length && data.viewer.role === "admin" && filters.list === "shliach-deleted" ? (
+        {selected.length && live.viewer.role === "admin" && filters.list === "shliach-deleted" ? (
           <button type="button" className={pill} onClick={() => restoreHidden(selected)}>
             Restore {selected.length} contact{selected.length === 1 ? "" : "s"}
           </button>
@@ -414,11 +431,11 @@ export function HouseholdsView({
                       </span>
                     ) : null}
                   </div>
-                  <NotePreview notes={notesFor(household, data.viewer.canViewHistory)} compact />
-                  <ShareWithBochurimToggle household={household} data={data} />
+                  <NotePreview notes={notesFor(household, live.viewer.canViewHistory)} compact />
+                  <ShareWithBochurimToggle household={household} data={live} />
                   <div className="mt-auto flex gap-2">
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" onClick={() => setContact(household)}>Contact</Button>
-                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!data.viewer.canLogVisit} onClick={() => setVisitFor(household)}>Visit</Button>
+                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} onClick={() => setVisitFor(household)}>Visit</Button>
                     <Button size="sm" variant="outline" className="h-10 rounded-full" onClick={() => setHistory(household)}>History</Button>
                   </div>
                 </article>
@@ -446,7 +463,7 @@ export function HouseholdsView({
                 <th className="px-2 py-2 font-medium">History</th>
                 <th className="px-2 py-2 font-medium">Visited</th>
                 <th className="px-2 py-2 font-medium">Reaction</th>
-                {(data.viewer.role === "shliach" || data.viewer.role === "admin") ? (
+                {(live.viewer.role === "shliach" || live.viewer.role === "admin") ? (
                   <th className="px-2 py-2 font-medium">Bochurim</th>
                 ) : null}
                 <th className="w-10" />
@@ -477,23 +494,23 @@ export function HouseholdsView({
                           ) : "No address yet"}
                         </div>
                         <TagBadges tags={household.tags} />
-                        <NotePreview notes={notesFor(household, data.viewer.canViewHistory)} compact />
+                        <NotePreview notes={notesFor(household, live.viewer.canViewHistory)} compact />
                       </div>
                     </div>
                   </td>
                   <td className="px-2"><IconAction label="View contact" onClick={() => setContact(household)} icon={MapPin} /></td>
-                  <td className="px-2"><IconAction label="Log visit" onClick={() => setVisitFor(household)} icon={Pencil} disabled={!data.viewer.canLogVisit} /></td>
+                  <td className="px-2"><IconAction label="Log visit" onClick={() => setVisitFor(household)} icon={Pencil} disabled={!live.viewer.canLogVisit} /></td>
                   <td className="px-2"><IconAction label="Visit history" onClick={() => setHistory(household)} icon={History} /></td>
                   <td className="max-w-[16rem] px-2 text-muted-foreground">
                     <VisitChips visits={household.contactVisits ?? []} />
                     <DuplicateNote household={household} onOpen={openById} className="mt-1 block text-[11px]" />
                   </td>
                   <td className="px-2"><ReactionBadge reaction={household.latestReaction} /></td>
-                  {(data.viewer.role === "shliach" || data.viewer.role === "admin") ? (
-                    <td className="px-2"><ShareWithBochurimToggle household={household} data={data} /></td>
+                  {(live.viewer.role === "shliach" || live.viewer.role === "admin") ? (
+                    <td className="px-2"><ShareWithBochurimToggle household={household} data={live} /></td>
                   ) : null}
                   <td className="px-2">
-                    <button type="button" aria-label={`Delete ${household.name}`} disabled={!data.viewer.canDeleteContacts} className="text-muted-foreground hover:text-red-600 disabled:opacity-30" onClick={() => setPendingDelete([household.id])}>
+                    <button type="button" aria-label={`Delete ${household.name}`} disabled={!live.viewer.canDeleteContacts} className="text-muted-foreground hover:text-red-600 disabled:opacity-30" onClick={() => setPendingDelete([household.id])}>
                       <Trash2 className="size-4" />
                     </button>
                   </td>
@@ -509,19 +526,19 @@ export function HouseholdsView({
 
       <HouseholdDialog
         open={creating || Boolean(editing)}
-        title={editing ? (data.viewer.role === "bochur" ? "Suggest edit" : "Edit contact") : "New contact"}
-        data={data}
+        title={editing ? (live.viewer.role === "bochur" ? "Suggest edit" : "Edit contact") : "New contact"}
+        data={live}
         household={editing}
         onClose={() => { setCreating(false); setEditing(null); }}
       />
-      <ImportContacts open={importOpen} data={data} onClose={() => setImportOpen(false)} />
+      <ImportContacts open={importOpen} data={live} onClose={() => setImportOpen(false)} />
       <ContactDialog
         household={contact}
         households={data.households}
-        data={data}
-        canEdit={data.viewer.canEdit}
-        canContact={data.viewer.canViewContact}
-        canHistory={data.viewer.canViewHistory}
+        data={live}
+        canEdit={live.viewer.canEdit}
+        canContact={live.viewer.canViewContact}
+        canHistory={live.viewer.canViewHistory}
         onClose={() => setContact(null)}
         onOpenOther={openById}
         onEdit={() => { if (contact) { setEditing(contact); setContact(null); } }}
@@ -530,7 +547,7 @@ export function HouseholdsView({
       />
       <HistoryDialog
         household={history}
-        canHistory={data.viewer.canViewHistory}
+        canHistory={live.viewer.canViewHistory}
         onClose={() => setHistory(null)}
       />
       <VisitDialog
@@ -539,20 +556,73 @@ export function HouseholdsView({
         households={data.households.map((household) => ({ id: household.id, name: household.name }))}
         initial={visitFor ? { householdId: visitFor.id, visitDate: "", status: "", reaction: "", details: "" } : undefined}
       />
-      <CreateRouteDialog data={data} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
+      <CreateRouteDialog data={live} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
       <Dialog open={Boolean(pendingDelete?.length)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading text-foreground">
-              Delete {pendingDelete?.length ?? 0} contact{(pendingDelete?.length ?? 0) === 1 ? "" : "s"}?
+              Remove {pendingDelete?.length ?? 0} contact{(pendingDelete?.length ?? 0) === 1 ? "" : "s"}?
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Their visits are removed with them. You can undo this right after.</p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" className="rounded-full" onClick={() => setPendingDelete(null)}>Cancel</Button>
-            <Button type="button" variant="destructive" className="rounded-full" onClick={() => { if (pendingDelete) remove(pendingDelete); }}>
-              Delete {pendingDelete?.length ?? 0} contact{(pendingDelete?.length ?? 0) === 1 ? "" : "s"}
+          <p className="text-sm text-muted-foreground">
+            Pick a reason to hide them on the main list (tagged), or delete for another reason. Tagged contacts stay recoverable.
+          </p>
+          <div className="grid gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 justify-start rounded-2xl"
+              onClick={() => {
+                if (!pendingDelete) return;
+                const ids = pendingDelete;
+                setPendingDelete(null);
+                setGone((current) => [...new Set([...current, ...ids])]);
+                start(async () => {
+                  const result = await markContactsRemovedAction(ids, "not_jewish");
+                  if (!result.ok) {
+                    setGone((current) => current.filter((id) => !ids.includes(id)));
+                    toast({ title: result.error, tone: "error" });
+                    return;
+                  }
+                  toast({ title: ids.length === 1 ? "Marked Not Jewish" : `Marked ${ids.length} Not Jewish` });
+                  router.refresh();
+                });
+              }}
+            >
+              Not Jewish
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 justify-start rounded-2xl"
+              onClick={() => {
+                if (!pendingDelete) return;
+                const ids = pendingDelete;
+                setPendingDelete(null);
+                setGone((current) => [...new Set([...current, ...ids])]);
+                start(async () => {
+                  const result = await markContactsRemovedAction(ids, "doesnt_exist");
+                  if (!result.ok) {
+                    setGone((current) => current.filter((id) => !ids.includes(id)));
+                    toast({ title: result.error, tone: "error" });
+                    return;
+                  }
+                  toast({ title: ids.length === 1 ? "Marked doesn’t exist" : `Marked ${ids.length} doesn’t exist` });
+                  router.refresh();
+                });
+              }}
+            >
+              Doesn&apos;t exist / wrong address
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="min-h-11 justify-start rounded-2xl"
+              onClick={() => { if (pendingDelete) remove(pendingDelete); }}
+            >
+              Other — delete {pendingDelete?.length ?? 0} contact{(pendingDelete?.length ?? 0) === 1 ? "" : "s"}
+            </Button>
+            <Button type="button" variant="ghost" className="rounded-full" onClick={() => setPendingDelete(null)}>Cancel</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -774,19 +844,32 @@ function ShareWithBochurimToggle({
 }) {
   const toast = useToast();
   const [pending, start] = useTransition();
+  const practice = usePractice();
   const preview = Boolean(data.viewer.preview);
-  const canToggle = (data.viewer.role === "shliach" || data.viewer.role === "admin") && !preview && !readOnly;
-  if (data.viewer.role !== "shliach" && data.viewer.role !== "admin") return null;
+  const canManage = data.viewer.role === "shliach" || data.viewer.role === "admin";
+  const canToggle = canManage && !readOnly;
+  if (!canManage) return null;
+  // Prefer practice-patched share state when in practice mode
+  const checked = Boolean(
+    practice.active
+      ? (practice.mergeData(data).households.find((h) => h.id === household.id)?.sharedWithBochurim ?? household.sharedWithBochurim)
+      : household.sharedWithBochurim,
+  );
   return (
     <label className="inline-flex items-center gap-1.5 text-xs text-foreground" title="Share with bochurim">
       <input
         type="checkbox"
         className="size-4 accent-primary"
-        checked={Boolean(household.sharedWithBochurim)}
+        checked={checked}
         disabled={!canToggle || pending}
         aria-label={`Share ${household.name} with bochurim`}
         onChange={(event) => {
           const share = event.target.checked;
+          if (preview && practice.active) {
+            practice.setShare(household.id, share);
+            toast({ title: share ? "Shared with bochurim (practice)" : "Unshared with bochurim (practice)" });
+            return;
+          }
           start(async () => {
             const result = await shareContactWithBochurimAction(household.id, share);
             if (!result.ok) toast({ title: result.error, tone: "error" });
@@ -1167,7 +1250,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                   <span className="block font-medium text-foreground">Share with bochurim</span>
                   <span className="text-xs text-muted-foreground">All of your bochurim can see this contact.</span>
                 </span>
-                <input type="checkbox" className="size-5 accent-primary" checked={Boolean(form.sharedWithBochurim)} disabled={Boolean(data.viewer.preview)} onChange={(event) => setForm({ ...form, sharedWithBochurim: event.target.checked })} />
+                <input type="checkbox" className="size-5 accent-primary" checked={Boolean(form.sharedWithBochurim)} onChange={(event) => setForm({ ...form, sharedWithBochurim: event.target.checked })} />
               </label>
             </>
           ) : null}

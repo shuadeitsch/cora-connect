@@ -21,6 +21,7 @@ import { Avatar } from "@/components/avatar";
 import { CommandPalette, type PaletteHousehold } from "@/components/command-palette";
 import { FeedbackButton } from "@/components/feedback-button";
 import { PreviewBanner } from "@/components/preview-banner";
+import { PracticeProvider } from "@/components/practice-provider";
 import { ReloadButton } from "@/components/reload-button";
 import { VersionBadge } from "@/components/version-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -233,7 +234,8 @@ export function Shell({
   }, []);
 
   return (
-    <div className="safe-page app-frame flex flex-col">
+    <PracticeProvider active={Boolean(preview)}>
+      <div className="safe-page app-frame flex flex-col">
       <header className="glass z-30 mx-2 mt-2 flex min-h-14 shrink-0 items-center justify-between gap-2 rounded-2xl px-2 py-1 sm:mx-3 sm:px-3">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 pl-1">
           <Link href="/dashboard" aria-label="Cora Connect home" className="min-w-0">
@@ -386,5 +388,6 @@ export function Shell({
       </Sheet>
       <CommandPalette open={search} onOpenChange={setSearch} households={households} canManage={viewer.canManage && !preview} />
     </div>
+    </PracticeProvider>
   );
 }
