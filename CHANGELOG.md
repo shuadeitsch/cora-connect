@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.29
+- Settings › Theme: checkbox **Match colors to my photo** next to the background upload. Client canvas sample (no new deps) pulls dominant/accent colors, panel tint, overlay strength, and light/dark from the picture; WCAG contrast kept for text and buttons. Saved on the profile with the theme; uncheck returns to the chosen preset.
+
 ## 1.8.28
 - Settings › Theme: upload your own full-page background photo (every role, including bochur Account-only). Client resize to ~1920px JPEG, stored in `backgrounds/<uid>/…` with own-only Storage RLS; URL on `profiles.background_url`. Cover render with a light overlay; Remove photo returns to the preset.
 

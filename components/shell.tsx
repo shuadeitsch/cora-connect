@@ -25,6 +25,7 @@ import { ReloadButton } from "@/components/reload-button";
 import { VersionBadge } from "@/components/version-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { applyTheme, isThemeId, THEME_KEY } from "@/lib/themes";
+import { applyPhotoTheme, clearPhotoTheme, isPhotoThemeColors } from "@/lib/photo-theme";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { logoutAction } from "@/lib/actions";
@@ -175,8 +176,15 @@ export function Shell({
   const preview = viewer.preview ?? null;
   // A theme saved on the account follows the person to a new device.
   useEffect(() => {
-    if (isThemeId(viewer.theme) && !window.localStorage.getItem(THEME_KEY)) applyTheme(viewer.theme);
-  }, [viewer.theme]);
+    if (viewer.themeMatchPhoto && isPhotoThemeColors(viewer.themeColors)) {
+      applyPhotoTheme(viewer.themeColors);
+      return;
+    }
+    clearPhotoTheme();
+    const local = window.localStorage.getItem(THEME_KEY);
+    if (isThemeId(local)) applyTheme(local);
+    else if (isThemeId(viewer.theme)) applyTheme(viewer.theme);
+  }, [viewer.theme, viewer.themeMatchPhoto, viewer.themeColors]);
   useEffect(() => {
     const root = document.documentElement;
     const url = viewer.backgroundUrl?.trim();

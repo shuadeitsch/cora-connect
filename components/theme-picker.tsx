@@ -7,7 +7,13 @@ import { Notice } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
 import { removeBackgroundAction, uploadBackgroundAction } from "@/lib/background-actions";
-import { saveThemeAction } from "@/lib/theme-actions";
+import {
+  applyPhotoTheme,
+  clearPhotoTheme,
+  extractPhotoTheme,
+  isPhotoThemeColors,
+} from "@/lib/photo-theme";
+import { saveThemeAction, saveThemeMatchAction } from "@/lib/theme-actions";
 import { applyTheme, isThemeId, THEME_KEY, THEMES, type ThemeId } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 
@@ -28,14 +34,26 @@ async function resizeCover(file: File): Promise<Blob> {
   );
 }
 
-export function ThemePicker({ saved, backgroundUrl }: { saved: string | null; backgroundUrl: string | null }) {
+export function ThemePicker({
+  saved,
+  backgroundUrl,
+  themeMatchPhoto,
+  themeColors,
+}: {
+  saved: string | null;
+  backgroundUrl: string | null;
+  themeMatchPhoto: boolean;
+  themeColors: Record<string, unknown> | null;
+}) {
   const toast = useToast();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [current, setCurrent] = useState<ThemeId>(isThemeId(saved) ? saved : "classic");
   const [bgUrl, setBgUrl] = useState(backgroundUrl);
+  const [matchPhoto, setMatchPhoto] = useState(Boolean(themeMatchPhoto && backgroundUrl));
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
+
   useEffect(() => {
     const local = window.localStorage.getItem(THEME_KEY);
     if (isThemeId(local)) setCurrent(local);
@@ -43,13 +61,48 @@ export function ThemePicker({ saved, backgroundUrl }: { saved: string | null; ba
   }, []);
   useEffect(() => {
     setBgUrl(backgroundUrl);
-  }, [backgroundUrl]);
+    setMatchPhoto(Boolean(themeMatchPhoto && backgroundUrl));
+  }, [backgroundUrl, themeMatchPhoto]);
+
+  useEffect(() => {
+    if (themeMatchPhoto && isPhotoThemeColors(themeColors)) applyPhotoTheme(themeColors);
+  }, [themeMatchPhoto, themeColors]);
 
   async function pick(id: ThemeId) {
+    clearPhotoTheme();
     applyTheme(id);
     setCurrent(id);
+    setMatchPhoto(false);
     const result = await saveThemeAction(id).catch(() => ({ ok: false as const, error: "Couldn't save your theme. It still applies on this device." }));
     if (!result.ok) toast({ title: result.error, tone: "error" });
+    else router.refresh();
+  }
+
+  async function enableMatch(from: string | Blob) {
+    const colors = await extractPhotoTheme(from);
+    applyPhotoTheme(colors);
+    setMatchPhoto(true);
+    const result = await saveThemeMatchAction({ match: true, colors });
+    if (!result.ok) {
+      setError(result.error);
+      setMatchPhoto(false);
+      clearPhotoTheme();
+      if (isThemeId(current)) applyTheme(current);
+      return false;
+    }
+    return true;
+  }
+
+  async function disableMatch() {
+    clearPhotoTheme();
+    if (isThemeId(current)) applyTheme(current);
+    setMatchPhoto(false);
+    const result = await saveThemeMatchAction({ match: false });
+    if (!result.ok) {
+      setError(result.error);
+      return false;
+    }
+    return true;
   }
 
   function choose(next: File | undefined) {
@@ -70,10 +123,37 @@ export function ThemePicker({ saved, backgroundUrl }: { saved: string | null; ba
           return;
         }
         setBgUrl(result.url);
+        if (matchPhoto) {
+          await enableMatch(blob);
+        }
         router.refresh();
       } catch {
         setError("Couldn't read that picture. Try another one.");
       }
+    });
+  }
+
+  function toggleMatch(checked: boolean) {
+    setError("");
+    if (checked) {
+      if (!bgUrl) {
+        setError("Upload a background photo first.");
+        return;
+      }
+      start(async () => {
+        try {
+          const ok = await enableMatch(bgUrl);
+          if (ok) router.refresh();
+        } catch {
+          setError("Couldn't read colors from that picture. Try uploading it again.");
+          setMatchPhoto(false);
+        }
+      });
+      return;
+    }
+    start(async () => {
+      const ok = await disableMatch();
+      if (ok) router.refresh();
     });
   }
 
@@ -86,11 +166,11 @@ export function ThemePicker({ saved, backgroundUrl }: { saved: string | null; ba
           <button
             key={theme.id}
             type="button"
-            aria-pressed={current === theme.id}
+            aria-pressed={current === theme.id && !matchPhoto}
             onClick={() => pick(theme.id)}
             className={cn(
               "relative overflow-hidden rounded-2xl text-left ring-1 ring-border transition hover:ring-2 hover:ring-primary/50",
-              current === theme.id && "ring-2 ring-primary",
+              current === theme.id && !matchPhoto && "ring-2 ring-primary",
             )}
           >
             <div className="flex h-16 items-end gap-1.5 p-2" style={{ background: theme.swatch[1] }}>
@@ -101,7 +181,7 @@ export function ThemePicker({ saved, backgroundUrl }: { saved: string | null; ba
             </div>
             <div className="flex items-center justify-between bg-card px-2.5 py-2 text-sm font-medium text-foreground">
               {theme.label}
-              {current === theme.id ? <Check className="size-4 text-primary" /> : null}
+              {current === theme.id && !matchPhoto ? <Check className="size-4 text-primary" /> : null}
             </div>
           </button>
         ))}
@@ -137,6 +217,9 @@ export function ThemePicker({ saved, backgroundUrl }: { saved: string | null; ba
               onClick={() =>
                 start(async () => {
                   setError("");
+                  clearPhotoTheme();
+                  if (isThemeId(current)) applyTheme(current);
+                  setMatchPhoto(false);
                   const result = await removeBackgroundAction();
                   if (!result.ok) {
                     setError(result.error);
@@ -151,6 +234,21 @@ export function ThemePicker({ saved, backgroundUrl }: { saved: string | null; ba
             </Button>
           ) : null}
         </div>
+        <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1 size-4 shrink-0"
+            checked={matchPhoto}
+            disabled={pending || !bgUrl}
+            onChange={(event) => toggleMatch(event.target.checked)}
+          />
+          <span>
+            <span className="block font-medium text-foreground">Match colors to my photo</span>
+            <span className="text-xs text-muted-foreground">
+              Pulls primary and accent colors from your picture. Uncheck to go back to the preset you picked.
+            </span>
+          </span>
+        </label>
         <input
           ref={input}
           type="file"

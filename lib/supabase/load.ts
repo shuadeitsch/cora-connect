@@ -176,6 +176,8 @@ export async function loadSupabase(actor: User): Promise<Database> {
     leaderId: nullableText(profile, "leader_id"),
     avatarUrl: nullableText(profile, "avatar_url"),
     backgroundUrl: nullableText(profile, "background_url"),
+    themeMatchPhoto: Boolean(profile.theme_match_photo),
+    themeColors: (profile.theme_colors as Record<string, unknown> | null) ?? null,
     theme: nullableText(profile, "theme"),
     shareNewWithBochurim: Boolean(profile.share_new_with_bochurim),
     bochurimEditPlanner: Boolean(profile.bochurim_edit_planner),

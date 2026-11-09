@@ -52,6 +52,8 @@ export interface User {
   avatarUrl?: string | null;
   theme?: string | null;
   backgroundUrl?: string | null;
+  themeMatchPhoto?: boolean;
+  themeColors?: Record<string, unknown> | null;
   shareNewWithBochurim?: boolean;
   bochurimEditPlanner?: boolean;
   /** Default for new planner days: whether bochurim can see them. */
@@ -249,6 +251,8 @@ export interface Viewer {
   avatarUrl: string | null;
   theme: string | null;
   backgroundUrl: string | null;
+  themeMatchPhoto: boolean;
+  themeColors: Record<string, unknown> | null;
   shareNewWithBochurim: boolean;
   bochurimEditPlanner: boolean;
   bochurimSeePlannerDefault: boolean;

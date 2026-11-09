@@ -180,9 +180,14 @@
   }
   html[data-custom-bg] body::after {
     background-color: rgba(243, 239, 232, 0.78);
+    background-color: color-mix(in srgb, var(--background) calc(var(--page-overlay, 0.78) * 100%), transparent);
   }
   html[data-custom-bg].dark body::after {
     background-color: rgba(18, 17, 15, 0.72);
+    background-color: color-mix(in srgb, var(--background) calc(var(--page-overlay, 0.72) * 100%), transparent);
+  }
+  html[data-photo-theme] {
+    /* Photo palette sets vars inline; keep color-scheme in sync via .dark class. */
   }
   .dark body::before {
     background-color: #12110f;

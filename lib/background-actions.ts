@@ -45,7 +45,7 @@ export async function removeBackgroundAction(): Promise<Result> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Sign in again." };
   const supabase = await createClient();
-  const { error } = await supabase.from("profiles").update({ background_url: null }).eq("id", user.id);
+  const { error } = await supabase.from("profiles").update({ background_url: null, theme_match_photo: false, theme_colors: null }).eq("id", user.id);
   if (error) return { ok: false, error: "Couldn't remove the picture." };
   await clearOld(supabase, user.id);
   revalidatePath("/", "layout");

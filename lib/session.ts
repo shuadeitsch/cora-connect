@@ -46,6 +46,8 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
     avatarUrl: profile.avatar_url ?? null,
     theme: profile.theme ?? null,
     backgroundUrl: profile.background_url ?? null,
+    themeMatchPhoto: Boolean(profile.theme_match_photo),
+    themeColors: (profile.theme_colors as Record<string, unknown> | null) ?? null,
     shareNewWithBochurim: Boolean(profile.share_new_with_bochurim),
     bochurimEditPlanner: Boolean(profile.bochurim_edit_planner),
     bochurimSeePlannerDefault: profile.bochurim_see_planner_default !== false,
