@@ -1,11 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download } from "lucide-react";
-import { reactionMeta, statusMeta } from "@/lib/constants";
+import {
+  BookOpen,
+  Download,
+  Flame,
+  HandHeart,
+  MapPin,
+  Package,
+  PenLine,
+  ScrollText,
+  Sigma,
+  Users,
+} from "lucide-react";
+import { reactionMeta, statusMeta, VISIT_ACTIVITIES } from "@/lib/constants";
 import { toCsv } from "@/lib/csv";
 import { formatMedium } from "@/lib/format";
+import { activityCountsFor } from "@/lib/visit-activities";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type SortMode = "recent" | "name";
 
@@ -29,7 +42,45 @@ function stateCode(raw: string) {
   return map[raw] ?? raw.toUpperCase();
 }
 
-/** Dashboard Reports box. Shared wording for every role; filters come from the Dashboard bar. */
+const ACTIVITY_ICON: Record<string, typeof Users> = {
+  Visits: Users,
+  Tefillin: HandHeart,
+  "Menorah/package": Flame,
+  Mezuzah: ScrollText,
+  Challah: Package,
+  "Write-in": PenLine,
+  Total: Sigma,
+};
+
+function StatTile({
+  label,
+  count,
+  tone = "default",
+}: {
+  label: string;
+  count: number;
+  tone?: "default" | "accent" | "muted";
+}) {
+  const Icon = ACTIVITY_ICON[label] ?? BookOpen;
+  return (
+    <div
+      className={cn(
+        "flex min-h-[5.5rem] flex-col justify-between rounded-2xl border p-3 sm:p-3.5",
+        tone === "accent" && "border-primary/30 bg-primary/5",
+        tone === "muted" && "bg-muted/40",
+        tone === "default" && "bg-card",
+      )}
+    >
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <Icon className="size-3.5 shrink-0" aria-hidden />
+        <span className="truncate text-[11px] font-medium tracking-wide uppercase">{label}</span>
+      </div>
+      <p className="font-heading text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">{count}</p>
+    </div>
+  );
+}
+
+/** One Visits box: activity tiles (always, including 0) + people list. Filters from the Dashboard bar. */
 export function DashboardReports({
   data,
   projectId = "ALL",
@@ -41,6 +92,87 @@ export function DashboardReports({
 }) {
   const projects = data.projects;
   const [sort, setSort] = useState<SortMode>("recent");
+  const viewer = data.viewer;
+
+  const contactVisits = useMemo(
+    () =>
+      data.households.flatMap((h) =>
+        h.contactVisits.map((v) => ({
+          id: v.id,
+          orgId: data.viewer.orgId,
+          householdId: h.id,
+          visited: v.visited,
+          reaction: v.reaction,
+          notes: v.notes,
+          visitDate: v.visitDate,
+          status: v.status,
+          arrived: "",
+          createdBy: v.createdBy,
+          createdAt: v.createdAt,
+          importBatchId: null as string | null,
+          activities: v.activities ?? [],
+          projectId: v.projectId ?? null,
+        })),
+      ),
+    [data.households, data.viewer.orgId],
+  );
+
+  const householdsForCounts = useMemo(
+    () =>
+      data.households.map((h) => ({
+        id: h.id,
+        orgId: data.viewer.orgId,
+        name: h.name,
+        street: h.street,
+        city: h.city,
+        state: h.state,
+        zip: h.zip,
+        country: h.country,
+        lat: h.lat,
+        lng: h.lng,
+        notes: h.notes,
+        projectId: h.projectId,
+        scheduleCategoryId: h.scheduleCategoryId,
+        categoryIds: h.categoryIds,
+        tags: h.tags,
+        customFields: h.customFields,
+        sharedWithCora: h.sharedWithCora,
+        ownerId: h.ownerId,
+        visitReaction: h.visitReaction,
+        possibleDuplicate: h.possibleDuplicate,
+        duplicateOf: h.duplicateOf,
+        createdAt: h.createdAt,
+        importBatchId: h.importBatchId,
+        deletedByShliachAt: h.deletedByShliachAt,
+        deletedByShliachBy: h.deletedByShliachBy,
+      })),
+    [data.households, data.viewer.orgId],
+  );
+
+  const activityRows = useMemo(() => {
+    return activityCountsFor(
+      contactVisits,
+      householdsForCounts as never,
+      {
+        id: viewer.id,
+        orgId: viewer.orgId,
+        name: viewer.name,
+        email: viewer.email,
+        passwordHash: "",
+        role: viewer.role,
+        status: viewer.status,
+        expiresAt: viewer.expiresAt,
+        canViewHistory: viewer.canViewHistory,
+        canViewContact: viewer.canViewContact,
+        canEdit: viewer.canEdit,
+        assignedRouteIds: [],
+        leaderId: viewer.leaderId,
+        territory: viewer.territory,
+        projectId: viewer.projectId,
+      },
+      { state, projectId },
+    );
+  }, [contactVisits, householdsForCounts, projectId, state, viewer]);
 
   const visitedFor = useMemo(() => {
     const names = new Map(projects.map((project) => [project.name.trim().toLowerCase(), project.name]));
@@ -115,6 +247,8 @@ export function DashboardReports({
     return people;
   }, [data.households, data.visits, projectId, projects, sort, state, visitedFor]);
 
+  const peopleCount = rows.length;
+
   function download() {
     const csv = toCsv(
       ["Name", "City", "State", "Date", "Visitor", "Status", "Reaction", "Visited", "Activities", "Details"],
@@ -135,19 +269,29 @@ export function DashboardReports({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "cora-dashboard-reports.csv";
+    link.download = "cora-dashboard-visits.csv";
     link.click();
     URL.revokeObjectURL(url);
   }
 
+  const tiles: { label: string; count: number; tone?: "default" | "accent" | "muted" }[] = [
+    { label: "Visits", count: peopleCount, tone: "accent" },
+    ...VISIT_ACTIVITIES.map((label) => ({
+      label,
+      count: activityRows.find((r) => r.label === label)?.count ?? 0,
+    })),
+    { label: "Write-in", count: activityRows.find((r) => r.label === "Write-in")?.count ?? 0 },
+    { label: "Total", count: activityRows.find((r) => r.label === "Total")?.count ?? 0, tone: "muted" as const },
+  ];
+
   return (
-    <section className="panel rounded-3xl p-4" aria-label="Reports">
+    <section className="panel space-y-4 rounded-3xl p-4" aria-label="Visits">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-heading text-xl font-semibold text-foreground">Reports</h2>
+          <h2 className="font-heading text-xl font-semibold text-foreground">Visits</h2>
           <p className="text-sm text-muted-foreground">
-            People visited — one row per person, most recent first.
-            {rows.length ? ` · ${rows.length} ${rows.length === 1 ? "person" : "people"}` : ""}
+            Activity totals and people visited — one row per person, most recent first.
+            {peopleCount ? ` · ${peopleCount} ${peopleCount === 1 ? "person" : "people"}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -163,11 +307,18 @@ export function DashboardReports({
           </button>
         </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        {tiles.map((tile) => (
+          <StatTile key={tile.label} label={tile.label} count={tile.count} tone={tile.tone} />
+        ))}
+      </div>
+
       {rows.length ? (
-        <div className="mt-3 overflow-x-auto">
+        <div className="overflow-x-auto rounded-2xl border">
           <table className="w-full min-w-[720px] text-left text-[12.5px]">
             <thead className="text-[11px] tracking-wide text-muted-foreground uppercase">
-              <tr className="border-b">
+              <tr className="border-b bg-muted/30">
                 {["Name", "City / State", "Date", "Visitor", "Status", "Reaction", "Visited", "Activities"].map((label) => (
                   <th key={label} className="px-2 py-2 font-medium">{label}</th>
                 ))}
@@ -198,10 +349,13 @@ export function DashboardReports({
               ))}
             </tbody>
           </table>
-          {rows.length > 100 ? <p className="mt-2 text-xs text-muted-foreground">Showing 100 of {rows.length}. Download CSV for all.</p> : null}
+          {rows.length > 100 ? <p className="px-2 py-2 text-xs text-muted-foreground">Showing 100 of {rows.length}. Download CSV for all.</p> : null}
         </div>
       ) : (
-        <p className="py-8 text-center text-sm text-muted-foreground">No visits match these filters.</p>
+        <p className="flex items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+          <MapPin className="mx-auto size-4 opacity-50" />
+          <span className="w-full">No visits match these filters.</span>
+        </p>
       )}
     </section>
   );

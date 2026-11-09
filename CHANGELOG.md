@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.26
+
+- Dashboard: one combined **Visits** box (activity tiles + people list). Activity tiles always show Tefillin, Menorah/package, Mezuzah, Challah, Write-in, and Total — including 0. Bento layout: compact stat tiles, wider content boxes. Separate Visit activities box removed.
+
 ## 1.8.25
 
 - Planner: “Let bochurim edit the daily planner by default” + per-day “Bochurim can edit this day” (RLS via `editable_by_bochurim`).

@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Sparkles, UserPlus, Users } from "lucide-react";
 import { Greeting } from "@/components/greeting";
-import { ActivityTotals } from "@/components/activity-totals";
 import { DashboardReports } from "@/components/dashboard-reports";
 import { FeedbackCard } from "@/components/feedback-card";
 import { SuggestedEditsCard } from "@/components/suggested-edits-card";
@@ -10,12 +10,33 @@ import { FOCUS_STATES } from "@/lib/constants";
 import { isNewContact } from "@/lib/new-contacts";
 import { activityCountsFor } from "@/lib/visit-activities";
 import type { AppData } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const STATES = FOCUS_STATES.filter((item) => item.code !== "Unsorted");
 
+function MiniStat({
+  label,
+  count,
+  icon: Icon,
+}: {
+  label: string;
+  count: number;
+  icon: typeof Users;
+}) {
+  return (
+    <div className="flex min-h-[5.5rem] flex-col justify-between rounded-2xl border bg-card p-3 sm:p-3.5">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <Icon className="size-3.5 shrink-0" aria-hidden />
+        <span className="truncate text-[11px] font-medium tracking-wide uppercase">{label}</span>
+      </div>
+      <p className="font-heading text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">{count}</p>
+    </div>
+  );
+}
+
 /**
- * Dashboard (1.8.25): shared Project (+ State for admin) filter bar drives every box.
- * All roles: Reports + Visit activities. Admin also: Feedback + Households by state.
+ * Dashboard (1.8.26): bento layout. Shared Project (+ State for admin) filters.
+ * One Visits box (activity tiles + people list). Admin: Feedback + Households by state.
  */
 export function DashboardHome({ data }: { data: AppData }) {
   const { viewer } = data;
@@ -29,7 +50,6 @@ export function DashboardHome({ data }: { data: AppData }) {
   const filteredHouseholds = useMemo(() => {
     return data.households.filter((house) => {
       if (activeProjectId !== "ALL" && house.projectId && house.projectId !== activeProjectId) {
-        // Keep households with no projectId if matching via visits; for state card count by project on household
         if (house.projectId !== activeProjectId) return false;
       }
       if (activeProjectId !== "ALL" && !house.projectId) return false;
@@ -60,7 +80,7 @@ export function DashboardHome({ data }: { data: AppData }) {
       (h.contactVisits ?? [])
         .filter((v) => v.createdBy === myId)
         .filter((v) => !project || (v.projectId ?? h.projectId) === project)
-        .map((v) => ({ ...v, householdId: h.id, house: h })),
+        .map((v) => ({ ...v, householdId: h.id })),
     );
     const peopleVisited = new Set(myVisits.map((v) => v.householdId)).size;
     const activityVisits = myVisits.map((v) => ({
@@ -75,7 +95,7 @@ export function DashboardHome({ data }: { data: AppData }) {
       arrived: "",
       createdBy: v.createdBy,
       createdAt: v.createdAt,
-      importBatchId: null,
+      importBatchId: null as string | null,
       activities: v.activities ?? [],
       projectId: v.projectId ?? null,
     }));
@@ -103,28 +123,32 @@ export function DashboardHome({ data }: { data: AppData }) {
       duplicateOf: h.duplicateOf,
       createdAt: h.createdAt,
       importBatchId: h.importBatchId,
-      createdBy: (h as { createdBy?: string | null }).createdBy ?? null,
+      createdBy: h.createdBy ?? null,
     }));
-    // Count only activities on visits he logged (already filtered).
-    const activities = activityCountsFor(activityVisits as never, households as never, {
-      id: viewer.id,
-      orgId: viewer.orgId,
-      name: viewer.name,
-      email: viewer.email,
-      passwordHash: "",
-      role: viewer.role,
-      status: viewer.status,
-      expiresAt: viewer.expiresAt,
-      canViewHistory: viewer.canViewHistory,
-      canViewContact: viewer.canViewContact,
-      canEdit: viewer.canEdit,
-      assignedRouteIds: [],
-      leaderId: viewer.leaderId,
-      territory: viewer.territory,
-      projectId: viewer.projectId,
-    }, { projectId: project ?? "ALL", state: "ALL" });
+    const activities = activityCountsFor(
+      activityVisits as never,
+      households as never,
+      {
+        id: viewer.id,
+        orgId: viewer.orgId,
+        name: viewer.name,
+        email: viewer.email,
+        passwordHash: "",
+        role: viewer.role,
+        status: viewer.status,
+        expiresAt: viewer.expiresAt,
+        canViewHistory: viewer.canViewHistory,
+        canViewContact: viewer.canViewContact,
+        canEdit: viewer.canEdit,
+        assignedRouteIds: [],
+        leaderId: viewer.leaderId,
+        territory: viewer.territory,
+        projectId: viewer.projectId,
+      },
+      { projectId: project ?? "ALL", state: "ALL" },
+    );
     const newPeople = data.households.filter((h) => {
-      const createdBy = (h as { createdBy?: string | null }).createdBy ?? h.ownerId;
+      const createdBy = h.createdBy ?? h.ownerId;
       if (createdBy !== myId) return false;
       return isNewContact({ createdAt: h.createdAt, importBatchId: h.importBatchId });
     }).length;
@@ -172,31 +196,32 @@ export function DashboardHome({ data }: { data: AppData }) {
         ) : null}
       </div>
 
-
       {bochur && bochurStats ? (
-        <section className="grid gap-3 sm:grid-cols-3" aria-label="Your stats">
-          <div className="panel rounded-3xl p-4">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">People you visited</p>
-            <p className="mt-2 font-heading text-3xl font-semibold tabular-nums text-foreground">{bochurStats.peopleVisited}</p>
-          </div>
-          <div className="panel rounded-3xl p-4">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Your activities</p>
-            <p className="mt-2 text-sm text-foreground">
-              {bochurStats.activities.length
-                ? bochurStats.activities.map((r) => `${r.count} ${r.label}`).join(" · ")
-                : "No activities logged yet."}
-            </p>
-          </div>
-          <div className="panel rounded-3xl p-4">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">New people you found</p>
-            <p className="mt-2 font-heading text-3xl font-semibold tabular-nums text-foreground">{bochurStats.newPeople}</p>
+        <section aria-label="Your stats">
+          <h2 className="mb-2 font-heading text-lg font-semibold text-foreground">Your stats</h2>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <MiniStat label="People you visited" count={bochurStats.peopleVisited} icon={Users} />
+            <MiniStat label="New people you found" count={bochurStats.newPeople} icon={UserPlus} />
+            <MiniStat
+              label="Your activities"
+              count={bochurStats.activities.find((r) => r.label === "Total")?.count ?? 0}
+              icon={Sparkles}
+            />
           </div>
         </section>
       ) : null}
+
       <DashboardReports data={data} projectId={filters.projectId} state={filters.state} />
-      <ActivityTotals data={data} projectId={filters.projectId} state={filters.state} />
-      {(admin || viewer.role === "shliach") ? <SuggestedEditsCard state={admin ? state : "ALL"} /> : null}
-      {admin ? <FeedbackCard /> : null}
+
+      <div className={cn("grid gap-4", admin ? "lg:grid-cols-3" : "lg:grid-cols-1")}>
+        {(admin || viewer.role === "shliach") ? (
+          <div className={admin ? "lg:col-span-2" : undefined}>
+            <SuggestedEditsCard state={admin ? state : "ALL"} />
+          </div>
+        ) : null}
+        {admin ? <FeedbackCard /> : null}
+      </div>
+
       {admin ? (
         <section className="panel rounded-3xl p-4" aria-label="Households by state">
           <h2 className="font-heading text-xl font-semibold text-foreground">Households by state</h2>

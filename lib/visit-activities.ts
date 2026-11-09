@@ -4,36 +4,66 @@ import { sameState } from "@/lib/constants";
 
 export { VISIT_ACTIVITIES, normalizeActivity };
 
-/** Count completed visits that include each activity, scoped for the viewer. */
+export type ActivityCountRow = { label: string; count: number; kind: "builtin" | "writein" | "total" | "visits" };
+
+/** Count completed visits that include each activity, scoped for the viewer.
+ * Always returns one row per built-in activity (0 if none), a Write-in row, and a Total. */
 export function activityCountsFor(
   visits: ContactVisit[],
   households: Household[],
   viewer: User,
   filters?: { state?: string; projectId?: string },
-): { label: string; count: number }[] {
+): ActivityCountRow[] {
   const houseById = new Map(households.map((h) => [h.id, h]));
   const counts = new Map<string, number>();
+  let visitCount = 0;
   for (const visit of visits) {
     if (visit.status !== "completed") continue;
     const house = houseById.get(visit.householdId);
     if (!house) continue;
     if (filters?.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
     if (filters?.projectId && filters.projectId !== "ALL" && house.projectId !== filters.projectId) continue;
-    // Bochur: prefer his project when no filter passed.
     if (viewer.role === "bochur" && viewer.projectId && house.projectId && house.projectId !== viewer.projectId && !filters?.projectId) continue;
+    visitCount += 1;
     for (const raw of visit.activities ?? []) {
       const label = normalizeActivity(raw);
       if (!label) continue;
       counts.set(label, (counts.get(label) ?? 0) + 1);
     }
   }
-  const builtIn = new Set<string>(VISIT_ACTIVITIES);
-  const rows = [...counts.entries()].map(([label, count]) => ({ label, count }));
-  rows.sort((a, b) => {
-    const ai = builtIn.has(a.label) ? 0 : 1;
-    const bi = builtIn.has(b.label) ? 0 : 1;
-    if (ai !== bi) return ai - bi;
-    return b.count - a.count || a.label.localeCompare(b.label);
-  });
+  const builtIn = VISIT_ACTIVITIES as readonly string[];
+  const rows: ActivityCountRow[] = builtIn.map((label) => ({
+    label,
+    count: counts.get(label) ?? 0,
+    kind: "builtin",
+  }));
+  let writeIn = 0;
+  for (const [label, count] of counts) {
+    if (!builtIn.includes(label)) writeIn += count;
+  }
+  rows.push({ label: "Write-in", count: writeIn, kind: "writein" });
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  rows.push({ label: "Total", count: total, kind: "total" });
   return rows;
+}
+
+/** Completed visit count under the same filters (for the Visits tile). */
+export function completedVisitCount(
+  visits: ContactVisit[],
+  households: Household[],
+  viewer: User,
+  filters?: { state?: string; projectId?: string },
+): number {
+  const houseById = new Map(households.map((h) => [h.id, h]));
+  let n = 0;
+  for (const visit of visits) {
+    if (visit.status !== "completed") continue;
+    const house = houseById.get(visit.householdId);
+    if (!house) continue;
+    if (filters?.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
+    if (filters?.projectId && filters.projectId !== "ALL" && house.projectId !== filters.projectId) continue;
+    if (viewer.role === "bochur" && viewer.projectId && house.projectId && house.projectId !== viewer.projectId && !filters?.projectId) continue;
+    n += 1;
+  }
+  return n;
 }
