@@ -20,7 +20,7 @@ import { activityCountsFor, visitCoverage } from "@/lib/visit-activities";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ActivityIcon } from "@/components/activity-icon";
-import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, Pager } from "@/components/pager";
+import { PAGE_SIZE_OPTIONS, Pager } from "@/components/pager";
 
 type SortMode = "recent" | "name";
 
@@ -147,7 +147,7 @@ export function DashboardReports({
   const [sort, setSort] = useState<SortMode>("recent");
   const [includeDeferred, setIncludeDeferred] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [pageSize, setPageSize] = useState(10);
   const viewer = data.viewer;
 
   useEffect(() => {

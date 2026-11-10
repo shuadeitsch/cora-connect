@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.40
+- Home Visits people list: default page size **10** (newest first); pager unchanged. Contacts page stays at 25.
+
 ## 1.8.39
 - Home Visits people list: only **completed** contacts by default; **deferred** rows appear only when Include deferred is checked (same checkbox as the coverage tile). Removed/tagged contacts never appear in the list.
 
