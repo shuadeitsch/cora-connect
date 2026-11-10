@@ -1,4 +1,5 @@
 import { VISIT_ACTIVITIES, normalizeActivity, sameState } from "@/lib/constants";
+import { isTaggedContact } from "@/lib/contact-tags";
 import type { ContactVisit, Household, User } from "@/lib/types";
 
 export { VISIT_ACTIVITIES, normalizeActivity };
@@ -37,6 +38,7 @@ export function activityCountsFor(
     const house = houseById.get(visit.householdId);
     if (!house) continue;
     if (!houseInState(house, filters?.state)) continue;
+    if (isTaggedContact(house.tags ?? [])) continue;
     if (!visitOnProject(visit, house, filters)) continue;
     if (viewer.role === "bochur" && viewer.projectId && filters?.projectId !== viewer.projectId && house.projectId && house.projectId !== viewer.projectId) {
       continue;
@@ -63,45 +65,55 @@ export function activityCountsFor(
   return rows;
 }
 
-/** Unique contacts visited in the selected project (or any project when ALL), vs total contacts in scope.
- *  By default only completed visits count; pass includeDeferred to also count deferred. */
+function onProjectVisit(
+  cv: { projectId?: string | null; visited: string },
+  house: { projectId?: string | null },
+  filters: { projectId: string; projectName?: string },
+) {
+  const allProjects = !filters.projectId || filters.projectId === "ALL";
+  if (allProjects) return true;
+  const name = filters.projectName?.trim().toLowerCase() ?? "";
+  if (cv.projectId === filters.projectId) return true;
+  if (house.projectId === filters.projectId) return true;
+  if (name && cv.visited.trim().toLowerCase() === name) return true;
+  return false;
+}
+
+/** Home Visits coverage: touched (completed + deferred + removed tags) out of FULL total (incl. removed). */
 export function visitCoverage(
   households: {
     id: string;
     state: string;
     projectId?: string | null;
+    tags?: string[];
     contactVisits: { status?: string | null; projectId?: string | null; visited: string }[];
   }[],
-  filters: { state?: string; projectId: string; projectName?: string; includeDeferred?: boolean },
-): { visited: number; total: number; percent: number } {
-  const projectId = filters.projectId;
-  const allProjects = !projectId || projectId === "ALL";
-  const name = filters.projectName?.trim().toLowerCase() ?? "";
-  const includeDeferred = Boolean(filters.includeDeferred);
-  let visited = 0;
+  filters: { state?: string; projectId: string; projectName?: string },
+): {
+  visited: number;
+  total: number;
+  percent: number;
+  activeTotal: number;
+  removed: number;
+} {
+  let touched = 0;
   let total = 0;
+  let removed = 0;
   for (const house of households) {
     if (filters.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
     total += 1;
-    const hit = house.contactVisits.some((cv) => {
+    const tagged = isTaggedContact(house.tags ?? []);
+    if (tagged) removed += 1;
+    const visitHit = house.contactVisits.some((cv) => {
       const st = cv.status ?? "completed";
-      if (st === "completed") {
-        /* count */
-      } else if (includeDeferred && st === "deferred") {
-        /* count */
-      } else {
-        return false;
-      }
-      if (allProjects) return true;
-      if (cv.projectId === projectId) return true;
-      if (house.projectId === projectId) return true;
-      if (name && cv.visited.trim().toLowerCase() === name) return true;
-      return false;
+      if (st !== "completed" && st !== "deferred") return false;
+      return onProjectVisit(cv, house, filters);
     });
-    if (hit) visited += 1;
+    if (visitHit || tagged) touched += 1;
   }
-  const percent = total ? Math.round((visited / total) * 100) : 0;
-  return { visited, total, percent };
+  const activeTotal = total - removed;
+  const percent = total ? Math.round((touched / total) * 100) : 0;
+  return { visited: touched, total, percent, activeTotal, removed };
 }
 
 /** Pick current/most recent project: most recent visit activity, then name. */
@@ -134,35 +146,27 @@ export function defaultProjectId(
   return ranked[0]?.id ?? projects[0].id;
 }
 
-/** Unique contacts in scope by latest visit status (completed vs deferred) for a project (or all). */
+/** Latest completed/deferred status per contact for a project (or all). Skips removed-tagged contacts. */
 export function visitStatusSplit(
   households: {
     id: string;
     state: string;
     projectId?: string | null;
+    tags?: string[];
     contactVisits: { status?: string | null; projectId?: string | null; visited: string; visitDate?: string | null; createdAt?: string | null }[];
   }[],
   filters: { state?: string; projectId: string; projectName?: string },
 ): { completed: number; deferred: number } {
-  const allProjects = !filters.projectId || filters.projectId === "ALL";
-  const pname = filters.projectName?.trim().toLowerCase() ?? "";
   let completed = 0;
   let deferred = 0;
   for (const house of households) {
     if (filters.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
-    const onProject = (cv: (typeof house.contactVisits)[number]) => {
-      if (allProjects) return true;
-      return (
-        cv.projectId === filters.projectId ||
-        house.projectId === filters.projectId ||
-        Boolean(pname && cv.visited.trim().toLowerCase() === pname)
-      );
-    };
+    if (isTaggedContact(house.tags ?? [])) continue;
     const ranked = [...house.contactVisits]
       .filter((cv) => {
         const st = cv.status ?? "completed";
         if (st !== "completed" && st !== "deferred") return false;
-        return onProject(cv);
+        return onProjectVisit(cv, house, filters);
       })
       .sort((a, b) => {
         const da = (a.visitDate || a.createdAt || "").toString();

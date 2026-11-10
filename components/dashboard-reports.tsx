@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   BookOpen,
   Download,
@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import { reactionMeta, sameState, statusMeta, VISIT_ACTIVITIES } from "@/lib/constants";
 import { isNewContact } from "@/lib/new-contacts";
-import { countRemovedTagged } from "@/lib/contact-tags";
+import { countRemovedTagged, isTaggedContact } from "@/lib/contact-tags";
 import { toCsv } from "@/lib/csv";
 import { formatMedium } from "@/lib/format";
 import { activityCountsFor, visitCoverage, visitStatusSplit } from "@/lib/visit-activities";
@@ -45,13 +45,13 @@ function stateCode(raw: string) {
 
 const TILE_ICON: Record<string, typeof Users> = {
   Visits: Users,
+  Completed: Users,
+  Deferred: Users,
   "New contacts found": UserPlus,
   "Removed: not Jewish / not existent": UserMinus,
-  Status: Users,
   Total: Sigma,
 };
 
-const INCLUDE_DEFERRED_KEY = "cora-visits-include-deferred";
 
 function TileGlyph({ label }: { label: string }) {
   const activity = <ActivityIcon label={label} className="size-3.5" />;
@@ -98,18 +98,25 @@ function StatTile({
       {detail ? (
         <div className="mt-1 space-y-1.5">
           <p className="font-heading text-2xl font-semibold tabular-nums text-foreground sm:text-3xl">{detail}</p>
-          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-[width]"
-              style={{ width: `${Math.min(100, Math.max(0, progress ?? 0))}%` }}
-              aria-hidden
-            />
-          </div>
-          <p className="text-[11px] text-muted-foreground tabular-nums">{progress ?? 0}% of contacts</p>
+          {typeof progress === "number" ? (
+            <>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width]"
+                  style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                  aria-hidden
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground tabular-nums">{progress}% of contacts</p>
+            </>
+          ) : null}
           {footer}
         </div>
       ) : (
-        <p className="font-heading text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">{count}</p>
+        <div className="mt-1 space-y-1">
+          <p className="font-heading text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">{count}</p>
+          {footer}
+        </div>
       )}
     </div>
   );
@@ -137,26 +144,7 @@ export function DashboardReports({
   const allProjects = !projectId || projectId === "ALL";
   const projectName = allProjects ? undefined : projects.find((p) => p.id === projectId)?.name;
   const [sort, setSort] = useState<SortMode>("recent");
-  const [includeDeferred, setIncludeDeferred] = useState(false);
   const viewer = data.viewer;
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(INCLUDE_DEFERRED_KEY);
-      if (raw === "1" || raw === "true") setIncludeDeferred(true);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  function toggleIncludeDeferred(next: boolean) {
-    setIncludeDeferred(next);
-    try {
-      window.localStorage.setItem(INCLUDE_DEFERRED_KEY, next ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }
 
   const contactVisits = useMemo(
     () =>
@@ -263,15 +251,15 @@ export function DashboardReports({
         state,
         projectId,
         projectName,
-        includeDeferred,
       }),
-    [data.households, includeDeferred, projectId, projectName, state],
+    [data.households, projectId, projectName, state],
   );
 
   const newContactsFound = useMemo(() => {
     const pname = projectName?.trim().toLowerCase() ?? "";
     return data.households.filter((house) => {
       if (!isNewContact(house)) return false;
+      if (isTaggedContact(house.tags ?? [])) return false;
       if (state !== "ALL" && !sameState(house.state, state)) return false;
       if (allProjects) return true;
       if (house.projectId === projectId) return true;
@@ -370,6 +358,17 @@ export function DashboardReports({
     ? `/households?found=1${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`
     : `/households?found=1&project=${encodeURIComponent(projectId)}${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`;
 
+  const activeTotal = coverage.activeTotal;
+  const removedCount = coverage.removed;
+  const denomHint =
+    removedCount > 0 ? (
+      <p className="text-[10px] leading-snug text-muted-foreground">
+        out of {activeTotal} · excludes {removedCount} removed (not Jewish / doesn&apos;t exist)
+      </p>
+    ) : (
+      <p className="text-[10px] leading-snug text-muted-foreground">out of {activeTotal}</p>
+    );
+
   const tiles: {
     label: string;
     count: number;
@@ -385,39 +384,38 @@ export function DashboardReports({
       tone: "accent",
       detail: `${coverage.visited} of ${coverage.total} contacts`,
       progress: coverage.percent,
-      footer: (
-        <label className="mt-1 flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
-          <input
-            type="checkbox"
-            className="size-3.5 accent-primary"
-            checked={includeDeferred}
-            onChange={(e) => toggleIncludeDeferred(e.target.checked)}
-          />
-          <span>Include deferred</span>
-        </label>
-      ),
+    },
+    {
+      label: "Completed",
+      count: statusSplit.completed,
+      detail: `${statusSplit.completed} of ${activeTotal}`,
+      footer: denomHint,
+    },
+    {
+      label: "Deferred",
+      count: statusSplit.deferred,
+      detail: `${statusSplit.deferred} of ${activeTotal}`,
+      footer: denomHint,
     },
     {
       label: "New contacts found",
       count: newContactsFound,
       href: foundHref,
-    },
-    {
-      label: "Status",
-      count: statusSplit.completed + statusSplit.deferred,
-      detail: `Completed ${statusSplit.completed} / Deferred ${statusSplit.deferred}`,
+      footer: denomHint,
     },
     {
       label: "Removed: not Jewish / not existent",
       count: removedTagged,
       href: `/households?list=tagged${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`,
+      footer: denomHint,
     },
     ...VISIT_ACTIVITIES.map((label) => ({
       label,
       count: activityRows.find((r) => r.label === label)?.count ?? 0,
+      footer: denomHint,
     })),
-    { label: "Write-in", count: activityRows.find((r) => r.label === "Write-in")?.count ?? 0 },
-    { label: "Total", count: activityRows.find((r) => r.label === "Total")?.count ?? 0, tone: "muted" as const },
+    { label: "Write-in", count: activityRows.find((r) => r.label === "Write-in")?.count ?? 0, footer: denomHint },
+    { label: "Total", count: activityRows.find((r) => r.label === "Total")?.count ?? 0, tone: "muted" as const, footer: denomHint },
   ];
 
   return (
@@ -427,10 +425,11 @@ export function DashboardReports({
           <h2 className="font-heading text-xl font-semibold text-foreground">Visits</h2>
           <p className="text-sm text-muted-foreground">
             {allProjects ? "All projects: " : projectName ? `${projectName}: ` : ""}
-            {coverage.visited} of {coverage.total} contacts visited
-            {coverage.total ? ` (${coverage.percent}%)` : ""}
-            {includeDeferred ? " (completed + deferred)" : " (completed only)"}.
-            {" "}Activity totals and people list follow this {allProjects ? "combined view" : "project"}.
+            {coverage.visited} of {coverage.total} contacts touched
+            {coverage.total ? ` (${coverage.percent}%)` : ""} — completed, deferred, or removed.
+            {" "}Other tiles use {coverage.activeTotal} contacts
+            {coverage.removed ? ` (excludes ${coverage.removed} removed)` : ""}.
+            {" "}People list follows this {allProjects ? "combined view" : "project"}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
