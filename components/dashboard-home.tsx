@@ -35,8 +35,8 @@ function MiniStat({
 }
 
 /**
- * Home: Project (+ State for admin) filters. A project is always selected (no All projects).
- * One Visits box (coverage + activity tiles + people list). Admin: Feedback + Households by state.
+ * Home: Project (+ State for admin) filters. Default = current/most recent project; All projects at top.
+ * Bochur stays locked to his project. One Visits box + admin Feedback / Households by state.
  */
 export function DashboardHome({ data }: { data: AppData }) {
   const { viewer } = data;
@@ -157,9 +157,12 @@ export function DashboardHome({ data }: { data: AppData }) {
   }, [activeProjectId, bochur, data.households, data.projects, viewer]);
 
   const projectOptions = data.projects;
-  const safeProjectId = projectOptions.some((p) => p.id === activeProjectId)
-    ? activeProjectId
-    : projectOptions[0]?.id ?? "";
+  const safeProjectId =
+    activeProjectId === "ALL"
+      ? "ALL"
+      : projectOptions.some((p) => p.id === activeProjectId)
+        ? activeProjectId
+        : projectOptions[0]?.id ?? "";
 
   return (
     <div className="space-y-4 p-3 sm:p-6">
@@ -173,14 +176,15 @@ export function DashboardHome({ data }: { data: AppData }) {
               {data.projects.find((p) => p.id === safeProjectId)?.name ?? "Your project"}
             </span>
           </p>
-        ) : projectOptions.length ? (
+        ) : (
           <label className="text-xs text-muted-foreground">
             Project
             <select
               className="ml-1 h-9 rounded-lg border bg-background px-2 text-sm text-foreground"
-              value={safeProjectId}
+              value={safeProjectId || "ALL"}
               onChange={(e) => setProjectId(e.target.value)}
             >
+              <option value="ALL">All projects</option>
               {projectOptions.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -188,8 +192,6 @@ export function DashboardHome({ data }: { data: AppData }) {
               ))}
             </select>
           </label>
-        ) : (
-          <p className="text-sm text-muted-foreground">No projects yet.</p>
         )}
         {admin ? (
           <label className="text-xs text-muted-foreground">

@@ -10,6 +10,7 @@ import { useUndoToast } from "@/components/undo-toast";
 import { VisitedPicker } from "@/components/visited-picker";
 import { deleteVisitAction, saveVisitAction } from "@/lib/actions";
 import { VISIT_ACTIVITIES, VISIT_REACTIONS, normalizeActivity } from "@/lib/constants";
+import { ActivityIcon } from "@/components/activity-icon";
 import type { VisitInput } from "@/lib/types";
 
 const field = "h-9 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
@@ -119,7 +120,10 @@ export function VisitDialog({
                       set("activities", on ? current.filter((item) => item !== label) : [...current, label]);
                     }}
                   >
-                    {label}
+                    <span className="inline-flex items-center gap-1">
+                      <ActivityIcon label={label} className="size-3.5" />
+                      {label}
+                    </span>
                   </button>
                 );
               })}

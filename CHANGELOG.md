@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.36
+- Home: **All projects** back at the top of the project filter (default stays the current/most recent project). Bochur stays locked. Under All projects, Visits coverage is unique contacts visited in any project out of contacts in scope; activity, completed/deferred, new contacts, and removed sum across projects; people list is newest-first, one row per person with latest visit.
+- Home Visits coverage tile: **Include deferred** checkbox (default off = completed only). Choice remembered in localStorage.
+- Activity tiles / visit dialog chips / people-list activities: Challah 🍞, Menorah/package 📦, Tefillin = small inline SVG (box + straps); Mezuzah and Write-in keep existing icons.
+
 ## 1.8.35
 - Home › Visits: **Removed: not Jewish / not existent** tile (count from Not Jewish / Probably doesn't exist tags); tap opens Contacts tagged view. Delete contact offers removal reasons (tag vs hard delete).
 - Home › Visits: status tile **Completed X / Deferred Y**; people list includes deferred; green/amber row colors + legend.

@@ -63,7 +63,8 @@ export function activityCountsFor(
   return rows;
 }
 
-/** Unique contacts visited in the selected project, vs total contacts in scope (role + state). */
+/** Unique contacts visited in the selected project (or any project when ALL), vs total contacts in scope.
+ *  By default only completed visits count; pass includeDeferred to also count deferred. */
 export function visitCoverage(
   households: {
     id: string;
@@ -71,17 +72,27 @@ export function visitCoverage(
     projectId?: string | null;
     contactVisits: { status?: string | null; projectId?: string | null; visited: string }[];
   }[],
-  filters: { state?: string; projectId: string; projectName?: string },
+  filters: { state?: string; projectId: string; projectName?: string; includeDeferred?: boolean },
 ): { visited: number; total: number; percent: number } {
   const projectId = filters.projectId;
+  const allProjects = !projectId || projectId === "ALL";
   const name = filters.projectName?.trim().toLowerCase() ?? "";
+  const includeDeferred = Boolean(filters.includeDeferred);
   let visited = 0;
   let total = 0;
   for (const house of households) {
     if (filters.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
     total += 1;
     const hit = house.contactVisits.some((cv) => {
-      if (cv.status && cv.status !== "completed") return false;
+      const st = cv.status ?? "completed";
+      if (st === "completed") {
+        /* count */
+      } else if (includeDeferred && st === "deferred") {
+        /* count */
+      } else {
+        return false;
+      }
+      if (allProjects) return true;
       if (cv.projectId === projectId) return true;
       if (house.projectId === projectId) return true;
       if (name && cv.visited.trim().toLowerCase() === name) return true;
@@ -123,7 +134,7 @@ export function defaultProjectId(
   return ranked[0]?.id ?? projects[0].id;
 }
 
-/** Unique contacts in scope by latest visit status (completed vs deferred) for a project. */
+/** Unique contacts in scope by latest visit status (completed vs deferred) for a project (or all). */
 export function visitStatusSplit(
   households: {
     id: string;
@@ -133,15 +144,20 @@ export function visitStatusSplit(
   }[],
   filters: { state?: string; projectId: string; projectName?: string },
 ): { completed: number; deferred: number } {
+  const allProjects = !filters.projectId || filters.projectId === "ALL";
   const pname = filters.projectName?.trim().toLowerCase() ?? "";
   let completed = 0;
   let deferred = 0;
   for (const house of households) {
     if (filters.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
-    const onProject = (cv: (typeof house.contactVisits)[number]) =>
-      cv.projectId === filters.projectId ||
-      house.projectId === filters.projectId ||
-      (pname && cv.visited.trim().toLowerCase() === pname);
+    const onProject = (cv: (typeof house.contactVisits)[number]) => {
+      if (allProjects) return true;
+      return (
+        cv.projectId === filters.projectId ||
+        house.projectId === filters.projectId ||
+        Boolean(pname && cv.visited.trim().toLowerCase() === pname)
+      );
+    };
     const ranked = [...house.contactVisits]
       .filter((cv) => {
         const st = cv.status ?? "completed";

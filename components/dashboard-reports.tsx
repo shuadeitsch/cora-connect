@@ -1,15 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BookOpen,
   Download,
-  Flame,
-  HandHeart,
   MapPin,
-  Package,
-  PenLine,
-  ScrollText,
   Sigma,
   UserMinus,
   UserPlus,
@@ -24,6 +19,7 @@ import { formatMedium } from "@/lib/format";
 import { activityCountsFor, visitCoverage, visitStatusSplit } from "@/lib/visit-activities";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { ActivityIcon } from "@/components/activity-icon";
 
 type SortMode = "recent" | "name";
 
@@ -47,18 +43,25 @@ function stateCode(raw: string) {
   return map[raw] ?? raw.toUpperCase();
 }
 
-const ACTIVITY_ICON: Record<string, typeof Users> = {
+const TILE_ICON: Record<string, typeof Users> = {
   Visits: Users,
   "New contacts found": UserPlus,
   "Removed: not Jewish / not existent": UserMinus,
   Status: Users,
-  Tefillin: HandHeart,
-  "Menorah/package": Flame,
-  Mezuzah: ScrollText,
-  Challah: Package,
-  "Write-in": PenLine,
   Total: Sigma,
 };
+
+const INCLUDE_DEFERRED_KEY = "cora-visits-include-deferred";
+
+function TileGlyph({ label }: { label: string }) {
+  const activity = <ActivityIcon label={label} className="size-3.5" />;
+  if (label === "Tefillin" || label === "Menorah/package" || label === "Mezuzah" || label === "Challah" || label === "Write-in") {
+    return activity;
+  }
+  const Lucide = TILE_ICON[label] ?? BookOpen;
+  return <Lucide className="size-3.5 shrink-0" aria-hidden />;
+}
+
 
 function StatTile({
   label,
@@ -67,6 +70,7 @@ function StatTile({
   detail,
   progress,
   href,
+  footer,
 }: {
   label: string;
   count: number;
@@ -74,8 +78,8 @@ function StatTile({
   detail?: string;
   progress?: number;
   href?: string;
+  footer?: ReactNode;
 }) {
-  const Icon = ACTIVITY_ICON[label] ?? BookOpen;
   const body = (
     <div
       className={cn(
@@ -88,7 +92,7 @@ function StatTile({
       )}
     >
       <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="size-3.5 shrink-0" aria-hidden />
+        <TileGlyph label={label} />
         <span className="truncate text-[11px] font-medium tracking-wide uppercase">{label}</span>
       </div>
       {detail ? (
@@ -102,6 +106,7 @@ function StatTile({
             />
           </div>
           <p className="text-[11px] text-muted-foreground tabular-nums">{progress ?? 0}% of contacts</p>
+          {footer}
         </div>
       ) : (
         <p className="font-heading text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">{count}</p>
@@ -129,9 +134,29 @@ export function DashboardReports({
   state?: string;
 }) {
   const projects = data.projects;
-  const projectName = projects.find((p) => p.id === projectId)?.name;
+  const allProjects = !projectId || projectId === "ALL";
+  const projectName = allProjects ? undefined : projects.find((p) => p.id === projectId)?.name;
   const [sort, setSort] = useState<SortMode>("recent");
+  const [includeDeferred, setIncludeDeferred] = useState(false);
   const viewer = data.viewer;
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(INCLUDE_DEFERRED_KEY);
+      if (raw === "1" || raw === "true") setIncludeDeferred(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function toggleIncludeDeferred(next: boolean) {
+    setIncludeDeferred(next);
+    try {
+      window.localStorage.setItem(INCLUDE_DEFERRED_KEY, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }
 
   const contactVisits = useMemo(
     () =>
@@ -238,8 +263,9 @@ export function DashboardReports({
         state,
         projectId,
         projectName,
+        includeDeferred,
       }),
-    [data.households, projectId, projectName, state],
+    [data.households, includeDeferred, projectId, projectName, state],
   );
 
   const newContactsFound = useMemo(() => {
@@ -247,7 +273,7 @@ export function DashboardReports({
     return data.households.filter((house) => {
       if (!isNewContact(house)) return false;
       if (state !== "ALL" && !sameState(house.state, state)) return false;
-      if (!projectId) return true;
+      if (allProjects) return true;
       if (house.projectId === projectId) return true;
       // Visits tagged to this project also count the contact as found during it when project_id is blank.
       if (!house.projectId && pname) {
@@ -255,7 +281,7 @@ export function DashboardReports({
       }
       return false;
     }).length;
-  }, [data.households, projectId, projectName, state]);
+  }, [allProjects, data.households, projectId, projectName, state]);
 
   const statusSplit = useMemo(
     () => visitStatusSplit(data.households, { state, projectId, projectName }),
@@ -278,9 +304,10 @@ export function DashboardReports({
         const st = cv.status ?? "completed";
         if (st !== "completed" && st !== "deferred") continue;
         const onProject =
+          allProjects ||
           cv.projectId === projectId ||
           house.projectId === projectId ||
-          (pname && cv.visited.trim().toLowerCase() === pname);
+          Boolean(pname && cv.visited.trim().toLowerCase() === pname);
         if (!onProject) continue;
         const visitDate = cv.visitDate || cv.createdAt.slice(0, 10);
         if (!visitDate) continue;
@@ -312,7 +339,7 @@ export function DashboardReports({
       people.sort((a, b) => b.visitDate.localeCompare(a.visitDate) || a.householdName.localeCompare(b.householdName));
     }
     return people;
-  }, [data.households, data.members, projectId, projectName, sort, state, visitedFor]);
+  }, [allProjects, data.households, data.members, projectId, projectName, sort, state, visitedFor]);
 
   function download() {
     const csv = toCsv(
@@ -339,6 +366,10 @@ export function DashboardReports({
     URL.revokeObjectURL(url);
   }
 
+  const foundHref = allProjects
+    ? `/households?found=1${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`
+    : `/households?found=1&project=${encodeURIComponent(projectId)}${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`;
+
   const tiles: {
     label: string;
     count: number;
@@ -346,6 +377,7 @@ export function DashboardReports({
     detail?: string;
     progress?: number;
     href?: string;
+    footer?: ReactNode;
   }[] = [
     {
       label: "Visits",
@@ -353,11 +385,22 @@ export function DashboardReports({
       tone: "accent",
       detail: `${coverage.visited} of ${coverage.total} contacts`,
       progress: coverage.percent,
+      footer: (
+        <label className="mt-1 flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
+          <input
+            type="checkbox"
+            className="size-3.5 accent-primary"
+            checked={includeDeferred}
+            onChange={(e) => toggleIncludeDeferred(e.target.checked)}
+          />
+          <span>Include deferred</span>
+        </label>
+      ),
     },
     {
       label: "New contacts found",
       count: newContactsFound,
-      href: `/households?found=1&project=${encodeURIComponent(projectId)}${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`,
+      href: foundHref,
     },
     {
       label: "Status",
@@ -383,9 +426,11 @@ export function DashboardReports({
         <div>
           <h2 className="font-heading text-xl font-semibold text-foreground">Visits</h2>
           <p className="text-sm text-muted-foreground">
-            {projectName ? `${projectName}: ` : ""}
+            {allProjects ? "All projects: " : projectName ? `${projectName}: ` : ""}
             {coverage.visited} of {coverage.total} contacts visited
-            {coverage.total ? ` (${coverage.percent}%)` : ""}. Activity totals and people list follow this project.
+            {coverage.total ? ` (${coverage.percent}%)` : ""}
+            {includeDeferred ? " (completed + deferred)" : " (completed only)"}.
+            {" "}Activity totals and people list follow this {allProjects ? "combined view" : "project"}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -404,7 +449,7 @@ export function DashboardReports({
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-9">
         {tiles.map((tile) => (
-          <StatTile key={tile.label} label={tile.label} count={tile.count} tone={tile.tone} detail={tile.detail} progress={tile.progress} href={tile.href} />
+          <StatTile key={tile.label} label={tile.label} count={tile.count} tone={tile.tone} detail={tile.detail} progress={tile.progress} href={tile.href} footer={tile.footer} />
         ))}
       </div>
 
@@ -450,7 +495,18 @@ export function DashboardReports({
                       "—"
                     )}
                   </td>
-                  <td className="px-2 py-2 text-muted-foreground">{row.activities.length ? row.activities.join(" · ") : "—"}</td>
+                  <td className="px-2 py-2 text-muted-foreground">
+                    {row.activities.length ? (
+                      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {row.activities.map((a) => (
+                          <span key={a} className="inline-flex items-center gap-1">
+                            <ActivityIcon label={a} className="size-3.5" />
+                            {a}
+                          </span>
+                        ))}
+                      </span>
+                    ) : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
