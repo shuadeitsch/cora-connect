@@ -102,7 +102,7 @@ export function MapView({ data }: { data: AppData }) {
   );
 
   return (
-    <div className="relative isolate h-full min-h-[70dvh]">
+    <div className="relative isolate h-full min-h-[70dvh]" data-tour="map">
       <MapCanvas
         pins={pins}
         selected={[]}

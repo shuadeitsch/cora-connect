@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.41
+- Optional **Tutorial** under More (sidebar and mobile More sheet) for every role. Never auto-shown.
+- Guided walkthrough of the real CRM, with separate steps for admin, shliach, and bochur. Spotlight + Next/Back/Exit and “Step X of N”; fallback card if a control is off screen. Read-only — no data changes, example text only.
+- Resume: `profiles.tutorial_step` / `tutorial_done` (migration 038) plus localStorage fallback. Exit midway and the tab continues there; Start over is offered.
+
 ## 1.8.40
 - Home Visits people list: default page size **10** (newest first); pager unchanged. Contacts page stays at 25.
 

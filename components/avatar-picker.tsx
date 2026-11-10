@@ -61,7 +61,7 @@ export function AvatarPicker({ name, url }: { name: string; url: string | null }
   }
 
   return (
-    <section className="panel mt-4 max-w-2xl rounded-3xl p-4" aria-label="Profile picture">
+    <section className="panel mt-4 max-w-2xl rounded-3xl p-4" aria-label="Profile picture" data-tour="settings-photo">
       <h2 className="font-heading text-lg font-semibold text-foreground">Profile picture</h2>
       {error ? <div className="mt-2"><Notice>{error}</Notice></div> : null}
       {file && preview ? (

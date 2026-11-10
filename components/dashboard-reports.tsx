@@ -451,7 +451,7 @@ export function DashboardReports({
   const pageRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
-    <section className="panel space-y-4 rounded-3xl p-4" aria-label="Visits">
+    <section className="panel space-y-4 rounded-3xl p-4" aria-label="Visits" data-tour="visits">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-heading text-xl font-semibold text-foreground">Visits</h2>
@@ -512,7 +512,7 @@ export function DashboardReports({
       </div>
 
       {rows.length ? (
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="visits-people">
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
             <span className="font-medium uppercase tracking-wide">Status colors</span>
             <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-emerald-500" aria-hidden /> Completed</span>
@@ -573,7 +573,7 @@ export function DashboardReports({
         </div>
         </div>
       ) : (
-        <p className="flex items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+        <p className="flex items-center gap-2 py-8 text-center text-sm text-muted-foreground" data-tour="visits-people">
           <MapPin className="mx-auto size-4 opacity-50" />
           <span className="w-full">No visits match these filters.</span>
         </p>

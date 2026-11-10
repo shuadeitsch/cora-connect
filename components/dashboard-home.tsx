@@ -165,10 +165,10 @@ export function DashboardHome({ data }: { data: AppData }) {
         : projectOptions[0]?.id ?? "";
 
   return (
-    <div className="space-y-4 p-3 sm:p-6">
+    <div className="space-y-4 p-3 sm:p-6" data-tour="home">
       <Greeting name={viewer.name} />
 
-      <div className="flex flex-wrap items-center gap-2" aria-label="Dashboard filters">
+      <div className="flex flex-wrap items-center gap-2" aria-label="Dashboard filters" data-tour="home-filters">
         {bochur ? (
           <p className="text-sm text-muted-foreground">
             Project:{" "}

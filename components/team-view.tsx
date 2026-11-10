@@ -143,7 +143,7 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
   const shliach = data.viewer.role === "shliach";
 
   return (
-    <div className={embedded ? "" : "p-4 sm:p-6"}>
+    <div className={embedded ? "" : "p-4 sm:p-6"} data-tour="team">
       {embedded ? (
         <div className="mb-4">
           <h2 className="font-heading text-xl font-semibold text-foreground">My Team</h2>

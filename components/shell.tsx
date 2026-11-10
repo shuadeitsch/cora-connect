@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  BookOpen,
   CalendarDays,
   ChevronDown,
   FlaskConical,
@@ -22,6 +23,7 @@ import { CommandPalette, type PaletteHousehold } from "@/components/command-pale
 import { FeedbackButton } from "@/components/feedback-button";
 import { PreviewBanner } from "@/components/preview-banner";
 import { PracticeProvider } from "@/components/practice-provider";
+import { TutorialProvider } from "@/components/tutorial-tour";
 import { ReloadButton } from "@/components/reload-button";
 import { VersionBadge } from "@/components/version-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -55,6 +57,7 @@ const SIDEBAR_EXTRA: NavItem[] = [
 const MORE_ITEMS: NavItem[] = [
   { href: "/map", label: "Map", icon: Map },
   { href: "/beta", label: "Beta", icon: FlaskConical, adminOnly: true },
+  { href: "/tutorials", label: "Tutorial", icon: BookOpen },
 ];
 
 /** A bochur only works with contacts shared with him. */
@@ -235,6 +238,7 @@ export function Shell({
 
   return (
     <PracticeProvider active={Boolean(preview)}>
+    <TutorialProvider viewer={viewer}>
       <div className="safe-page app-frame flex flex-col">
       <header className="glass z-30 mx-2 mt-2 flex min-h-14 shrink-0 items-center justify-between gap-2 rounded-2xl px-2 py-1 sm:mx-3 sm:px-3">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 pl-1">
@@ -388,6 +392,7 @@ export function Shell({
       </Sheet>
       <CommandPalette open={search} onOpenChange={setSearch} households={households} canManage={viewer.canManage && !preview} />
     </div>
+    </TutorialProvider>
     </PracticeProvider>
   );
 }

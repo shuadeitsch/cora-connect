@@ -64,6 +64,8 @@ export interface User {
   /** Bochur: step one (a Cora admin) and the final step (his shliach). */
   adminApprovedAt?: string | null;
   finalApprovedAt?: string | null;
+  tutorialStep?: number;
+  tutorialDone?: boolean;
 }
 
 export interface Invite {
@@ -261,6 +263,8 @@ export interface Viewer {
   projectId: string | null;
   /** Set when a Cora admin is viewing the app as another role (Beta). */
   preview?: { role: "shliach" | "bochur"; state: string | null } | null;
+  tutorialStep?: number;
+  tutorialDone?: boolean;
 }
 
 export interface TeamMember {

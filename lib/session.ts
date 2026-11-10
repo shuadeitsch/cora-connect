@@ -52,6 +52,8 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
     bochurimEditPlanner: Boolean(profile.bochurim_edit_planner),
     bochurimSeePlannerDefault: profile.bochurim_see_planner_default !== false,
     projectId: profile.project_id ?? null,
+    tutorialStep: Number(profile.tutorial_step ?? 0) || 0,
+    tutorialDone: Boolean(profile.tutorial_done),
   };
 });
 

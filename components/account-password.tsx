@@ -35,7 +35,7 @@ export function AccountPassword({ name, email, recovery }: { name: string; email
   }
 
   return (
-    <form className="grid max-w-xl gap-3 panel rounded-3xl p-4" onSubmit={(event) => void submit(event)}>
+    <form className="grid max-w-xl gap-3 panel rounded-3xl p-4" data-tour="settings-account" onSubmit={(event) => void submit(event)}>
       <div>
         <h2 className="font-heading text-lg font-semibold text-foreground">Password</h2>
         <p className="mt-1 text-sm text-mutedink">{name} · {email}</p>

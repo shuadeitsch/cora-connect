@@ -42,7 +42,7 @@ export function FeedbackButton({ preview = false }: { preview?: boolean }) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label="Feedback"
+          aria-label="Feedback" data-tour="feedback"
           title="Feedback"
           className="inline-flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted"
         >

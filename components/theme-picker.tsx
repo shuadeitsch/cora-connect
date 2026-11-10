@@ -158,7 +158,7 @@ export function ThemePicker({
   }
 
   return (
-    <section className="panel mt-4 max-w-2xl rounded-3xl p-4" aria-label="Theme">
+    <section className="panel mt-4 max-w-2xl rounded-3xl p-4" aria-label="Theme" data-tour="settings-theme">
       <h2 className="font-heading text-lg font-semibold text-foreground">Theme</h2>
       <p className="text-sm text-muted-foreground">Pick the colors you like. It&apos;s saved to your account.</p>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">

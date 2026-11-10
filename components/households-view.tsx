@@ -308,7 +308,7 @@ export function HouseholdsView({
                       <Upload /> Import
                     </Button>
                   ) : null}
-                  <Button className="rounded-full" onClick={() => setCreating(true)}>
+                  <Button className="rounded-full" data-tour="contacts-add" onClick={() => setCreating(true)}>
                     <Plus /> New Contact
                   </Button>
                 </>
@@ -333,7 +333,7 @@ export function HouseholdsView({
         </div>
       ) : null}
       <ContactStateTabs ctl={filterCtl} className="mb-3" onChange={() => setPage(1)} />
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2" data-tour="contacts-remove">
         <ContactFilterControls ctl={filterCtl} onChange={() => setPage(1)} />
         <select
           aria-label="Order"
@@ -376,7 +376,7 @@ export function HouseholdsView({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
           <div className="relative min-w-0 basis-full sm:flex-1">
             <Search className="absolute top-3.5 left-3 size-4 text-muted-foreground" />
-            <Input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Search name, phone, or email" className="w-full pl-9" />
+            <Input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Search name, phone, or email" className="w-full pl-9" data-tour="contacts-search" />
           </div>
           <div className="flex items-center gap-2">
             <div className="flex rounded-full bg-muted p-1">
@@ -436,7 +436,7 @@ export function HouseholdsView({
                   <ShareWithBochurimToggle household={household} data={live} />
                   <div className="mt-auto flex gap-2">
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" onClick={() => setContact(household)}>Contact</Button>
-                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} onClick={() => setVisitFor(household)}>Visit</Button>
+                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} data-tour="visit-log" onClick={() => setVisitFor(household)}>Visit</Button>
                     <Button size="sm" variant="outline" className="h-10 rounded-full" onClick={() => setHistory(household)}>History</Button>
                   </div>
                 </article>
@@ -857,7 +857,7 @@ function ShareWithBochurimToggle({
       : household.sharedWithBochurim,
   );
   return (
-    <label className="inline-flex items-center gap-1.5 text-xs text-foreground" title="Share with bochurim">
+    <label className="inline-flex items-center gap-1.5 text-xs text-foreground" title="Share with bochurim" data-tour="contacts-share">
       <input
         type="checkbox"
         className="size-4 accent-primary"
@@ -1289,7 +1289,7 @@ function ContactDialog({
                 <DialogTitle className="font-heading text-foreground">Contact</DialogTitle>
                 {canEdit ? <Button size="sm" variant="outline" className="rounded-full" onClick={onEdit}><Pencil className="size-3.5" /> Edit</Button> : null}
                 {!canEdit && data.viewer.role === "bochur" ? (
-                  <Button size="sm" variant="outline" className="rounded-full" onClick={onEdit} disabled={Boolean(data.viewer.preview)}>
+                  <Button size="sm" variant="outline" className="rounded-full" data-tour="contacts-suggest" onClick={onEdit} disabled={Boolean(data.viewer.preview)}>
                     <Pencil className="size-3.5" /> Suggest edit
                   </Button>
                 ) : null}

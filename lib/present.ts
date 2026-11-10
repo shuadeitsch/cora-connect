@@ -455,6 +455,8 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
           ? (db.users.find((member) => member.id === user.leaderId)?.bochurimSeePlannerDefault !== false)
           : user.bochurimSeePlannerDefault !== false,
       projectId: user.projectId ?? null,
+      tutorialStep: user.tutorialStep ?? 0,
+      tutorialDone: Boolean(user.tutorialDone),
       territory: user.territory ?? [],
       preview: user.previewing
         ? { role: user.role === "bochur" ? "bochur" as const : "shliach" as const, state: user.territory?.[0]?.state ?? null }

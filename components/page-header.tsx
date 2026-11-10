@@ -15,6 +15,21 @@ export const PAGE_DESCRIPTIONS: Record<string, string> = {
   "My team": "Your team, invites, and account approvals — shluchim, bochurim, and access — in one place.",
   "My Team": "Your team, invites, and account approvals — shluchim, bochurim, and access — in one place.",
   Beta: "Try the shliach and bochur versions of Cora Connect without changing real data.",
+  Tutorial: "A short, optional walkthrough of Cora Connect. You can leave and pick up later.",
+};
+
+const TOUR_BY_CRUMB: Record<string, string> = {
+  Contacts: "contacts",
+  Map: "map",
+  "Saved routes": "routes",
+  Routes: "routes",
+  "Daily planner": "planner",
+  "Daily schedule": "planner",
+  Settings: "settings",
+  "My team": "team",
+  "My Team": "team",
+  Beta: "beta",
+  Tutorial: "tutorial-page",
 };
 
 export function PageDescription({ children }: { children: ReactNode }) {
@@ -34,8 +49,9 @@ export function PageHeader({
   description?: string;
 }) {
   const line = description ?? PAGE_DESCRIPTIONS[title] ?? PAGE_DESCRIPTIONS[crumb] ?? "";
+  const tour = TOUR_BY_CRUMB[crumb] ?? TOUR_BY_CRUMB[title];
   return (
-    <div className="mb-4">
+    <div className="mb-4" data-tour={tour}>
       <p className="mb-1 hidden text-xs text-muted-foreground xl:block">
         Home <span className="px-1">›</span> {crumb}
       </p>
