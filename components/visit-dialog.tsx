@@ -173,6 +173,14 @@ export function VisitDialog({
             </div>
           </fieldset>
           <label className="grid gap-1 text-sm">
+            <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visited by</span>
+            <Input
+              value={form.visitedBy ?? ""}
+              onChange={(event) => set("visitedBy", event.target.value)}
+              placeholder="Auto-fills from assigned bochurim if left blank"
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
             <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Details</span>
             <Textarea value={form.details} onChange={(event) => set("details", event.target.value)} rows={4} placeholder="What happened at the door?" />
           </label>
@@ -219,6 +227,7 @@ function emptyVisit(householdId: string): VisitInput {
     reaction: "",
     details: "",
     visited: "",
+    visitedBy: "",
     activities: [],
   };
 }
@@ -230,6 +239,7 @@ export function visitInputFrom(visit: {
   status: string | null;
   reaction: string | null;
   details: string;
+  visitedBy?: string | null;
   activities?: string[];
 }): VisitInput {
   return {
@@ -240,6 +250,7 @@ export function visitInputFrom(visit: {
     reaction: visit.reaction ?? "",
     details: visit.details,
     visited: "",
+    visitedBy: visit.visitedBy ?? "",
     activities: visit.activities ?? [],
   };
 }

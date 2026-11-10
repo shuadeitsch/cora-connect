@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.38
+- Home Visits: restore **Include deferred** under the coverage tile (localStorage, default off). Remove separate Completed/Deferred tiles. Keep 1.8.37 active-denominator helper text on the **first three** tiles only (Visits, New contacts found, Removed). People list paginates like Contacts (25 default; 10/25/50 + shared Pager); green/amber status colors kept.
+- Maine Summer 5786: fill `visited_by` = “Mendel Baitelman & Mendele Lustig” on remaining rows (deferred + any still blank); notes untouched.
+- New visits: BEFORE INSERT trigger + SECURITY DEFINER helper auto-snapshots `visited_by` from the contact’s state shliach’s assigned bochurim (project-matched), including the logger if a bochur; else logger name. Format `A & B` / comma for 3+. Blank/editable in the visit form; existing rows unchanged.
+
 ## 1.8.37
 - Home Visits tile math (Mendel): first **Visits** tile = touched (completed + deferred + removed tags) out of **full** total including removed. Dropped Include deferred toggle. **Completed** / **Deferred** tiles show `X of active`; every tile after Visits shows helper `out of N · excludes R removed (not Jewish / doesn't exist)`. Activities, new contacts, removed unchanged otherwise; All projects + state filters respected.
 

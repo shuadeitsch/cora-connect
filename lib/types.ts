@@ -536,6 +536,8 @@ export interface VisitInput {
   details: string;
   /** Season and Hebrew year, stored as "Summer 5786". Blank keeps the previous value on an edit. */
   visited?: string;
+  /** Snapshot of who visited; auto-filled on insert when blank. */
+  visitedBy?: string;
   activities?: string[];
 }
 

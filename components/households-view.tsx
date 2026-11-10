@@ -26,6 +26,7 @@ import {
 import { AddressLink } from "@/components/address-link";
 import { Avatar } from "@/components/avatar";
 import { ImportContacts } from "@/components/import-contacts";
+import { Pager } from "@/components/pager";
 import { Notice, PageHeader } from "@/components/page-header";
 import { useToast } from "@/components/toast";
 import { VisitDialog } from "@/components/visit-dialog";
@@ -890,22 +891,6 @@ function IconAction({ label, onClick, icon: Icon, disabled }: { label: string; o
   );
 }
 
-function Pager({ page, pages, onPage }: { page: number; pages: number; onPage: (page: number) => void }) {
-  if (pages <= 1) return null;
-  const windowed = Array.from({ length: pages }, (_, index) => index + 1).filter((n) => n === 1 || n === pages || Math.abs(n - page) <= 1);
-  return (
-    <div className="flex items-center justify-end gap-1 px-3 py-3">
-      {windowed.map((n, index) => (
-        <span key={n} className="flex items-center">
-          {index > 0 && windowed[index - 1] !== n - 1 ? <span className="px-1 text-mutedink">…</span> : null}
-          <button type="button" onClick={() => onPage(n)} className={n === page ? "size-8 rounded-full bg-primary text-sm text-primary-foreground" : "size-8 rounded-full text-sm text-foreground hover:bg-muted"}>
-            {n}
-          </button>
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function blankInput(data: AppData): HouseholdInput {
   return {

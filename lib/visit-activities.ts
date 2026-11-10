@@ -79,7 +79,9 @@ function onProjectVisit(
   return false;
 }
 
-/** Home Visits coverage: touched (completed + deferred + removed tags) out of FULL total (incl. removed). */
+/** Home Visits coverage: unique contacts with a matching visit out of FULL total (incl. removed).
+ *  includeDeferred=false → completed only; true → completed + deferred.
+ *  activeTotal = full total minus removed tags (for helper text on other tiles). */
 export function visitCoverage(
   households: {
     id: string;
@@ -88,7 +90,7 @@ export function visitCoverage(
     tags?: string[];
     contactVisits: { status?: string | null; projectId?: string | null; visited: string }[];
   }[],
-  filters: { state?: string; projectId: string; projectName?: string },
+  filters: { state?: string; projectId: string; projectName?: string; includeDeferred?: boolean },
 ): {
   visited: number;
   total: number;
@@ -96,24 +98,30 @@ export function visitCoverage(
   activeTotal: number;
   removed: number;
 } {
-  let touched = 0;
+  const includeDeferred = Boolean(filters.includeDeferred);
+  let visited = 0;
   let total = 0;
   let removed = 0;
   for (const house of households) {
     if (filters.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
     total += 1;
-    const tagged = isTaggedContact(house.tags ?? []);
-    if (tagged) removed += 1;
-    const visitHit = house.contactVisits.some((cv) => {
+    if (isTaggedContact(house.tags ?? [])) removed += 1;
+    const hit = house.contactVisits.some((cv) => {
       const st = cv.status ?? "completed";
-      if (st !== "completed" && st !== "deferred") return false;
+      if (st === "completed") {
+        /* ok */
+      } else if (includeDeferred && st === "deferred") {
+        /* ok */
+      } else {
+        return false;
+      }
       return onProjectVisit(cv, house, filters);
     });
-    if (visitHit || tagged) touched += 1;
+    if (hit) visited += 1;
   }
   const activeTotal = total - removed;
-  const percent = total ? Math.round((touched / total) * 100) : 0;
-  return { visited: touched, total, percent, activeTotal, removed };
+  const percent = total ? Math.round((visited / total) * 100) : 0;
+  return { visited, total, percent, activeTotal, removed };
 }
 
 /** Pick current/most recent project: most recent visit activity, then name. */

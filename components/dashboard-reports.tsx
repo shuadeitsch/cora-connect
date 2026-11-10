@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BookOpen,
   Download,
@@ -16,10 +16,11 @@ import { isNewContact } from "@/lib/new-contacts";
 import { countRemovedTagged, isTaggedContact } from "@/lib/contact-tags";
 import { toCsv } from "@/lib/csv";
 import { formatMedium } from "@/lib/format";
-import { activityCountsFor, visitCoverage, visitStatusSplit } from "@/lib/visit-activities";
+import { activityCountsFor, visitCoverage } from "@/lib/visit-activities";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ActivityIcon } from "@/components/activity-icon";
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, Pager } from "@/components/pager";
 
 type SortMode = "recent" | "name";
 
@@ -45,13 +46,13 @@ function stateCode(raw: string) {
 
 const TILE_ICON: Record<string, typeof Users> = {
   Visits: Users,
-  Completed: Users,
-  Deferred: Users,
   "New contacts found": UserPlus,
   "Removed: not Jewish / not existent": UserMinus,
   Total: Sigma,
 };
 
+
+const INCLUDE_DEFERRED_KEY = "cora-visits-include-deferred";
 
 function TileGlyph({ label }: { label: string }) {
   const activity = <ActivityIcon label={label} className="size-3.5" />;
@@ -144,7 +145,28 @@ export function DashboardReports({
   const allProjects = !projectId || projectId === "ALL";
   const projectName = allProjects ? undefined : projects.find((p) => p.id === projectId)?.name;
   const [sort, setSort] = useState<SortMode>("recent");
+  const [includeDeferred, setIncludeDeferred] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const viewer = data.viewer;
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(INCLUDE_DEFERRED_KEY);
+      if (raw === "1" || raw === "true") setIncludeDeferred(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function toggleIncludeDeferred(next: boolean) {
+    setIncludeDeferred(next);
+    try {
+      window.localStorage.setItem(INCLUDE_DEFERRED_KEY, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }
 
   const contactVisits = useMemo(
     () =>
@@ -251,8 +273,9 @@ export function DashboardReports({
         state,
         projectId,
         projectName,
+        includeDeferred,
       }),
-    [data.households, projectId, projectName, state],
+    [data.households, includeDeferred, projectId, projectName, state],
   );
 
   const newContactsFound = useMemo(() => {
@@ -270,11 +293,6 @@ export function DashboardReports({
       return false;
     }).length;
   }, [allProjects, data.households, projectId, projectName, state]);
-
-  const statusSplit = useMemo(
-    () => visitStatusSplit(data.households, { state, projectId, projectName }),
-    [data.households, projectId, projectName, state],
-  );
 
   const removedTagged = useMemo(
     () => countRemovedTagged(data.households, state),
@@ -384,18 +402,20 @@ export function DashboardReports({
       tone: "accent",
       detail: `${coverage.visited} of ${coverage.total} contacts`,
       progress: coverage.percent,
-    },
-    {
-      label: "Completed",
-      count: statusSplit.completed,
-      detail: `${statusSplit.completed} of ${activeTotal}`,
-      footer: denomHint,
-    },
-    {
-      label: "Deferred",
-      count: statusSplit.deferred,
-      detail: `${statusSplit.deferred} of ${activeTotal}`,
-      footer: denomHint,
+      footer: (
+        <div className="space-y-1">
+          <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              className="size-3.5 accent-primary"
+              checked={includeDeferred}
+              onChange={(e) => toggleIncludeDeferred(e.target.checked)}
+            />
+            <span>Include deferred</span>
+          </label>
+          {denomHint}
+        </div>
+      ),
     },
     {
       label: "New contacts found",
@@ -412,11 +432,14 @@ export function DashboardReports({
     ...VISIT_ACTIVITIES.map((label) => ({
       label,
       count: activityRows.find((r) => r.label === label)?.count ?? 0,
-      footer: denomHint,
     })),
-    { label: "Write-in", count: activityRows.find((r) => r.label === "Write-in")?.count ?? 0, footer: denomHint },
-    { label: "Total", count: activityRows.find((r) => r.label === "Total")?.count ?? 0, tone: "muted" as const, footer: denomHint },
+    { label: "Write-in", count: activityRows.find((r) => r.label === "Write-in")?.count ?? 0 },
+    { label: "Total", count: activityRows.find((r) => r.label === "Total")?.count ?? 0, tone: "muted" as const },
   ];
+
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(page, pages);
+  const pageRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <section className="panel space-y-4 rounded-3xl p-4" aria-label="Visits">
@@ -425,21 +448,48 @@ export function DashboardReports({
           <h2 className="font-heading text-xl font-semibold text-foreground">Visits</h2>
           <p className="text-sm text-muted-foreground">
             {allProjects ? "All projects: " : projectName ? `${projectName}: ` : ""}
-            {coverage.visited} of {coverage.total} contacts touched
-            {coverage.total ? ` (${coverage.percent}%)` : ""} — completed, deferred, or removed.
-            {" "}Other tiles use {coverage.activeTotal} contacts
-            {coverage.removed ? ` (excludes ${coverage.removed} removed)` : ""}.
+            {coverage.visited} of {coverage.total} contacts visited
+            {coverage.total ? ` (${coverage.percent}%)` : ""}
+            {includeDeferred ? " (completed + deferred)" : " (completed only)"}.
+            {" "}Active book: {coverage.activeTotal}
+            {coverage.removed ? ` · excludes ${coverage.removed} removed` : ""}.
             {" "}People list follows this {allProjects ? "combined view" : "project"}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="text-xs text-muted-foreground">
             Sort
-            <select className="ml-1 h-9 rounded-lg border bg-background px-2 text-sm text-foreground" value={sort} onChange={(e) => setSort(e.target.value as SortMode)}>
+            <select
+              className="ml-1 h-9 rounded-lg border bg-background px-2 text-sm text-foreground"
+              value={sort}
+              onChange={(e) => {
+                setSort(e.target.value as SortMode);
+                setPage(1);
+              }}
+            >
               <option value="recent">Recently visited</option>
               <option value="name">Name A–Z</option>
             </select>
           </label>
+          <p className="text-xs text-muted-foreground">
+            Showing
+            <select
+              className="mx-1 h-9 rounded-lg border bg-background px-1 text-sm text-foreground"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+              aria-label="Rows per page"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+            of {rows.length}
+          </p>
           <button type="button" className="inline-flex h-9 items-center gap-1 rounded-full border px-3 text-xs" onClick={download}>
             <Download className="size-3.5" /> CSV
           </button>
@@ -469,7 +519,7 @@ export function DashboardReports({
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, 100).map((row) => (
+              {pageRows.map((row) => (
                 <tr
                   key={row.householdId}
                   className={cn(
@@ -510,7 +560,7 @@ export function DashboardReports({
               ))}
             </tbody>
           </table>
-          {rows.length > 100 ? <p className="px-2 py-2 text-xs text-muted-foreground">Showing 100 of {rows.length}. Download CSV for all.</p> : null}
+          <Pager page={safePage} pages={pages} onPage={setPage} />
         </div>
         </div>
       ) : (
