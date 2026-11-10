@@ -301,14 +301,23 @@ export function DashboardReports({
 
   const rows = useMemo(() => {
     // Prefer contact_visits — the visits log can be empty/soft-deleted while history still has rows.
+    // List follows Include deferred: completed only by default; + deferred when checked.
+    // Removed/tagged contacts never appear.
     const nameById = new Map(data.members.filter((m) => m.kind === "member").map((m) => [m.id, m.name]));
     const pname = projectName?.trim().toLowerCase() ?? "";
     const filtered: ReportRow[] = [];
     for (const house of data.households) {
       if (state !== "ALL" && stateCode(house.state || "") !== stateCode(state)) continue;
+      if (isTaggedContact(house.tags ?? [])) continue;
       for (const cv of house.contactVisits) {
         const st = cv.status ?? "completed";
-        if (st !== "completed" && st !== "deferred") continue;
+        if (st === "completed") {
+          /* always */
+        } else if (includeDeferred && st === "deferred") {
+          /* when Include deferred is on */
+        } else {
+          continue;
+        }
         const onProject =
           allProjects ||
           cv.projectId === projectId ||
@@ -345,7 +354,7 @@ export function DashboardReports({
       people.sort((a, b) => b.visitDate.localeCompare(a.visitDate) || a.householdName.localeCompare(b.householdName));
     }
     return people;
-  }, [allProjects, data.households, data.members, projectId, projectName, sort, state, visitedFor]);
+  }, [allProjects, data.households, data.members, includeDeferred, projectId, projectName, sort, state, visitedFor]);
 
   function download() {
     const csv = toCsv(
@@ -453,7 +462,7 @@ export function DashboardReports({
             {includeDeferred ? " (completed + deferred)" : " (completed only)"}.
             {" "}Active book: {coverage.activeTotal}
             {coverage.removed ? ` · excludes ${coverage.removed} removed` : ""}.
-            {" "}People list follows this {allProjects ? "combined view" : "project"}.
+            {" "}People list matches the checkbox (removed contacts never listed).
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

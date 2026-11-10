@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.39
+- Home Visits people list: only **completed** contacts by default; **deferred** rows appear only when Include deferred is checked (same checkbox as the coverage tile). Removed/tagged contacts never appear in the list.
+
 ## 1.8.38
 - Home Visits: restore **Include deferred** under the coverage tile (localStorage, default off). Remove separate Completed/Deferred tiles. Keep 1.8.37 active-denominator helper text on the **first three** tiles only (Visits, New contacts found, Removed). People list paginates like Contacts (25 default; 10/25/50 + shared Pager); green/amber status colors kept.
 - Maine Summer 5786: fill `visited_by` = “Mendel Baitelman & Mendele Lustig” on remaining rows (deferred + any still blank); notes untouched.
