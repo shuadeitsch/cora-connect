@@ -80,10 +80,11 @@ function onProjectVisit(
   return false;
 }
 
-/** Home Visits coverage: unique ACTIVE contacts with a matching visit, out of the active book.
- *  Removed (not Jewish / doesn't exist) are excluded from both X and the denominator.
+/** Home Visits coverage: unique live contacts with a matching visit, out of the live book.
+ *  By default, removed (not Jewish / doesn't exist) are excluded from both X and the denominator.
+ *  includeRemoved=true → denominator is the full live book; every removed contact counts in X as visited.
  *  includeDeferred=false → completed only; true → completed + deferred.
- *  total is the full count (incl. removed); activeTotal = total - removed. */
+ *  total is the live count (incl. removed); activeTotal = total - removed. */
 export function visitCoverage(
   households: {
     id: string;
@@ -94,15 +95,17 @@ export function visitCoverage(
     deletedByShliachAt?: string | null;
     contactVisits: { status?: string | null; projectId?: string | null; visited: string }[];
   }[],
-  filters: { state?: string; projectId: string; projectName?: string; includeDeferred?: boolean },
+  filters: { state?: string; projectId: string; projectName?: string; includeDeferred?: boolean; includeRemoved?: boolean },
 ): {
   visited: number;
   total: number;
   percent: number;
   activeTotal: number;
   removed: number;
+  denominator: number;
 } {
   const includeDeferred = Boolean(filters.includeDeferred);
+  const includeRemoved = Boolean(filters.includeRemoved);
   let visited = 0;
   let total = 0;
   let removed = 0;
@@ -113,6 +116,8 @@ export function visitCoverage(
     total += 1;
     if (isTaggedContact(house.tags ?? [])) {
       removed += 1;
+      // Include removed: they count in X as visited (the full live book is the denominator).
+      if (includeRemoved) visited += 1;
       continue;
     }
     const hit = house.contactVisits.some((cv) => {
@@ -129,8 +134,9 @@ export function visitCoverage(
     if (hit) visited += 1;
   }
   const activeTotal = total - removed;
-  const percent = activeTotal ? Math.round((visited / activeTotal) * 100) : 0;
-  return { visited, total, percent, activeTotal, removed };
+  const denominator = includeRemoved ? total : activeTotal;
+  const percent = denominator ? Math.round((visited / denominator) * 100) : 0;
+  return { visited, total, percent, activeTotal, removed, denominator };
 }
 
 /** Pick current/most recent project: most recent visit activity, then name. */

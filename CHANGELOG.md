@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.46
+- Home Visits first tile: **Include removed** checkbox next to Include deferred, remembered per user (off by default). When it is on, the denominator is the full live book (`deleted_at IS NULL` only, 155) and the 10 removed contacts (Not Jewish / Probably doesn't exist) count in X as visited. The “Excluding 10…” helper is hidden. When it is off, the tile stays `X of 145` with the helper, as in 1.8.44.
+
+
 ## 1.8.45
 - **Chavrusos.** Once a shliach has 4 or more bochurim, Settings → My Team gets a Chavrusos section to assign each bochur to A or B (or leave him unassigned). Assignments go through a security-definer RPC (`set_bochur_chavrusa`); only that shliach or a Cora admin can change them. A bochur cannot change his own assignment.
 - Daily planner has an All / Shared / Chavrusa A / Chavrusa B switch. Existing days stay **shared** (`chavrusa` is null) and remain visible to both groups. New days created while on A or B are tagged to that group; All and Shared create a shared day. A shliach can retag a day. Bochur A sees A + shared; bochur B sees B + shared; an unassigned bochur sees only shared. Per-day “can see” / “can edit” still apply.

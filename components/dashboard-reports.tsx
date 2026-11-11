@@ -53,6 +53,7 @@ const TILE_ICON: Record<string, typeof Users> = {
 
 
 const INCLUDE_DEFERRED_KEY = "cora-visits-include-deferred";
+const INCLUDE_REMOVED_KEY = "cora-visits-include-removed";
 
 function TileGlyph({ label }: { label: string }) {
   const activity = <ActivityIcon label={label} className="size-3.5" />;
@@ -146,6 +147,7 @@ export function DashboardReports({
   const projectName = allProjects ? undefined : projects.find((p) => p.id === projectId)?.name;
   const [sort, setSort] = useState<SortMode>("recent");
   const [includeDeferred, setIncludeDeferred] = useState(false);
+  const [includeRemoved, setIncludeRemoved] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const viewer = data.viewer;
@@ -154,15 +156,27 @@ export function DashboardReports({
     try {
       const raw = window.localStorage.getItem(INCLUDE_DEFERRED_KEY);
       if (raw === "1" || raw === "true") setIncludeDeferred(true);
+      const removedKey = `${INCLUDE_REMOVED_KEY}:${viewer.id}`;
+      const removedRaw = window.localStorage.getItem(removedKey) ?? window.localStorage.getItem(INCLUDE_REMOVED_KEY);
+      if (removedRaw === "1" || removedRaw === "true") setIncludeRemoved(true);
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [viewer.id]);
 
   function toggleIncludeDeferred(next: boolean) {
     setIncludeDeferred(next);
     try {
       window.localStorage.setItem(INCLUDE_DEFERRED_KEY, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function toggleIncludeRemoved(next: boolean) {
+    setIncludeRemoved(next);
+    try {
+      window.localStorage.setItem(`${INCLUDE_REMOVED_KEY}:${viewer.id}`, next ? "1" : "0");
     } catch {
       /* ignore */
     }
@@ -274,8 +288,9 @@ export function DashboardReports({
         projectId,
         projectName,
         includeDeferred,
+        includeRemoved,
       }),
-    [data.households, includeDeferred, projectId, projectName, state],
+    [data.households, includeDeferred, includeRemoved, projectId, projectName, state],
   );
 
   const newContactsFound = useMemo(() => {
@@ -387,10 +402,10 @@ export function DashboardReports({
     ? `/households?found=1${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`
     : `/households?found=1&project=${encodeURIComponent(projectId)}${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`;
 
-  const activeTotal = coverage.activeTotal;
+  const denom = coverage.denominator;
   const removedCount = coverage.removed;
   const denomHint =
-    removedCount > 0 ? (
+    !includeRemoved && removedCount > 0 ? (
       <p className="text-[10px] leading-snug text-muted-foreground">
         Excluding {removedCount} which {removedCount === 1 ? "was" : "were"} removed (not Jewish or doesn&apos;t exist)
       </p>
@@ -409,7 +424,7 @@ export function DashboardReports({
       label: "Visits",
       count: coverage.visited,
       tone: "accent",
-      detail: `${coverage.visited} of ${coverage.activeTotal} contacts`,
+      detail: `${coverage.visited} of ${denom} contacts`,
       progress: coverage.percent,
       footer: (
         <div className="space-y-1">
@@ -421,6 +436,15 @@ export function DashboardReports({
               onChange={(e) => toggleIncludeDeferred(e.target.checked)}
             />
             <span>Include deferred</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              className="size-3.5 accent-primary"
+              checked={includeRemoved}
+              onChange={(e) => toggleIncludeRemoved(e.target.checked)}
+            />
+            <span>Include removed</span>
           </label>
           {denomHint}
         </div>
@@ -455,10 +479,11 @@ export function DashboardReports({
           <h2 className="font-heading text-xl font-semibold text-foreground">Visits</h2>
           <p className="text-sm text-muted-foreground">
             {allProjects ? "All projects: " : projectName ? `${projectName}: ` : ""}
-            {coverage.visited} of {coverage.activeTotal} contacts visited
-            {coverage.activeTotal ? ` (${coverage.percent}%)` : ""}
-            {includeDeferred ? " (completed + deferred)" : " (completed only)"}.
-            {coverage.removed
+            {coverage.visited} of {denom} contacts visited
+            {denom ? ` (${coverage.percent}%)` : ""}
+            {includeDeferred ? " (completed + deferred)" : " (completed only)"}
+            {includeRemoved ? " (including removed)" : ""}.
+            {!includeRemoved && coverage.removed
               ? ` Excluding ${coverage.removed} which ${coverage.removed === 1 ? "was" : "were"} removed (not Jewish or doesn't exist).`
               : ""}
             {" "}People list matches the checkbox (removed contacts never listed).
