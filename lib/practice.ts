@@ -63,27 +63,33 @@ export function clearPractice() {
   window.sessionStorage.removeItem(PRACTICE_KEY);
 }
 
+
+/** Per-contact practice override, else a real share, else the shliach's default share setting. */
+export function effectiveShare(house: { id: string; sharedWithBochurim?: boolean }, patch: PracticePatch): boolean {
+  const share = patch.householdShare ?? {};
+  if (Object.prototype.hasOwnProperty.call(share, house.id)) return Boolean(share[house.id]);
+  if (house.sharedWithBochurim) return true;
+  if (patch.shareNewWithBochurim !== undefined) return Boolean(patch.shareNewWithBochurim);
+  return false;
+}
+
 /** Merge practice overlays into AppData. When viewing as bochur, hide unshared contacts. */
 export function applyPractice(data: AppData, patch: PracticePatch): AppData {
-  const share = patch.householdShare ?? {};
   const tags = patch.householdTags ?? {};
   const households: HouseholdView[] = data.households.map((house) => {
-    const next = { ...house };
-    if (Object.prototype.hasOwnProperty.call(share, house.id)) {
-      next.sharedWithBochurim = Boolean(share[house.id]);
-    }
+    const next = { ...house, sharedWithBochurim: effectiveShare(house, patch) };
     if (tags[house.id]) next.tags = [...tags[house.id]];
     return next;
   });
 
   const extras = patch.addedHouseholds ?? [];
   const merged = extras.length
-    ? [...households, ...extras.filter((house) => !households.some((item) => item.id === house.id))]
+    ? [...households, ...extras.filter((house) => !households.some((item) => item.id === house.id)).map((house) => ({ ...house, sharedWithBochurim: effectiveShare(house, patch) }))]
     : households;
 
   let filtered = merged;
   if (data.viewer.role === "bochur") {
-    filtered = merged.filter((house) => house.sharedWithBochurim !== false);
+    filtered = merged.filter((house) => house.sharedWithBochurim);
   }
 
   const assignments = patch.bochurChavrusa ?? {};

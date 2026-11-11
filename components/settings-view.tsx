@@ -188,7 +188,11 @@ function ShliachPrefsForm({ data }: { data: AppData }) {
     >
       <h2 className="font-heading text-lg font-semibold text-foreground">Bochurim</h2>
       <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" className="mt-1 size-4" checked={shareNew} disabled={pending} onChange={(e) => setShareNew(e.target.checked)} />
+        <input type="checkbox" className="mt-1 size-4" checked={shareNew} disabled={pending} onChange={(e) => {
+          const next = e.target.checked;
+          setShareNew(next);
+          if (practice.active) practice.setPref("shareNewWithBochurim", next);
+        }} />
         <span>
           <span className="block">Share new contacts with bochurim by default</span>
           <span className="text-xs text-muted-foreground">New contacts start shared. You can change each one on the contact.</span>

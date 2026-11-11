@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.47
+- Beta practice: shliach sharing now carries over into **View as bochur** for the same state. The Settings default (“Share new contacts with bochurim by default”) is the baseline, and each contact’s **Share with bochurim** checkbox overrides it. Sharing on shows the contact to the bochur; sharing off hides it. All of this stays in sessionStorage; **Reset** clears it; Exit does not. The practice banner has a same-state View as bochur / View as shliach switch, shows the state for both roles, and the Beta page remembers the last state you picked so Exit → open the other role keeps the same territory.
+
+
 ## 1.8.46
 - Home Visits first tile: **Include removed** checkbox next to Include deferred, remembered per user (off by default). When it is on, the denominator is the full live book (`deleted_at IS NULL` only, 155) and the 10 removed contacts (Not Jewish / Probably doesn't exist) count in X as visited. The “Excluding 10…” helper is hidden. When it is off, the tile stays `X of 145` with the helper, as in 1.8.44.
 

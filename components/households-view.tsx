@@ -46,6 +46,7 @@ import {
   saveHouseholdAction,
 } from "@/lib/actions";
 import { restoreShliachHiddenAction, shareContactWithBochurimAction } from "@/lib/shliach-prefs-actions";
+import { effectiveShare } from "@/lib/practice";
 import { listMySuggestionsForContactAction, submitContactEditSuggestionAction } from "@/lib/suggestion-actions";
 import { useUndoToast } from "@/components/undo-toast";
 import { useRouter } from "next/navigation";
@@ -865,11 +866,7 @@ function ShareWithBochurimToggle({
   const canToggle = canManage && !readOnly;
   if (!canManage) return null;
   // Prefer practice-patched share state when in practice mode
-  const checked = Boolean(
-    practice.active
-      ? (practice.mergeData(data).households.find((h) => h.id === household.id)?.sharedWithBochurim ?? household.sharedWithBochurim)
-      : household.sharedWithBochurim,
-  );
+  const checked = practice.active ? effectiveShare(household, practice.patch) : Boolean(household.sharedWithBochurim);
   return (
     <label className="inline-flex items-center gap-1.5 text-xs text-foreground" title="Share with bochurim" data-tour="contacts-share">
       <input

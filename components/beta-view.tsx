@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FOCUS_STATES } from "@/lib/constants";
@@ -14,8 +14,22 @@ export function BetaView() {
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
 
+  useEffect(() => {
+    try {
+      const saved = window.sessionStorage.getItem("cora-beta-state");
+      if (saved) setState(saved);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   function open(role: "bochur" | "shliach") {
     setError("");
+    try {
+      window.sessionStorage.setItem("cora-beta-state", state);
+    } catch {
+      /* ignore */
+    }
     start(async () => {
       const result = await startPreviewAction(role, state);
       if (result && !result.ok) setError(result.error);

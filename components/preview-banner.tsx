@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { exitPreviewAction } from "@/lib/preview-actions";
+import { exitPreviewAction, startPreviewAction } from "@/lib/preview-actions";
 import { Button } from "@/components/ui/button";
 import { ROLE_LABEL } from "@/lib/constants";
 import { usePractice } from "@/components/practice-provider";
@@ -9,7 +9,9 @@ import { usePractice } from "@/components/practice-provider";
 export function PreviewBanner({ role, state }: { role: "shliach" | "bochur"; state: string | null }) {
   const [pending, start] = useTransition();
   const practice = usePractice();
-  const label = role === "shliach" ? `${ROLE_LABEL.shliach}${state ? ` · ${state}` : ""}` : ROLE_LABEL.bochur;
+  const where = state ? ` · ${state}` : "";
+  const label = `${ROLE_LABEL[role]}${where}`;
+  const other: "shliach" | "bochur" = role === "shliach" ? "bochur" : "shliach";
   return (
     <div className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-amber-100 px-4 py-2 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">
       <p>
@@ -18,6 +20,20 @@ export function PreviewBanner({ role, state }: { role: "shliach" | "bochur"; sta
         Viewing as {label}. Click around — checkboxes and buttons work locally only.
       </p>
       <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-10 rounded-full border-amber-800/30 bg-background/60"
+          disabled={pending || !state}
+          onClick={() =>
+            start(async () => {
+              const result = await startPreviewAction(other, state ?? "ME");
+              if (result && !result.ok) return;
+            })
+          }
+        >
+          {pending ? "Switching…" : `View as ${ROLE_LABEL[other]}`}
+        </Button>
         <Button
           type="button"
           variant="outline"

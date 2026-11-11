@@ -104,8 +104,8 @@ export function PracticeProvider({
   const [box, setBox] = useState<TutorialSandbox | null>(() => (sandboxOn ? loadOrSeedTutorialSandbox() : null));
 
   useEffect(() => {
-    if (active) setPatch(loadPractice());
-  }, [active]);
+    if (active || sandboxOn) setPatch(loadPractice());
+  }, [active, sandboxOn]);
 
   useEffect(() => {
     if (sandbox || isTutorialPracticeOn()) {
