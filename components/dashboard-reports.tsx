@@ -430,13 +430,11 @@ export function DashboardReports({
       label: "New contacts found",
       count: newContactsFound,
       href: foundHref,
-      footer: denomHint,
     },
     {
       label: "Removed: not Jewish / not existent",
       count: removedTagged,
       href: `/households?list=tagged${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`,
-      footer: denomHint,
     },
     ...VISIT_ACTIVITIES.map((label) => ({
       label,

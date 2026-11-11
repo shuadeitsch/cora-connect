@@ -5,6 +5,7 @@
 - Those controls belong only to the **shliach** role, including Beta **View as shliach**. In practice mode, toggles take effect immediately in **View as bochur** (contact appears or disappears, planner day shows or hides, edit is allowed or blocked). Practice state stays in sessionStorage across switching views and Exit until **Reset**.
 - Admin Tutorial drops the Share with bochurim step (18 steps; shliach 18, bochur 14). Planner and Beta copy point admins to View as shliach for those checkboxes.
 - **Beta is Cora-admin only** until launch. It does not appear in the sidebar or mobile More sheet for shliach or bochur; visiting `/beta` redirects them to Home. Shliach and bochur tutorials have no Beta step. User-facing copy those roles can see no longer mentions Beta (including the shliach Share with bochurim tutorial line).
+- Home Visits tiles: drop the small helper note (“out of N · excludes R removed…”) from **New contacts found** and **Removed: not Jewish / not existent**. Only the first **Visits** tile keeps that helper.
 
 
 ## 1.8.41
