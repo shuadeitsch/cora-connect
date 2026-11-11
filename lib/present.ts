@@ -250,6 +250,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         customFields: household.customFields,
         sharedWithCora: household.sharedWithCora,
         ownerId: household.ownerId,
+        deletedAt: household.deletedAt ?? null,
         deletedByShliachAt: household.deletedByShliachAt ?? null,
         deletedByShliachBy: household.deletedByShliachBy ?? null,
         deletedByShliachName: household.deletedByShliachBy

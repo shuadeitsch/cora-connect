@@ -37,6 +37,7 @@ export function activityCountsFor(
     if (visit.status !== "completed") continue;
     const house = houseById.get(visit.householdId);
     if (!house) continue;
+    if (house.deletedAt || house.deletedByShliachAt) continue;
     if (!houseInState(house, filters?.state)) continue;
     if (isTaggedContact(house.tags ?? [])) continue;
     if (!visitOnProject(visit, house, filters)) continue;
@@ -89,6 +90,8 @@ export function visitCoverage(
     state: string;
     projectId?: string | null;
     tags?: string[];
+    deletedAt?: string | null;
+    deletedByShliachAt?: string | null;
     contactVisits: { status?: string | null; projectId?: string | null; visited: string }[];
   }[],
   filters: { state?: string; projectId: string; projectName?: string; includeDeferred?: boolean },
@@ -104,6 +107,8 @@ export function visitCoverage(
   let total = 0;
   let removed = 0;
   for (const house of households) {
+    if (house.deletedAt) continue;
+    if (house.deletedByShliachAt) continue;
     if (filters.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
     total += 1;
     if (isTaggedContact(house.tags ?? [])) {

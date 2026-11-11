@@ -281,6 +281,7 @@ export function DashboardReports({
   const newContactsFound = useMemo(() => {
     const pname = projectName?.trim().toLowerCase() ?? "";
     return data.households.filter((house) => {
+      if (house.deletedAt || house.deletedByShliachAt) return false;
       if (!isNewContact(house)) return false;
       if (isTaggedContact(house.tags ?? [])) return false;
       if (state !== "ALL" && !sameState(house.state, state)) return false;
@@ -307,6 +308,7 @@ export function DashboardReports({
     const pname = projectName?.trim().toLowerCase() ?? "";
     const filtered: ReportRow[] = [];
     for (const house of data.households) {
+      if (house.deletedAt || house.deletedByShliachAt) continue;
       if (state !== "ALL" && stateCode(house.state || "") !== stateCode(state)) continue;
       if (isTaggedContact(house.tags ?? [])) continue;
       for (const cv of house.contactVisits) {

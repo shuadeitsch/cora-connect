@@ -71,6 +71,7 @@ function house(partial: Partial<HouseholdView> & Pick<HouseholdView, "id" | "nam
     customFields: partial.customFields ?? {},
     sharedWithCora: partial.sharedWithCora ?? true,
     ownerId: partial.ownerId ?? null,
+    deletedAt: partial.deletedAt ?? null,
     deletedByShliachAt: partial.deletedByShliachAt ?? null,
     deletedByShliachBy: partial.deletedByShliachBy ?? null,
     deletedByShliachName: partial.deletedByShliachName ?? null,

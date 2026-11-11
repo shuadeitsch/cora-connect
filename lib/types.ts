@@ -136,6 +136,8 @@ export interface Household {
   customFields: Record<string, string>;
   sharedWithCora: boolean;
   ownerId: string | null;
+  /** Admin soft-delete. Live lists must omit these. */
+  deletedAt?: string | null;
   deletedByShliachAt?: string | null;
   deletedByShliachBy?: string | null;
   visitReaction: HouseholdReaction | null;
@@ -311,6 +313,7 @@ export interface HouseholdView {
   customFields: Record<string, string>;
   sharedWithCora: boolean;
   ownerId: string | null;
+  deletedAt?: string | null;
   deletedByShliachAt: string | null;
   deletedByShliachBy: string | null;
   deletedByShliachName: string | null;

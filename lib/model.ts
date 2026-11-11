@@ -94,6 +94,8 @@ export function householdVisibleTo(
   users: User[],
   _contactShares?: { householdId: string; bochurId: string }[],
 ): boolean {
+  // Soft-deleted contacts (deleted_at) are never shown, including to admins.
+  if (household.deletedAt) return false;
   if (user.role === "admin") return true;
   if (household.deletedByShliachAt) return false;
   if (user.role === "limited") return true; // allowedHouseholdIds handles limited

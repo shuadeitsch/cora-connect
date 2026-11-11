@@ -136,10 +136,11 @@ export function taggedAlongRoute<T extends { id: string; name: string; city: str
 
 /** Contacts tagged Not Jewish / Probably doesn't exist (off the main list). */
 export function countRemovedTagged(
-  households: { state: string; tags: string[] }[],
+  households: { state: string; tags: string[]; deletedAt?: string | null; deletedByShliachAt?: string | null }[],
   stateFilter?: string,
 ): number {
   return households.filter((house) => {
+    if (house.deletedAt || house.deletedByShliachAt) return false;
     if (stateFilter && stateFilter !== "ALL") {
       const a = house.state.trim().toUpperCase();
       const b = stateFilter.trim().toUpperCase();

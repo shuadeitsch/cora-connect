@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.44
+- Home Visits counts only **live** households (`deleted_at IS NULL`). Soft-deleted contacts no longer inflate the first tile (the 443 figure included 298 deleted rows). The active denominator is live minus tagged removed (`155 − 10 = 145`). X is unique live, non-removed households with a completed visit, plus deferred when Include deferred is on. The same `deleted_at` filter applies to New contacts found, Removed, activity tiles, and the people list. Shliach soft-hidden contacts stay hidden from that viewer. Load queries `deleted_at IS NULL` so a missing field cannot leak deleted rows.
+
+
 ## 1.8.43
 - Tutorial step 10 (Log a visit): the pen on the first contact now has `data-tour` in both card and table views, the tour waits about 2 seconds for the list to render, and the copy is “Tap the pen on any contact to log a visit.” Other steps audited for every role — bochur “Suggest edit” is now on the first contact in the list (it was only inside a closed contact card).
 - Optional **Practice mode** toggle on the Tutorial intro and in the tour bar, for every role. When it is on, each step can be done against a local sandbox of example contacts (not real data), reusing the practice overlay and `assertNotPreview` (sandbox cookie) so no write reaches the database. Banner: “Practice mode: nothing you do here is saved.” Detected actions show “Nice, you did it!” Exiting the tutorial or turning practice off clears the sandbox.

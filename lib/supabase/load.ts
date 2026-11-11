@@ -74,7 +74,27 @@ async function optionalTable(table: string): Promise<{ rows: Row[]; ready: boole
 }
 
 function alive(row: Row) {
-  return !row.deleted_at;
+  return nullableText(row, "deleted_at") == null;
+}
+
+/** Live rows only. Prefer a server-side deleted_at filter so a missing column in the
+ *  payload cannot leak soft-deleted households into the app (that produced the 443 count). */
+async function aliveRows(table: string, columns = "*", order: string | string[] = "id"): Promise<Row[]> {
+  const supabase = await createClient();
+  const pageSize = 1000;
+  const orders = Array.isArray(order) ? order : [order];
+  const out: Row[] = [];
+  for (let from = 0; ; from += pageSize) {
+    let query = supabase.from(table).select(columns).is("deleted_at", null);
+    for (const column of orders) query = query.order(column, { ascending: true });
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error) throw new Error(`${table}: ${error.message}`);
+    const batch = (data ?? []) as unknown as Row[];
+    out.push(...batch);
+    if (batch.length < pageSize) break;
+    if (from >= pageSize * 100) throw new Error(`${table}: stopped after ${out.length} rows`);
+  }
+  return out;
 }
 
 async function rows(table: string, columns = "*", order: string | string[] = "id"): Promise<Row[]> {
@@ -100,7 +120,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
       rows("projects"),
       rows("categories"),
       rows("custom_field_defs"),
-      rows("households"),
+      aliveRows("households"),
       rows("people_visible"),
       rows("household_categories", "*", ["household_id", "category_id"]),
       rows("visits_visible"),
@@ -208,6 +228,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     tags: list(row.tags),
     sharedWithCora: row.shared_with_cora == null ? true : Boolean(row.shared_with_cora),
     ownerId: nullableText(row, "owner_id"),
+    deletedAt: nullableText(row, "deleted_at"),
     deletedByShliachAt: nullableText(row, "deleted_by_shliach_at"),
     deletedByShliachBy: nullableText(row, "deleted_by_shliach_by"),
     visitReaction: parseHouseholdReaction(text(row, "visit_reaction")),
