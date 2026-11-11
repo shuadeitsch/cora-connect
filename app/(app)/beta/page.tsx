@@ -7,8 +7,8 @@ export const metadata = { title: "Beta" };
 export default async function BetaPage() {
   const data = await getAppData();
   if (!data) redirect("/login");
-  if (data.viewer.role !== "admin" && !data.viewer.preview) redirect("/households");
-  // In preview, Beta is hidden from the role nav; admins reach it after Exit.
-  if (data.viewer.preview) redirect("/dashboard");
+  // Until launch, only a real Cora admin (not View as shliach/bochur) may open Beta.
+  // Everyone else, including a typed /beta URL, goes to Home.
+  if (data.viewer.role !== "admin" || data.viewer.preview) redirect("/dashboard");
   return <BetaView />;
 }

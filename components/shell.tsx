@@ -66,9 +66,10 @@ const BOCHUR_HIDDEN = new Set(["/team", "/beta"]);
 /** Bottom bar slots (phones / Chromebooks). Everything else opens from More. */
 const PHONE_BAR_HREFS = new Set(["/dashboard", "/households", "/saved-routes", "/planner"]);
 
-function visibleItems(items: NavItem[], canManage: boolean, bochur: boolean, shliach = false) {
+function visibleItems(items: NavItem[], canManage: boolean, bochur: boolean, shliach = false, admin = false) {
   return items.filter((item) => {
-    if (!canManage && item.adminOnly) return false;
+    // Beta (and any adminOnly item) stays off shliach/bochur nav until launch.
+    if (item.adminOnly && !admin) return false;
     if (bochur && BOCHUR_HIDDEN.has(item.href)) return false;
     // Shliach (and Beta View as shliach): My Team is under Settings, not the sidebar.
     if (shliach && item.href === "/team") return false;
@@ -82,15 +83,17 @@ function NavLinks({
   canManage,
   bochur = false,
   shliach = false,
+  admin = false,
 }: {
   items: NavItem[];
   onNavigate?: () => void;
   canManage: boolean;
   bochur?: boolean;
   shliach?: boolean;
+  admin?: boolean;
 }) {
   const pathname = usePathname();
-  const visible = visibleItems(items, canManage, bochur, shliach);
+  const visible = visibleItems(items, canManage, bochur, shliach, admin);
   return (
     <nav className="flex flex-col gap-1 px-3">
       {visible.map((item) => {
@@ -123,14 +126,16 @@ function MoreGroup({
   canManage,
   bochur,
   shliach = false,
+  admin = false,
 }: {
   items: NavItem[];
   canManage: boolean;
   bochur: boolean;
   shliach?: boolean;
+  admin?: boolean;
 }) {
   const pathname = usePathname();
-  const visible = visibleItems(items, canManage, bochur, shliach);
+  const visible = visibleItems(items, canManage, bochur, shliach, admin);
   const [open, setOpen] = useState(() => visible.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)));
   if (!visible.length) return null;
   return (
@@ -221,9 +226,9 @@ export function Shell({
   const showAdminChrome = viewer.role === "admin" && !preview;
   const navItems = [...PRIMARY, ...SIDEBAR_EXTRA];
   const fullSidebar = [...PRIMARY, ...SIDEBAR_EXTRA, ...MORE_ITEMS];
-  const primary = visibleItems(PRIMARY, canManage || showAdminChrome, bochur, shliach).filter((item) => PHONE_BAR_HREFS.has(item.href));
-  const moreForPhone = visibleItems(MORE_ITEMS, showAdminChrome || canManage, bochur, shliach);
-  const mobileMenuItems = visibleItems(fullSidebar, showAdminChrome || canManage, bochur, shliach);
+  const primary = visibleItems(PRIMARY, canManage || showAdminChrome, bochur, shliach, showAdminChrome).filter((item) => PHONE_BAR_HREFS.has(item.href));
+  const moreForPhone = visibleItems(MORE_ITEMS, showAdminChrome || canManage, bochur, shliach, showAdminChrome);
+  const mobileMenuItems = visibleItems(fullSidebar, showAdminChrome || canManage, bochur, shliach, showAdminChrome);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -308,8 +313,8 @@ export function Shell({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/cora-connect-logo.png" alt="Cora Connect" className="block h-auto w-full object-contain dark:brightness-0 dark:invert" />
           </Link>
-          <NavLinks items={navItems} canManage={canManage || showAdminChrome} bochur={bochur} shliach={shliach} />
-          <MoreGroup items={MORE_ITEMS} canManage={showAdminChrome || canManage} bochur={bochur} shliach={shliach} />
+          <NavLinks items={navItems} canManage={canManage || showAdminChrome} bochur={bochur} shliach={shliach} admin={showAdminChrome} />
+          <MoreGroup items={MORE_ITEMS} canManage={showAdminChrome || canManage} bochur={bochur} shliach={shliach} admin={showAdminChrome} />
           <Link href="/settings?tab=account" className="mx-3 mt-2 flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
             <Avatar name={viewer.name} src={viewer.avatarUrl} className="size-9" />
             <span className="min-w-0">

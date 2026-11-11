@@ -133,7 +133,7 @@ const CONTACTS_SHARE: TutorialStep = {
   href: "/households",
   target: "contacts-share",
   title: "Share with bochurim",
-  body: "Each contact has a Share with bochurim checkbox. When it is on, your bochurim can see that person. When it is off, they cannot. Try this in Beta practice mode if you want to see how it looks without changing real data.",
+  body: "Each contact has a Share with bochurim checkbox. When it is on, your bochurim can see that person. When it is off, they cannot.",
 };
 
 const CONTACTS_REMOVE: TutorialStep = {
