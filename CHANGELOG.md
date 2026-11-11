@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.42
+- Shliach-facing checkboxes no longer appear in the normal Cora **admin** UI. “Share with bochurim” is gone from Contacts list, cards, contact detail, and the edit form. Daily planner no longer shows “Bochurim can see the planner / this day” or “Bochurim can edit this day.” Settings defaults (share new contacts, bochurim see/edit the planner) stay shliach-only, as before.
+- Those controls belong only to the **shliach** role, including Beta **View as shliach**. In practice mode, toggles take effect immediately in **View as bochur** (contact appears or disappears, planner day shows or hides, edit is allowed or blocked). Practice state stays in sessionStorage across switching views and Exit until **Reset**.
+- Admin Tutorial drops the Share with bochurim step (18 steps; shliach 18, bochur 14). Planner and Beta copy point admins to View as shliach for those checkboxes.
+
+
 ## 1.8.41
 - Optional **Tutorial** under More (sidebar and mobile More sheet) for every role. Never auto-shown.
 - Guided walkthrough of the real CRM, with separate steps for admin, shliach, and bochur. Spotlight + Next/Back/Exit and “Step X of N”; fallback card if a control is off screen. Read-only — no data changes, example text only.

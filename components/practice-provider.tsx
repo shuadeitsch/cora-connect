@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   applyPractice,
   clearPractice,
@@ -27,6 +27,12 @@ const PracticeContext = createContext<PracticeContextValue | null>(null);
 
 export function PracticeProvider({ active, children }: { active: boolean; children: ReactNode }) {
   const [patch, setPatch] = useState<PracticePatch>(() => (active ? loadPractice() : emptyPractice()));
+
+  // Reloading when practice becomes active keeps sessionStorage across Exit → View as…
+  // Reset is the only clear. Do not wipe the in-memory patch just because preview ended.
+  useEffect(() => {
+    if (active) setPatch(loadPractice());
+  }, [active]);
 
   const commit = useCallback((updater: (prev: PracticePatch) => PracticePatch) => {
     setPatch((prev) => {

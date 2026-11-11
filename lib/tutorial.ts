@@ -184,6 +184,11 @@ const PLANNER: TutorialStep = {
   body: "Give each route a day so the week is planned. You can choose whether bochurim can see or edit a day.",
 };
 
+const PLANNER_ADMIN: TutorialStep = {
+  ...PLANNER,
+  body: "Give each route a day so the week is planned. In Beta, View as shliach to try the bochurim visibility and edit checkboxes without changing real data.",
+};
+
 const PLANNER_BOCHUR: TutorialStep = {
   id: "planner",
   href: "/planner",
@@ -265,7 +270,7 @@ const BETA: TutorialStep = {
   href: "/beta",
   target: "beta",
   title: "Practice in Beta",
-  body: "Beta lets you view the app as a shliach or a bochur. You can click around and try the checkboxes. A banner says practice mode, and those changes are not saved to the real database.",
+  body: "Beta lets you view the app as a shliach or a bochur. You can click around and try the checkboxes. A banner says practice mode, and those changes are not saved to the real database. Practice stays until you tap Reset, even if you switch views or Exit and come back.",
 };
 
 export function tutorialStepsFor(role: TutorialRole): TutorialStep[] {
@@ -278,12 +283,11 @@ export function tutorialStepsFor(role: TutorialRole): TutorialStep[] {
       CONTACTS,
       CONTACTS_ADD,
       CONTACTS_SEARCH,
-      CONTACTS_SHARE,
       CONTACTS_REMOVE,
       VISIT_LOG,
       MAP,
       ROUTES,
-      PLANNER,
+      PLANNER_ADMIN,
       TEAM,
       SETTINGS_ACCOUNT,
       SETTINGS_PHOTO,

@@ -92,18 +92,17 @@ export function householdVisibleTo(
   user: User,
   household: Household,
   users: User[],
-  contactShares?: { householdId: string; bochurId: string }[],
+  _contactShares?: { householdId: string; bochurId: string }[],
 ): boolean {
   if (user.role === "admin") return true;
   if (household.deletedByShliachAt) return false;
   if (user.role === "limited") return true; // allowedHouseholdIds handles limited
   if (user.role === "bochur") {
     // Live bochur lists are already RLS-scoped (share + leader territory).
-    // Beta preview approximates: shared with some bochur AND in the picked state territory.
+    // Beta preview loads every contact in the picked state so practice share
+    // patches can reveal or hide them in View as bochur. applyPractice filters.
     if (!user.previewing) return true;
-    const shared = (contactShares ?? []).some((share) => share.householdId === household.id) || household.sharedWithCora;
-    const inTerr = inTerritory(household.state, household.city, user.territory ?? []);
-    return shared && inTerr;
+    return inTerritory(household.state, household.city, user.territory ?? []);
   }
   if (user.role === "shliach") {
     if (household.ownerId === user.id) return true;
@@ -112,6 +111,28 @@ export function householdVisibleTo(
     return false;
   }
   return true;
+}
+
+/** Approved bochurim of the shliach(im) in a Beta preview territory. */
+export function previewBochurIds(user: User, users: User[]): string[] {
+  if (!user.previewing) return [];
+  const states = (user.territory ?? []).map((row) => row.state);
+  const shliachIds = users
+    .filter(
+      (member) =>
+        member.role === "shliach" &&
+        member.status === "approved" &&
+        (member.territory ?? []).some((row) => states.some((state) => sameState(row.state, state))),
+    )
+    .map((member) => member.id);
+  return users
+    .filter(
+      (member) =>
+        member.role === "bochur" &&
+        member.status === "approved" &&
+        Boolean(member.leaderId && shliachIds.includes(member.leaderId)),
+    )
+    .map((member) => member.id);
 }
 
 export function allowedHouseholdIds(user: User, routes: Route[]): Set<string> | null {

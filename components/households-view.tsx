@@ -464,7 +464,7 @@ export function HouseholdsView({
                 <th className="px-2 py-2 font-medium">History</th>
                 <th className="px-2 py-2 font-medium">Visited</th>
                 <th className="px-2 py-2 font-medium">Reaction</th>
-                {(live.viewer.role === "shliach" || live.viewer.role === "admin") ? (
+                {live.viewer.role === "shliach" ? (
                   <th className="px-2 py-2 font-medium">Bochurim</th>
                 ) : null}
                 <th className="w-10" />
@@ -507,7 +507,7 @@ export function HouseholdsView({
                     <DuplicateNote household={household} onOpen={openById} className="mt-1 block text-[11px]" />
                   </td>
                   <td className="px-2"><ReactionBadge reaction={household.latestReaction} /></td>
-                  {(live.viewer.role === "shliach" || live.viewer.role === "admin") ? (
+                  {live.viewer.role === "shliach" ? (
                     <td className="px-2"><ShareWithBochurimToggle household={household} data={live} /></td>
                   ) : null}
                   <td className="px-2">
@@ -847,7 +847,7 @@ function ShareWithBochurimToggle({
   const [pending, start] = useTransition();
   const practice = usePractice();
   const preview = Boolean(data.viewer.preview);
-  const canManage = data.viewer.role === "shliach" || data.viewer.role === "admin";
+  const canManage = data.viewer.role === "shliach";
   const canToggle = canManage && !readOnly;
   if (!canManage) return null;
   // Prefer practice-patched share state when in practice mode
@@ -1043,7 +1043,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                   return;
                 }
                 const id = result.data?.id ?? household?.id;
-                if (id && typeof payload.sharedWithBochurim === "boolean" && (data.viewer.role === "shliach" || data.viewer.role === "admin")) {
+                if (id && typeof payload.sharedWithBochurim === "boolean" && data.viewer.role === "shliach") {
                   const share = await shareContactWithBochurimAction(id, payload.sharedWithBochurim);
                   if (!share.ok) {
                     setError(share.error);
@@ -1219,17 +1219,15 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
             </div>
             <p className="text-xs text-muted-foreground">Tagged contacts stay off the main list. Search still finds them.</p>
           </div>
-          {data.viewer.role === "shliach" || data.viewer.role === "admin" ? (
+          {data.viewer.role === "shliach" ? (
             <>
-              {data.viewer.role === "shliach" ? (
-                <label className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm">
-                  <span>
-                    <span className="block font-medium text-foreground">Share with Cora</span>
-                    <span className="text-xs text-muted-foreground">Shared contacts also show on the Cora overview.</span>
-                  </span>
-                  <input type="checkbox" className="size-5 accent-primary" checked={form.sharedWithCora} onChange={(event) => setForm({ ...form, sharedWithCora: event.target.checked })} />
-                </label>
-              ) : null}
+              <label className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm">
+                <span>
+                  <span className="block font-medium text-foreground">Share with Cora</span>
+                  <span className="text-xs text-muted-foreground">Shared contacts also show on the Cora overview.</span>
+                </span>
+                <input type="checkbox" className="size-5 accent-primary" checked={form.sharedWithCora} onChange={(event) => setForm({ ...form, sharedWithCora: event.target.checked })} />
+              </label>
               <label className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm">
                 <span>
                   <span className="block font-medium text-foreground">Share with bochurim</span>

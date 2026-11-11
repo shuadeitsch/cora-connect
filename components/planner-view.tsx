@@ -92,7 +92,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
     live.viewer.role === "admin" ||
     live.viewer.role === "shliach" ||
     (live.viewer.role === "bochur" && Boolean(live.viewer.bochurimEditPlanner));
-  const manageVisibility = live.viewer.role === "admin" || live.viewer.role === "shliach";
+  const manageVisibility = live.viewer.role === "shliach";
   const bochur = live.viewer.role === "bochur";
   const preview = Boolean(live.viewer.preview);
   // Live bochurim are RLS-scoped; Beta preview still loads all days as admin — filter here.

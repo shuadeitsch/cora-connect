@@ -33,7 +33,6 @@ export function PreviewBanner({ role, state }: { role: "shliach" | "bochur"; sta
           disabled={pending}
           onClick={() =>
             start(async () => {
-              practice.reset();
               await exitPreviewAction();
             })
           }

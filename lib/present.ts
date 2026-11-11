@@ -7,6 +7,7 @@ import { legMiles } from "@/lib/model";
 import {
   allowedHouseholdIds,
   householdVisibleTo,
+  previewBochurIds,
   buildActivity,
   canEditContact,
   canMarkNotDuplicate,
@@ -124,16 +125,19 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
   const notDup = new Set(db.notDuplicatePairs ?? []);
   const hideHistory = !perms.canViewHistory;
 
-  const bochurIds = new Set(
-    db.users
-      .filter((member) => member.role === "bochur" && member.status === "approved" && (user.role === "admin" || member.leaderId === user.id || (user.role === "bochur" && member.leaderId === user.leaderId)))
-      .map((member) => member.id),
-  );
   // For a shliach, "shared with bochurim" means shared with every one of his active bochurim (or none if he has none).
-  const myBochurIds = [...bochurIds].filter((id) => {
-    const member = db.users.find((item) => item.id === id);
-    return user.role === "admin" ? true : member?.leaderId === user.id;
-  });
+  // In Beta preview the viewer id is still the admin's, so use the territory shliach's bochurim.
+  const myBochurIds = user.previewing
+    ? previewBochurIds(user, db.users)
+    : db.users
+        .filter((member) => {
+          if (member.role !== "bochur" || member.status !== "approved") return false;
+          if (user.role === "admin") return true;
+          if (user.role === "shliach") return member.leaderId === user.id;
+          if (user.role === "bochur") return member.leaderId === user.leaderId;
+          return false;
+        })
+        .map((member) => member.id);
   const sharesByHousehold = new Map<string, Set<string>>();
   for (const share of db.contactShares ?? []) {
     const set = sharesByHousehold.get(share.householdId) ?? new Set<string>();
