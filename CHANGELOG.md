@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.50
+- Text / WhatsApp composer (admins and shluchim, including Beta **View as shliach**): **Send through Twilio** opens https://www.twilio.com/try-twilio in a new tab. A short note says anyone can make their own account: “Want to send texts from your own number? Make a free Twilio account, then ask Cora to connect it.” Sending is not built yet. A server flag checks whether `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` are set, so this button can later switch to real sending without a redesign. Those env vars are not set today.
+- Settings (Account) for admins and shluchim gets a small **Texting (Twilio)** card: status **Not connected**, a **Create a Twilio account** link to the same page, and the same note. No fields for keys or tokens. Bochurim do not see the button, the note, or the card (including View as bochur).
+
+
 ## 1.8.49
 - **Bulk outreach from Contacts**, for admins and shluchim (not bochurim; Beta **View as shliach** works in practice, with no database writes). A sticky bar has the selected count, **Select all** (current filters), **Clear**, **Email**, and **Text / WhatsApp**. Checkboxes stay available for other roles that already used them (for example a bochur building a route).
 - Email composer: four editable templates (visit announcement, including “Hi {first name}, Chabad of {state} is sending yeshiva students to visit {state}…”, plus Chanukah/holiday visit, follow-up thank you, and “we're in the area”), with `{first name}` / `{state}` placeholders. **Copy draft**, **Copy all email addresses** (comma-separated, with a skip count), and **Open in email app** (mailto with BCC; a warning if the link is too long). Sending from the CRM is not built yet — admins see a short “Send from CRM coming soon” note. There is no email provider configured.

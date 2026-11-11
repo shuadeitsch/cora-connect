@@ -90,6 +90,7 @@ export function HouseholdsView({
   initialState = "",
   initialList = "",
   focusId,
+  twilioConnected = false,
 }: {
   data: AppData;
   openNew: boolean;
@@ -100,6 +101,7 @@ export function HouseholdsView({
   initialState?: string;
   initialList?: string;
   focusId: string;
+  twilioConnected?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -613,6 +615,7 @@ export function HouseholdsView({
         mode={outreach ?? "email"}
         households={filtered.filter((row) => selected.includes(row.id))}
         role={live.viewer.role}
+        twilioConnected={twilioConnected}
         onClose={() => setOutreach(null)}
       />
       <Dialog open={Boolean(pendingDelete?.length)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>

@@ -13,15 +13,17 @@ import { AccountPassword } from "@/components/account-password";
 import { AvatarPicker } from "@/components/avatar-picker";
 import { ThemePicker } from "@/components/theme-picker";
 import { TeamView } from "@/components/team-view";
+import { TwilioSettingsCard } from "@/components/twilio-settings-card";
 import type { AppData, OrgInput } from "@/lib/types";
 
-function AccountSection({ data, recovery }: { data: AppData; recovery: boolean }) {
+function AccountSection({ data, recovery, twilioConnected = false }: { data: AppData; recovery: boolean; twilioConnected?: boolean }) {
   return (
     <>
       <AccountPassword name={data.viewer.name} email={data.viewer.email} recovery={recovery} />
       <AvatarPicker name={data.viewer.name} url={data.viewer.avatarUrl} />
       <ThemePicker saved={data.viewer.theme} backgroundUrl={data.viewer.backgroundUrl ?? null} themeMatchPhoto={Boolean(data.viewer.themeMatchPhoto)} themeColors={data.viewer.themeColors ?? null} />
       {data.viewer.role === "shliach" ? <ShliachPrefsForm data={data} /> : null}
+      {data.viewer.role === "admin" || data.viewer.role === "shliach" ? <TwilioSettingsCard connected={twilioConnected} /> : null}
       <form action={logoutAction} className="mt-4">
         <Button type="submit" variant="outline" className="min-h-11 rounded-full">Log out</Button>
       </form>
@@ -29,7 +31,7 @@ function AccountSection({ data, recovery }: { data: AppData; recovery: boolean }
   );
 }
 
-export function SettingsView({ data, initialTab, recovery }: { data: AppData; initialTab: string; recovery: boolean }) {
+export function SettingsView({ data, initialTab, recovery, twilioConnected = false }: { data: AppData; initialTab: string; recovery: boolean; twilioConnected?: boolean }) {
   const bochur = data.viewer.role === "bochur";
   const shliach = data.viewer.role === "shliach";
   // Bochur: Account only (name, picture, theme, password). No Chabad house / org settings.
@@ -37,7 +39,7 @@ export function SettingsView({ data, initialTab, recovery }: { data: AppData; in
     return (
       <div className="p-4 sm:p-6">
         <PageHeader title="Settings" crumb="Settings" description="Your account: name, picture, theme, and password." />
-        <AccountSection data={data} recovery={recovery} />
+        <AccountSection data={data} recovery={recovery} twilioConnected={twilioConnected} />
       </div>
     );
   }
@@ -58,7 +60,7 @@ export function SettingsView({ data, initialTab, recovery }: { data: AppData; in
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
         <TabsContent value="account">
-          <AccountSection data={data} recovery={recovery} />
+          <AccountSection data={data} recovery={recovery} twilioConnected={twilioConnected} />
         </TabsContent>
         {shliach ? (
           <TabsContent value="team">

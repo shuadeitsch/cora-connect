@@ -22,6 +22,7 @@ import {
   whatsappHrefWithText,
   type OutreachMode,
 } from "@/lib/outreach";
+import { TWILIO_SETUP_NOTE, TWILIO_SIGNUP_URL } from "@/lib/twilio";
 import type { HouseholdView, Role } from "@/lib/types";
 
 async function copyText(value: string) {
@@ -33,12 +34,14 @@ export function OutreachDialog({
   mode,
   households,
   role,
+  twilioConnected = false,
   onClose,
 }: {
   open: boolean;
   mode: OutreachMode;
   households: HouseholdView[];
   role: Role;
+  twilioConnected?: boolean;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -95,6 +98,11 @@ export function OutreachDialog({
     } catch {
       toast({ title: "Copy didn't work. Select the text and copy it yourself.", tone: "error" });
     }
+  }
+
+  function sendThroughTwilio() {
+    // Sending is not built. When twilioConnected is true, this click handler will send instead of opening the signup page.
+    window.open(TWILIO_SIGNUP_URL, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -205,7 +213,11 @@ export function OutreachDialog({
               >
                 Copy all phone numbers
               </Button>
+              <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={sendThroughTwilio}>
+                Send through Twilio
+              </Button>
             </div>
+            {!twilioConnected ? <p className="text-xs text-muted-foreground">{TWILIO_SETUP_NOTE}</p> : null}
             {people.some((row) => row.phones.length) ? (
               <ul className="grid max-h-64 gap-2 overflow-y-auto">
                 {people.map((row) => {

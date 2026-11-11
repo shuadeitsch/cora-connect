@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { HouseholdsView } from "@/components/households-view";
 import { getAppData } from "@/lib/session";
+import { twilioEnvConfigured } from "@/lib/twilio-status";
 
 export const metadata = { title: "Contacts" };
 
@@ -31,6 +32,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
       initialState={text(params, "state")}
       initialList={text(params, "list")}
       focusId={text(params, "focus")}
+      twilioConnected={twilioEnvConfigured()}
     />
   );
 }
