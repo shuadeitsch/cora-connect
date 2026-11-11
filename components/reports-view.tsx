@@ -9,7 +9,7 @@ import { VisitDialog, visitInputFrom } from "@/components/visit-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { toCsv } from "@/lib/csv";
+import { downloadCsvFile } from "@/lib/download-csv";
 import { REACTIONS, reactionMeta, statusMeta } from "@/lib/constants";
 import { formatMedium } from "@/lib/format";
 import type { AppData, VisitView } from "@/lib/types";
@@ -57,18 +57,14 @@ export function ReportsView({ data, startNew, householdId }: { data: AppData; st
     return map;
   }, [data.households, data.projects]);
 
-  function download() {
-    const csv = toCsv(
-      ["Household", "Date", "Status", "Reaction", "Details", "Visitor", "Visited", "Categories"],
-      rows.map((visit) => [visit.householdName, visit.visitDate, visit.status ?? "", visit.reaction ?? "", visit.details, visit.visitorName, (visitedFor.get(visit.householdId) ?? []).join("; "), visit.categoryNames.join("; ")]),
-    );
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "cora-visits.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+  async function download() {
+    if (!data.viewer.canExport) return;
+    const result = await downloadCsvFile({
+      filename: "cora-visits.csv",
+      headers: ["Household", "Date", "Status", "Reaction", "Details", "Visitor", "Visited", "Categories"],
+      rows: rows.map((visit) => [visit.householdName, visit.visitDate, visit.status ?? "", visit.reaction ?? "", visit.details, visit.visitorName, (visitedFor.get(visit.householdId) ?? []).join("; "), visit.categoryNames.join("; ")]),
+    });
+    if (!result.ok) window.alert(result.error);
   }
 
   return (
@@ -104,7 +100,7 @@ export function ReportsView({ data, startNew, householdId }: { data: AppData; st
             <button type="button" className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-muted" onClick={() => setSort("asc")}>Ascending</button>
           </PopoverContent>
         </Popover>
-        <button type="button" className="h-8 rounded-full border bg-card px-3 text-xs" onClick={download}><Download className="mr-1 inline size-3.5" /> Download</button>
+        {data.viewer.canExport ? <button type="button" className="h-8 rounded-full border bg-card px-3 text-xs" onClick={() => void download()}><Download className="mr-1 inline size-3.5" /> Download</button> : null}
       </div>
       <div className="panel overflow-hidden rounded-3xl">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">

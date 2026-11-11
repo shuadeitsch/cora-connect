@@ -51,7 +51,8 @@ import { listMySuggestionsForContactAction, submitContactEditSuggestionAction } 
 import { useUndoToast } from "@/components/undo-toast";
 import { useRouter } from "next/navigation";
 import { shareWithBochurAction } from "@/lib/bochur-actions";
-import { CANONICAL_HEADERS, toCsv } from "@/lib/csv";
+import { CANONICAL_HEADERS } from "@/lib/csv";
+import { downloadCsvFile } from "@/lib/download-csv";
 import { VisitedPicker } from "@/components/visited-picker";
 import { isRealVisit } from "@/lib/visited";
 import { setViewingState } from "@/lib/viewing-state";
@@ -216,10 +217,12 @@ export function HouseholdsView({
     setPage(1);
   }
 
-  function download(rows: HouseholdView[]) {
-    const csv = toCsv(
-      [...CANONICAL_HEADERS],
-      rows.flatMap((row) => {
+  async function download(rows: HouseholdView[]) {
+    if (!live.viewer.canExport || live.viewer.role === "bochur") return;
+    const result = await downloadCsvFile({
+      filename: "cora-contacts.csv",
+      headers: [...CANONICAL_HEADERS],
+      rows: rows.flatMap((row) => {
         const person = row.people[0];
         const visits = (row.contactVisits ?? []).filter((visit) => !visit.id.startsWith("legacy-"));
         const unattached = notesFor(row, live.viewer.canViewHistory).filter((note) => note.id === "household-notes");
@@ -242,14 +245,8 @@ export function HouseholdsView({
           visit.visitDate ?? "",
         ]);
       }),
-    );
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "cora-contacts.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    });
+    if (!result.ok) toast({ title: result.error, tone: "error" });
   }
 
   function setViewMode(next: "cards" | "table") {
@@ -297,8 +294,8 @@ export function HouseholdsView({
         action={
           live.viewer.canEdit || live.viewer.canManage ? (
             <div className="flex flex-wrap gap-2">
-              {live.viewer.canManage ? (
-                <Button variant="outline" className="rounded-full" onClick={() => download(selected.length ? filtered.filter((row) => selected.includes(row.id)) : filtered)}>
+              {live.viewer.canManage && live.viewer.canExport ? (
+                <Button variant="outline" className="rounded-full" onClick={() => void download(selected.length ? filtered.filter((row) => selected.includes(row.id)) : filtered)}>
                   <Download /> Export
                 </Button>
               ) : null}

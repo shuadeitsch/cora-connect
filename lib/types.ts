@@ -253,6 +253,7 @@ export interface Viewer {
   canDeleteRoute: boolean;
   canDeleteContacts: boolean;
   canImport: boolean;
+  canExport: boolean;
   canShare: boolean;
   leaderId: string | null;
   territory: Territory[];

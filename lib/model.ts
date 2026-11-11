@@ -35,6 +35,7 @@ export function viewerPermissions(user: User, today: string) {
     // Soft-hide for shliach; hard delete stays admin-only in the repo.
     canDeleteContacts: canEdit && (admin || shliach),
     canImport: canEdit && !shliach,
+    canExport: active && (admin || shliach),
     canShare: admin || shliach,
   };
 }

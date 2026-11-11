@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.48
+- Bochurim can no longer download a CSV, including in Beta **View as bochur**. The Home Visits **CSV** button, Contacts **Export**, Reports **Download** (legacy page), and the Import **Download template** control are hidden for that role. Admins and shluchim keep their existing exports: Contacts Export stays admin-only; Home (and Reports) CSV stay available to admins and shluchim. Every export now goes through a server action / `/api/export`, which returns 403 for a real bochur or View as bochur.
+
+
 ## 1.8.47
 - Beta practice: shliach sharing now carries over into **View as bochur** for the same state. The Settings default (“Share new contacts with bochurim by default”) is the baseline, and each contact’s **Share with bochurim** checkbox overrides it. Sharing on shows the contact to the bochur; sharing off hides it. All of this stays in sessionStorage; **Reset** clears it; Exit does not. The practice banner has a same-state View as bochur / View as shliach switch, shows the state for both roles, and the Beta page remembers the last state you picked so Exit → open the other role keeps the same territory.
 

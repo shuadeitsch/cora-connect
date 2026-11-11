@@ -14,7 +14,7 @@ import Link from "next/link";
 import { reactionMeta, sameState, statusMeta, VISIT_ACTIVITIES } from "@/lib/constants";
 import { isNewContact } from "@/lib/new-contacts";
 import { countRemovedTagged, isTaggedContact } from "@/lib/contact-tags";
-import { toCsv } from "@/lib/csv";
+import { downloadCsvFile } from "@/lib/download-csv";
 import { formatMedium } from "@/lib/format";
 import { activityCountsFor, visitCoverage } from "@/lib/visit-activities";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
@@ -373,10 +373,12 @@ export function DashboardReports({
     return people;
   }, [allProjects, data.households, data.members, includeDeferred, projectId, projectName, sort, state, visitedFor]);
 
-  function download() {
-    const csv = toCsv(
-      ["Name", "City", "State", "Date", "Visited by", "Status", "Reaction", "Visited", "Activities", "Details"],
-      rows.map((row) => [
+  async function download() {
+    if (!viewer.canExport) return;
+    const result = await downloadCsvFile({
+      filename: "cora-dashboard-visits.csv",
+      headers: ["Name", "City", "State", "Date", "Visited by", "Status", "Reaction", "Visited", "Activities", "Details"],
+      rows: rows.map((row) => [
         row.householdName,
         row.city,
         row.state,
@@ -388,14 +390,8 @@ export function DashboardReports({
         row.activities.join("; "),
         row.details,
       ]),
-    );
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "cora-dashboard-visits.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    });
+    if (!result.ok) window.alert(result.error);
   }
 
   const foundHref = allProjects
@@ -523,9 +519,11 @@ export function DashboardReports({
             </select>
             of {rows.length}
           </p>
-          <button type="button" className="inline-flex h-9 items-center gap-1 rounded-full border px-3 text-xs" onClick={download}>
+          {viewer.canExport ? (
+          <button type="button" className="inline-flex h-9 items-center gap-1 rounded-full border px-3 text-xs" onClick={() => void download()}>
             <Download className="size-3.5" /> CSV
           </button>
+          ) : null}
         </div>
       </div>
 

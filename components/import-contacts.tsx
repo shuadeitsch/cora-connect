@@ -84,6 +84,7 @@ export function ImportContacts({ open, data, onClose }: { open: boolean; data: A
   }
 
   function downloadTemplate() {
+    if (data.viewer.role === "bochur" || !data.viewer.canImport) return;
     const blob = new Blob([`\uFEFF${IMPORT_TEMPLATE_CSV}\n`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -114,7 +115,7 @@ export function ImportContacts({ open, data, onClose }: { open: boolean; data: A
           Every spreadsheet row is imported. One row is one visit. A row is merged onto a contact only when the name matches and the phone or email matches, and Visited is different. Every other row becomes its own contact.
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" className="rounded-full" onClick={downloadTemplate}>Download template</Button>
+          {data.viewer.role !== "bochur" && data.viewer.canImport ? <Button type="button" variant="outline" className="rounded-full" onClick={downloadTemplate}>Download template</Button> : null}
           <Button type="button" variant="outline" className="rounded-full" onClick={() => void copyPrompt()}>Copy AI instructions</Button>
         </div>
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-2xl border bg-muted/40 p-3 text-xs text-foreground">{IMPORT_AI_PROMPT}</pre>
