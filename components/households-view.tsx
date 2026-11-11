@@ -26,6 +26,7 @@ import {
 import { AddressLink } from "@/components/address-link";
 import { Avatar } from "@/components/avatar";
 import { ImportContacts } from "@/components/import-contacts";
+import { OutreachDialog } from "@/components/outreach-dialog";
 import { Pager } from "@/components/pager";
 import { Notice, PageHeader } from "@/components/page-header";
 import { useToast } from "@/components/toast";
@@ -114,6 +115,7 @@ export function HouseholdsView({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selected, setSelected] = useState<string[]>([]);
+  const [outreach, setOutreach] = useState<"email" | "text" | null>(null);
   const [routeFromPicked, setRouteFromPicked] = useState(false);
   const [editing, setEditing] = useState<HouseholdView | null>(null);
   const [creating, setCreating] = useState(openNew);
@@ -368,6 +370,42 @@ export function HouseholdsView({
           </button>
         ) : null}
       </div>
+      {live.viewer.canOutreach ? (
+        <div className="sticky top-0 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-2xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur">
+          <p className="text-sm font-medium text-foreground">
+            {filtered.filter((row) => selected.includes(row.id)).length} selected
+          </p>
+          <button
+            type="button"
+            className={pill}
+            onClick={() => setSelected(filtered.map((row) => row.id))}
+            disabled={!filtered.length}
+          >
+            Select all{filtered.length ? ` (${filtered.length})` : ""}
+          </button>
+          <button type="button" className={pill} onClick={() => setSelected([])} disabled={!selected.length}>
+            Clear
+          </button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-full"
+            disabled={!filtered.some((row) => selected.includes(row.id))}
+            onClick={() => setOutreach("email")}
+          >
+            <Mail className="size-3.5" /> Email
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-full"
+            disabled={!filtered.some((row) => selected.includes(row.id))}
+            onClick={() => setOutreach("text")}
+          >
+            <MessageSquare className="size-3.5" /> Text / WhatsApp
+          </Button>
+        </div>
+      ) : null}
       {filters.list === "tagged" ? <p className="mb-3 text-sm text-muted-foreground">Tagged contacts stay off the main list. Search still finds them from the main list.</p> : null}
       {filters.list === "shliach-deleted" ? <p className="mb-3 text-sm text-muted-foreground">Contacts a shliach soft-deleted. Restore to put them back on his list.</p> : null}
       <div className="panel overflow-hidden rounded-3xl">
@@ -570,6 +608,13 @@ export function HouseholdsView({
         initial={visitFor ? { householdId: visitFor.id, visitDate: "", status: "", reaction: "", details: "" } : undefined}
       />
       <CreateRouteDialog data={live} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
+      <OutreachDialog
+        open={Boolean(outreach) && live.viewer.canOutreach}
+        mode={outreach ?? "email"}
+        households={filtered.filter((row) => selected.includes(row.id))}
+        role={live.viewer.role}
+        onClose={() => setOutreach(null)}
+      />
       <Dialog open={Boolean(pendingDelete?.length)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

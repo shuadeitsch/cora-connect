@@ -36,6 +36,7 @@ export function viewerPermissions(user: User, today: string) {
     canDeleteContacts: canEdit && (admin || shliach),
     canImport: canEdit && !shliach,
     canExport: active && (admin || shliach),
+    canOutreach: active && (admin || shliach),
     canShare: admin || shliach,
   };
 }

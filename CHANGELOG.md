@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.49
+- **Bulk outreach from Contacts**, for admins and shluchim (not bochurim; Beta **View as shliach** works in practice, with no database writes). A sticky bar has the selected count, **Select all** (current filters), **Clear**, **Email**, and **Text / WhatsApp**. Checkboxes stay available for other roles that already used them (for example a bochur building a route).
+- Email composer: four editable templates (visit announcement, including “Hi {first name}, Chabad of {state} is sending yeshiva students to visit {state}…”, plus Chanukah/holiday visit, follow-up thank you, and “we're in the area”), with `{first name}` / `{state}` placeholders. **Copy draft**, **Copy all email addresses** (comma-separated, with a skip count), and **Open in email app** (mailto with BCC; a warning if the link is too long). Sending from the CRM is not built yet — admins see a short “Send from CRM coming soon” note. There is no email provider configured.
+- Text / WhatsApp: the same templates in a shorter form, plus **Copy message**, **Copy all phone numbers**, and per-contact **SMS** (`sms:` with the body) and **WhatsApp** (`wa.me`) buttons. US numbers are normalized to +1. Contacts without a phone or email are skipped and counted.
+- The **Help me write** AI helper is not in this release. Vercel has no working provider key (AI Gateway reports that a credit card is required), so the button is left out until that is set up.
+
+
 ## 1.8.48
 - Bochurim can no longer download a CSV, including in Beta **View as bochur**. The Home Visits **CSV** button, Contacts **Export**, Reports **Download** (legacy page), and the Import **Download template** control are hidden for that role. Admins and shluchim keep their existing exports: Contacts Export stays admin-only; Home (and Reports) CSV stay available to admins and shluchim. Every export now goes through a server action / `/api/export`, which returns 403 for a real bochur or View as bochur.
 

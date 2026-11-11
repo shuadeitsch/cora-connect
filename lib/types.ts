@@ -254,6 +254,7 @@ export interface Viewer {
   canDeleteContacts: boolean;
   canImport: boolean;
   canExport: boolean;
+  canOutreach: boolean;
   canShare: boolean;
   leaderId: string | null;
   territory: Territory[];
