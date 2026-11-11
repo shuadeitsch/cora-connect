@@ -54,6 +54,7 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
     projectId: profile.project_id ?? null,
     tutorialStep: Number(profile.tutorial_step ?? 0) || 0,
     tutorialDone: Boolean(profile.tutorial_done),
+    chavrusa: profile.chavrusa === "A" || profile.chavrusa === "B" ? profile.chavrusa : null,
   };
 });
 

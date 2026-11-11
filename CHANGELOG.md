@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.45
+- **Chavrusos.** Once a shliach has 4 or more bochurim, Settings → My Team gets a Chavrusos section to assign each bochur to A or B (or leave him unassigned). Assignments go through a security-definer RPC (`set_bochur_chavrusa`); only that shliach or a Cora admin can change them. A bochur cannot change his own assignment.
+- Daily planner has an All / Shared / Chavrusa A / Chavrusa B switch. Existing days stay **shared** (`chavrusa` is null) and remain visible to both groups. New days created while on A or B are tagged to that group; All and Shared create a shared day. A shliach can retag a day. Bochur A sees A + shared; bochur B sees B + shared; an unassigned bochur sees only shared. Per-day “can see” / “can edit” still apply.
+- `planner_days` unique key is now `(org_id, date, chavrusa)` with null treated as shared, so A, B, and Shared can each have the same date. Mendel’s existing 13 days were not rewritten — only the new nullable column was added (all remain shared). Items follow their day.
+- RLS uses `my_chavrusa()` (no self-referencing policies). Write policies are INSERT/UPDATE/DELETE only, so a hidden-but-editable day no longer leaks into a bochur’s SELECT. Works in Beta practice as shliach (example bochurim if he has fewer than 4) and as bochur (Viewing as Chavrusa A/B).
+
+
 ## 1.8.44
 - Home Visits counts only **live** households (`deleted_at IS NULL`). Soft-deleted contacts no longer inflate the first tile (the 443 figure included 298 deleted rows). The active denominator is live minus tagged removed (`155 − 10 = 145`). X is unique live, non-removed households with a completed visit, plus deferred when Include deferred is on. The same `deleted_at` filter applies to New contacts found, Removed, activity tiles, and the people list. Shliach soft-hidden contacts stay hidden from that viewer. Load queries `deleted_at IS NULL` so a missing field cannot leak deleted rows.
 

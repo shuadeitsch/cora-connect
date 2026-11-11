@@ -400,6 +400,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
           finalApprovedAt: member.finalApprovedAt ?? null,
           projectId: member.projectId ?? null,
           kind: "member" as const,
+          chavrusa: member.chavrusa === "A" || member.chavrusa === "B" ? member.chavrusa : null,
         }));
 
   if (perms.canManage) {
@@ -423,6 +424,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         finalApprovedAt: null,
         projectId: null,
         kind: "invite",
+        chavrusa: null,
       });
     }
   }
@@ -462,6 +464,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       projectId: user.projectId ?? null,
       tutorialStep: user.tutorialStep ?? 0,
       tutorialDone: Boolean(user.tutorialDone),
+      chavrusa: user.chavrusa === "A" || user.chavrusa === "B" ? user.chavrusa : null,
       territory: user.territory ?? [],
       preview: user.previewing
         ? { role: user.role === "bochur" ? "bochur" as const : "shliach" as const, state: user.territory?.[0]?.state ?? null }

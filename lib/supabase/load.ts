@@ -205,6 +205,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     projectId: nullableText(profile, "project_id"),
     tutorialStep: Number(profile.tutorial_step ?? 0) || 0,
     tutorialDone: Boolean(profile.tutorial_done),
+    chavrusa: profile.chavrusa === "A" || profile.chavrusa === "B" ? profile.chavrusa : null,
     adminApprovedAt: nullableText(profile, "admin_approved_at"),
     finalApprovedAt: nullableText(profile, "final_approved_at"),
     territory: territoryByUser.get(text(profile, "id")) ?? [],

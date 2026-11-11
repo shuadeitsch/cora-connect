@@ -14,7 +14,8 @@ import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, removePlannerItemAction, setBochurimEditPlannerAction, setBochurimSeePlannerAction, setPlannerDayEditableAction, setPlannerDayVisibleAction, updatePlannerItemAction } from "@/lib/planner-actions";
+import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, removePlannerItemAction, setBochurimEditPlannerAction, setBochurimSeePlannerAction, setPlannerDayChavrusaAction, setPlannerDayEditableAction, setPlannerDayVisibleAction, updatePlannerItemAction } from "@/lib/planner-actions";
+import { chavrusaLabel, newDayChavrusa, showChavrusosUi, type Chavrusa, type PlannerChavrusaFilter } from "@/lib/chavrusa";
 import type { PlannerDay, PlannerItem } from "@/lib/planner";
 import type { AppData } from "@/lib/types";
 import { usePractice } from "@/components/practice-provider";
@@ -96,9 +97,17 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
   const preview = Boolean(live.viewer.preview);
   // Live bochurim are RLS-scoped; Beta preview still loads all days as admin — filter here.
   // Practice patches day visibility/edit, then bochur view hides invisible days.
+  const myBochurim = live.members.filter((member) => member.kind === "member" && member.role === "bochur" && (live.viewer.role === "admin" || member.leaderId === live.viewer.id));
+  const showChavrusaSwitch = (live.viewer.role === "shliach" || live.viewer.role === "admin") && showChavrusosUi(myBochurim.length, practice.active, myBochurim.some((member) => Boolean(member.chavrusa)));
+  const [plannerFilter, setPlannerFilterState] = useState<PlannerChavrusaFilter>(practice.patch.plannerFilter ?? "all");
+  const plannerFilterLive = practice.patch.plannerFilter ?? plannerFilter;
+  function setFilter(next: PlannerChavrusaFilter) {
+    setPlannerFilterState(next);
+    if (practice.active) practice.setPlannerFilter(next);
+  }
   const visibleDays = useMemo(
-    () => practice.mergeDays(days, bochur),
-    [bochur, days, practice],
+    () => practice.mergeDays(days, bochur, plannerFilterLive),
+    [bochur, days, practice, plannerFilterLive],
   );
   const [seePlanner, setSeePlanner] = useState(live.viewer.bochurimSeePlannerDefault !== false);
   const [editPlanner, setEditPlanner] = useState(Boolean(live.viewer.bochurimEditPlanner));
@@ -124,7 +133,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
       variant="outline"
       className="min-h-11 w-full justify-center rounded-full"
       disabled={pending}
-      onClick={() => { if (practice.active) { practice.addPlannerDay(date); toast({ title: "Saved in practice mode" }); return; } run(() => addPlannerDayAction(date)); }}
+      onClick={() => { const tag = newDayChavrusa(plannerFilterLive); if (practice.active) { practice.addPlannerDay(date, tag); toast({ title: "Saved in practice mode" }); return; } run(() => addPlannerDayAction(date, tag)); }}
     >
       <CalendarPlus className="size-4" /> {label} · {shortLabel(date)} · {hebrewLabel(date)}
     </Button>
@@ -198,12 +207,49 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
           ) : null}
         </div>
       ) : null}
+      {showChavrusaSwitch ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Planner chavrusa">
+          <span className="text-sm text-muted-foreground">Planning for</span>
+          {([
+            ["all", "All"],
+            ["shared", "Shared"],
+            ["A", "Chavrusa A"],
+            ["B", "Chavrusa B"],
+          ] as [PlannerChavrusaFilter, string][]).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`min-h-11 rounded-full px-3 text-sm ring-1 ${plannerFilterLive === value ? "bg-primary text-primary-foreground ring-primary" : "bg-card text-foreground ring-border"}`}
+              aria-pressed={plannerFilterLive === value}
+              onClick={() => setFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {bochur && practice.active ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="View as chavrusa">
+          <span className="text-sm text-muted-foreground">Viewing as</span>
+          {(["A", "B"] as Chavrusa[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              className={`min-h-11 rounded-full px-3 text-sm ring-1 ${(live.viewer.chavrusa ?? "A") === value ? "bg-primary text-primary-foreground ring-primary" : "bg-card text-foreground ring-border"}`}
+              aria-pressed={(live.viewer.chavrusa ?? "A") === value}
+              onClick={() => practice.setViewerChavrusa(value)}
+            >
+              Chavrusa {value}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {canEdit ? (
         <form
           className="mb-4 flex flex-wrap items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
-            if (newDate) { if (practice.active) { practice.addPlannerDay(newDate); toast({ title: "Saved in practice mode" }); setNewDate(""); return; } run(() => addPlannerDayAction(newDate), () => setNewDate("")); }
+            if (newDate) { const tag = newDayChavrusa(plannerFilterLive); if (practice.active) { practice.addPlannerDay(newDate, tag); toast({ title: "Saved in practice mode" }); setNewDate(""); return; } run(() => addPlannerDayAction(newDate, tag), () => setNewDate("")); }
           }}
         >
           <Input type="date" value={newDate} onChange={(event) => setNewDate(event.target.value)} aria-label="Day to add" className="w-auto" />
@@ -218,7 +264,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
             live.viewer.role === "shliach" ||
             (live.viewer.role === "bochur" && day.editableByBochurim);
           return (
-            <DayCard key={day.id} data={live} day={day} canEdit={dayCanEdit} manageVisibility={manageVisibility} pending={pending} run={run} />
+            <DayCard key={day.id} data={live} day={day} canEdit={dayCanEdit} manageVisibility={manageVisibility} manageChavrusa={showChavrusaSwitch} pending={pending} run={run} />
           );
         })}
         {canEdit && !loadError && dates.length ? quick(after, "Add day after") : null}
@@ -234,6 +280,7 @@ function DayCard({
   day,
   canEdit,
   manageVisibility,
+  manageChavrusa,
   pending,
   run,
 }: {
@@ -241,6 +288,7 @@ function DayCard({
   day: PlannerDay;
   canEdit: boolean;
   manageVisibility: boolean;
+  manageChavrusa: boolean;
   pending: boolean;
   run: (task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) => void;
 }) {
@@ -291,9 +339,38 @@ function DayCard({
           </label>
         </div>
       ) : null}
+      {manageChavrusa ? (
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <span>This day is for</span>
+          <select
+            className="h-10 rounded-lg border border-input bg-card px-2 text-sm"
+            value={day.chavrusa ?? ""}
+            disabled={pending}
+            aria-label={`Chavrusa for ${gregorianLabel(day.date)}`}
+            onChange={(event) => {
+              const next = event.target.value === "A" || event.target.value === "B" ? event.target.value : null;
+              if (practice.active) {
+                practice.setPlannerDayChavrusa(day.id, next);
+                toast({ title: `Saved in practice mode · ${chavrusaLabel(next)}` });
+                return;
+              }
+              run(() => setPlannerDayChavrusaAction(day.id, next));
+            }}
+          >
+            <option value="">Shared</option>
+            <option value="A">Chavrusa A</option>
+            <option value="B">Chavrusa B</option>
+          </select>
+        </label>
+      ) : null}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="font-heading text-lg font-semibold text-foreground">{gregorianLabel(day.date)}</h2>
+          <h2 className="font-heading text-lg font-semibold text-foreground">
+            {gregorianLabel(day.date)}
+            {day.chavrusa || manageChavrusa ? (
+              <span className="ml-2 align-middle rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{chavrusaLabel(day.chavrusa)}</span>
+            ) : null}
+          </h2>
           <p className="text-sm text-muted-foreground">{hebrewLabel(day.date)}</p>
           <HolidayChips date={day.date} />
         </div>

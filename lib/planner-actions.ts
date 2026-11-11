@@ -1,6 +1,7 @@
 "use server";
 
 import { assertNotPreview } from "@/lib/preview";
+import { parseChavrusa, type Chavrusa } from "@/lib/chavrusa";
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/session";
@@ -31,7 +32,7 @@ function done(): Result {
   return { ok: true };
 }
 
-export async function addPlannerDayAction(date: string): Promise<Result> {
+export async function addPlannerDayAction(date: string, chavrusa?: Chavrusa | null): Promise<Result> {
   const previewGate = await assertNotPreview();
   if (!previewGate.ok) return previewGate;
   const who = await plannerActor();
@@ -47,6 +48,7 @@ export async function addPlannerDayAction(date: string): Promise<Result> {
     created_by: who.id,
     visible_to_bochurim: visible,
     editable_by_bochurim: editable,
+    chavrusa: parseChavrusa(chavrusa),
   });
   return error ? fail(error.message, "Couldn't add the day.") : done();
 }
@@ -146,6 +148,7 @@ export async function addTripDayToPlannerAction(input: {
   title: string;
   time?: string;
   events?: { title: string; time?: string; address?: string }[];
+  chavrusa?: Chavrusa | null;
 }): Promise<{ ok: true; dayId: string; itemIds: string[] } | { ok: false; error: string }> {
   const previewGate = await assertNotPreview();
   if (!previewGate.ok) return previewGate;
@@ -153,12 +156,15 @@ export async function addTripDayToPlannerAction(input: {
   if (typeof who === "string") return { ok: false, error: who };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { ok: false, error: "Pick a date." };
   const supabase = await createClient();
-  let { data: day } = await supabase.from("planner_days").select("id").eq("date", input.date).maybeSingle();
+  const tripChavrusa = parseChavrusa(input.chavrusa);
+  let dayQuery = supabase.from("planner_days").select("id").eq("date", input.date);
+  dayQuery = tripChavrusa ? dayQuery.eq("chavrusa", tripChavrusa) : dayQuery.is("chavrusa", null);
+  let { data: day } = await dayQuery.maybeSingle();
   if (!day) {
     const actor = await getCurrentUser();
     const visible = actor?.role === "shliach" ? actor.bochurimSeePlannerDefault !== false : true;
     const editable = actor?.role === "shliach" ? Boolean(actor.bochurimEditPlanner) : false;
-    const inserted = await supabase.from("planner_days").insert({ org_id: who.orgId, date: input.date, created_by: who.id, visible_to_bochurim: visible, editable_by_bochurim: editable }).select("id").single();
+    const inserted = await supabase.from("planner_days").insert({ org_id: who.orgId, date: input.date, created_by: who.id, visible_to_bochurim: visible, editable_by_bochurim: editable, chavrusa: tripChavrusa }).select("id").single();
     if (inserted.error) return fail(inserted.error.message, "Couldn't add the day.") as { ok: false; error: string };
     day = inserted.data;
   }
@@ -232,4 +238,22 @@ export async function setPlannerDayEditableAction(dayId: string, editable: boole
   const supabase = await createClient();
   const { error } = await supabase.from("planner_days").update({ editable_by_bochurim: editable }).eq("id", dayId);
   return error ? fail(error.message, "Couldn't update day editing.") : done();
+}
+
+
+export async function setPlannerDayChavrusaAction(dayId: string, chavrusa: Chavrusa | null): Promise<Result> {
+  const previewGate = await assertNotPreview();
+  if (!previewGate.ok) return previewGate;
+  const who = await plannerActor();
+  if (typeof who === "string") return { ok: false, error: who };
+  const user = await getCurrentUser();
+  if (!user || (user.role !== "admin" && user.role !== "shliach")) {
+    return { ok: false, error: "Only a shliach or admin can change which chavrusa a day belongs to." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("planner_days").update({ chavrusa: parseChavrusa(chavrusa) }).eq("id", dayId);
+  if (error && /duplicate key|unique/i.test(error.message)) {
+    return { ok: false, error: "That chavrusa already has this day." };
+  }
+  return error ? fail(error.message, "Couldn't update the day's chavrusa.") : done();
 }

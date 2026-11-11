@@ -66,6 +66,8 @@ export interface User {
   finalApprovedAt?: string | null;
   tutorialStep?: number;
   tutorialDone?: boolean;
+  /** Bochur: Chavrusa A or B. Null means unassigned / shared planner only. */
+  chavrusa?: "A" | "B" | null;
 }
 
 export interface Invite {
@@ -269,6 +271,7 @@ export interface Viewer {
   sandbox?: boolean;
   tutorialStep?: number;
   tutorialDone?: boolean;
+  chavrusa?: "A" | "B" | null;
 }
 
 export interface TeamMember {
@@ -289,6 +292,7 @@ export interface TeamMember {
   avatarUrl: string | null;
   projectId: string | null;
   kind: "member" | "invite";
+  chavrusa?: "A" | "B" | null;
 }
 
 export interface HouseholdView {

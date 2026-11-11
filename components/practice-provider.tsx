@@ -10,6 +10,7 @@ import {
   savePractice,
   type PracticePatch,
 } from "@/lib/practice";
+import type { Chavrusa, PlannerChavrusaFilter } from "@/lib/chavrusa";
 import type { AppData, HouseholdInput, VisitInput } from "@/lib/types";
 import {
   applySandboxVisit,
@@ -36,10 +37,14 @@ type PracticeContextValue = {
   setPlannerVisible: (dayId: string, visible: boolean) => void;
   setPlannerEditable: (dayId: string, editable: boolean) => void;
   setPref: (key: "shareNewWithBochurim" | "bochurimEditPlanner" | "bochurimSeePlannerDefault", value: boolean) => void;
+  setBochurChavrusa: (bochurId: string, chavrusa: Chavrusa | null) => void;
+  setPlannerDayChavrusa: (dayId: string, chavrusa: Chavrusa | null) => void;
+  setPlannerFilter: (filter: PlannerChavrusaFilter) => void;
+  setViewerChavrusa: (chavrusa: Chavrusa | null) => void;
   saveHousehold: (input: HouseholdInput) => { ok: true; data: { id: string } };
   saveVisit: (input: VisitInput) => { ok: true; data: { id: string } };
   recordSuggestion: () => void;
-  addPlannerDay: (date: string) => void;
+  addPlannerDay: (date: string, chavrusa?: Chavrusa | null) => void;
   removePlannerDay: (dayId: string) => void;
   addPlannerItem: (input: { dayId: string; kind: "route" | "event"; title?: string; time?: string | null; notes?: string; address?: string; routeId?: string | null }) => void;
   updatePlannerItem: (input: { id: string; title?: string; time?: string | null; notes?: string; address?: string }) => void;
@@ -49,7 +54,7 @@ type PracticeContextValue = {
   reset: () => void;
   clearSandbox: () => void;
   mergeData: (data: AppData) => AppData;
-  mergeDays: <T extends { id: string; visibleToBochurim: boolean; editableByBochurim: boolean }>(days: T[], bochur: boolean) => T[];
+  mergeDays: <T extends { id: string; visibleToBochurim: boolean; editableByBochurim: boolean; chavrusa?: Chavrusa | null }>(days: T[], bochur: boolean, filter?: PlannerChavrusaFilter) => T[];
 };
 
 const PracticeContext = createContext<PracticeContextValue | null>(null);
@@ -65,6 +70,10 @@ const noopFallback: PracticeContextValue = {
   setPlannerVisible: () => {},
   setPlannerEditable: () => {},
   setPref: () => {},
+  setBochurChavrusa: () => {},
+  setPlannerDayChavrusa: () => {},
+  setPlannerFilter: () => {},
+  setViewerChavrusa: () => {},
   saveHousehold: (input) => ({ ok: true, data: { id: input.id || "" } }),
   saveVisit: (input) => ({ ok: true, data: { id: input.id || "" } }),
   recordSuggestion: () => {},
@@ -172,6 +181,25 @@ export function PracticeProvider({
           }));
         }
       },
+      setBochurChavrusa(bochurId, chavrusa) {
+        commit((prev) => ({ ...prev, bochurChavrusa: { ...prev.bochurChavrusa, [bochurId]: chavrusa } }));
+      },
+      setPlannerDayChavrusa(dayId, chavrusa) {
+        commit((prev) => ({ ...prev, plannerDayChavrusa: { ...prev.plannerDayChavrusa, [dayId]: chavrusa } }));
+        if (usingSandbox) {
+          commitBox((prev) => ({
+            ...prev,
+            days: prev.days.map((day) => (day.id === dayId ? { ...day, chavrusa } : day)),
+            completed: { ...prev.completed, planner: true },
+          }));
+        }
+      },
+      setPlannerFilter(filter) {
+        commit((prev) => ({ ...prev, plannerFilter: filter }));
+      },
+      setViewerChavrusa(chavrusa) {
+        commit((prev) => ({ ...prev, viewerChavrusa: chavrusa }));
+      },
       setPref(key, prefValue) {
         commit((prev) => {
           const next = { ...prev, [key]: prefValue };
@@ -233,12 +261,12 @@ export function PracticeProvider({
           commitBox((prev) => ({ ...prev, suggestions: prev.suggestions + 1, completed: { ...prev.completed, "contacts-suggest": true } }));
         }
       },
-      addPlannerDay(date) {
+      addPlannerDay(date, chavrusa = null) {
         if (usingSandbox) {
           const id = `sandbox-day-${Date.now()}`;
           commitBox((prev) => ({
             ...prev,
-            days: [...prev.days, { id, date, visibleToBochurim: true, editableByBochurim: false, items: [] }].sort((a, b) => a.date.localeCompare(b.date)),
+            days: [...prev.days, { id, date, visibleToBochurim: true, editableByBochurim: false, chavrusa: chavrusa ?? null, items: [] }].sort((a, b) => a.date.localeCompare(b.date)),
             completed: { ...prev.completed, planner: true },
           }));
         }
@@ -324,9 +352,9 @@ export function PracticeProvider({
         const base = usingSandbox && box ? applyTutorialSandbox(data, box) : data;
         return applyPractice(base, patch);
       },
-      mergeDays(days, bochur) {
+      mergeDays(days, bochur, filter = "all") {
         const source = (usingSandbox && box ? box.days : days) as typeof days;
-        return applyPracticeDays(source, patch, bochur);
+        return applyPracticeDays(source, patch, bochur, filter);
       },
     };
   }, [active, box, commit, commitBox, patch, sandbox]);

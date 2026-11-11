@@ -1,5 +1,6 @@
 "use client";
 
+import { dayMatchesChavrusa, parseChavrusa, PRACTICE_BOCHURIM, type Chavrusa, type PlannerChavrusaFilter } from "@/lib/chavrusa";
 import type { AppData, HouseholdView } from "@/lib/types";
 
 export const PRACTICE_KEY = "cora-practice-v1";
@@ -16,6 +17,10 @@ export type PracticePatch = {
   plannerVisibleAll?: boolean;
   plannerEditableAll?: boolean;
   addedHouseholds?: import("@/lib/types").HouseholdView[];
+  bochurChavrusa?: Record<string, Chavrusa | null>;
+  plannerDayChavrusa?: Record<string, Chavrusa | null>;
+  plannerFilter?: PlannerChavrusaFilter;
+  viewerChavrusa?: Chavrusa | null;
 };
 
 export function emptyPractice(): PracticePatch {
@@ -40,6 +45,8 @@ export function loadPractice(): PracticePatch {
       householdTags: parsed.householdTags ?? {},
       plannerVisible: parsed.plannerVisible ?? {},
       plannerEditable: parsed.plannerEditable ?? {},
+      bochurChavrusa: parsed.bochurChavrusa ?? {},
+      plannerDayChavrusa: parsed.plannerDayChavrusa ?? {},
     };
   } catch {
     return emptyPractice();
@@ -79,9 +86,35 @@ export function applyPractice(data: AppData, patch: PracticePatch): AppData {
     filtered = merged.filter((house) => house.sharedWithBochurim !== false);
   }
 
+  const assignments = patch.bochurChavrusa ?? {};
+  let members = data.members.map((member) => (
+    Object.prototype.hasOwnProperty.call(assignments, member.id)
+      ? { ...member, chavrusa: parseChavrusa(assignments[member.id]) }
+      : member
+  ));
+  if (data.viewer.role === "shliach") {
+    const mine = members.filter((member) => member.kind === "member" && member.role === "bochur" && member.leaderId === data.viewer.id);
+    if (mine.length < 4) {
+      for (const example of PRACTICE_BOCHURIM) {
+        if (members.some((member) => member.id === example.id)) continue;
+        members = [
+          ...members,
+          {
+            ...example,
+            leaderId: data.viewer.id,
+            chavrusa: Object.prototype.hasOwnProperty.call(assignments, example.id)
+              ? parseChavrusa(assignments[example.id])
+              : example.chavrusa ?? null,
+          },
+        ];
+      }
+    }
+  }
+
   return {
     ...data,
     households: filtered,
+    members,
     viewer: {
       ...data.viewer,
       shareNewWithBochurim:
@@ -92,14 +125,18 @@ export function applyPractice(data: AppData, patch: PracticePatch): AppData {
         patch.bochurimSeePlannerDefault !== undefined
           ? patch.bochurimSeePlannerDefault
           : data.viewer.bochurimSeePlannerDefault,
+      chavrusa: data.viewer.role === "bochur"
+        ? (patch.viewerChavrusa !== undefined ? parseChavrusa(patch.viewerChavrusa) : data.viewer.chavrusa ?? "A")
+        : data.viewer.chavrusa ?? null,
     },
   };
 }
 
-export function applyPracticeDays<T extends { id: string; visibleToBochurim: boolean; editableByBochurim: boolean }>(
+export function applyPracticeDays<T extends { id: string; visibleToBochurim: boolean; editableByBochurim: boolean; chavrusa?: Chavrusa | null }>(
   days: T[],
   patch: PracticePatch,
   bochur: boolean,
+  filter: PlannerChavrusaFilter = "all",
 ): T[] {
   const mapped = days.map((day) => {
     const next = { ...day };
@@ -111,7 +148,15 @@ export function applyPracticeDays<T extends { id: string; visibleToBochurim: boo
     if (Object.prototype.hasOwnProperty.call(patch.plannerEditable ?? {}, day.id)) {
       next.editableByBochurim = Boolean(patch.plannerEditable![day.id]);
     }
+    if (Object.prototype.hasOwnProperty.call(patch.plannerDayChavrusa ?? {}, day.id)) {
+      next.chavrusa = parseChavrusa(patch.plannerDayChavrusa![day.id]);
+    }
     return next;
   });
-  return bochur ? mapped.filter((day) => day.visibleToBochurim) : mapped;
+  const view = bochur ? "all" : (patch.plannerFilter ?? filter);
+  const bochurChavrusa = parseChavrusa(patch.viewerChavrusa);
+  return mapped.filter((day) => {
+    if (bochur && !day.visibleToBochurim) return false;
+    return dayMatchesChavrusa(day, view, bochur ? (bochurChavrusa ?? "A") : null, bochur);
+  });
 }

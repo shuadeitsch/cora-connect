@@ -1,5 +1,6 @@
 "use client";
 
+import type { Chavrusa } from "@/lib/chavrusa";
 import type { AppData, ContactVisitView, HouseholdInput, HouseholdView, VisitInput, VisitView } from "@/lib/types";
 
 export const TUTORIAL_SANDBOX_KEY = "cora-tutorial-sandbox-v1";
@@ -23,6 +24,7 @@ export type SandboxDay = {
   date: string;
   visibleToBochurim: boolean;
   editableByBochurim: boolean;
+  chavrusa?: Chavrusa | null;
   items: SandboxItem[];
 };
 
@@ -158,6 +160,7 @@ export function seedTutorialSandbox(): TutorialSandbox {
         id: "sandbox-day-1",
         date: "2026-11-11",
         visibleToBochurim: true,
+        chavrusa: null,
         editableByBochurim: true,
         items: [
           {
@@ -177,6 +180,7 @@ export function seedTutorialSandbox(): TutorialSandbox {
         id: "sandbox-day-2",
         date: "2026-11-12",
         visibleToBochurim: false,
+        chavrusa: null,
         editableByBochurim: false,
         items: [
           {
