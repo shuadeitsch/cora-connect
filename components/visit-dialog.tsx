@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { usePractice } from "@/components/practice-provider";
 import { Notice } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -29,6 +30,7 @@ export function VisitDialog({
   canDelete?: boolean;
 }) {
   const announce = useUndoToast();
+  const practice = usePractice();
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
   const [writeIn, setWriteIn] = useState("");
@@ -58,6 +60,12 @@ export function VisitDialog({
           onSubmit={(event) => {
             event.preventDefault();
             start(async () => {
+              if (practice.active) {
+                practice.saveVisit(form);
+                onOpenChange(false);
+                announce({ ok: true }, form.id ? "Visit updated" : "Visit logged");
+                return;
+              }
               const result = await saveVisitAction(form);
               if (!result.ok) {
                 setError(result.error);

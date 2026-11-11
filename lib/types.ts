@@ -263,6 +263,8 @@ export interface Viewer {
   projectId: string | null;
   /** Set when a Cora admin is viewing the app as another role (Beta). */
   preview?: { role: "shliach" | "bochur"; state: string | null } | null;
+  /** Tutorial practice sandbox is on. Writes are blocked; UI shows example data. */
+  sandbox?: boolean;
   tutorialStep?: number;
   tutorialDone?: boolean;
 }

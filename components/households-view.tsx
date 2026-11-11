@@ -399,7 +399,7 @@ export function HouseholdsView({
         {view === "cards" ? (
           slice.length ? (
             <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">
-              {slice.map((household) => (
+              {slice.map((household, index) => (
                 <article key={household.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-background/40 p-4 transition duration-200 hover:-translate-y-0.5">
                   <div className="flex items-start gap-3">
                     <Checkbox
@@ -436,7 +436,14 @@ export function HouseholdsView({
                   <ShareWithBochurimToggle household={household} data={live} />
                   <div className="mt-auto flex gap-2">
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" onClick={() => setContact(household)}>Contact</Button>
-                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} data-tour="visit-log" onClick={() => setVisitFor(household)}>Visit</Button>
+                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} data-tour={index === 0 ? "visit-log" : undefined} onClick={() => setVisitFor(household)}>
+                      <Pencil className="size-3.5" /> Visit
+                    </Button>
+                    {live.viewer.role === "bochur" ? (
+                      <Button size="sm" variant="outline" className="h-10 rounded-full" data-tour={index === 0 ? "contacts-suggest" : undefined} onClick={() => setEditing(household)} disabled={Boolean(live.viewer.preview) && !practice.active}>
+                        Suggest
+                      </Button>
+                    ) : null}
                     <Button size="sm" variant="outline" className="h-10 rounded-full" onClick={() => setHistory(household)}>History</Button>
                   </div>
                 </article>
@@ -471,7 +478,7 @@ export function HouseholdsView({
               </tr>
             </thead>
             <tbody>
-              {slice.map((household) => (
+              {slice.map((household, index) => (
                 <tr key={household.id} className="border-b last:border-0 hover:bg-muted">
                   <td className="px-3 py-1.5">
                     <Checkbox
@@ -500,7 +507,14 @@ export function HouseholdsView({
                     </div>
                   </td>
                   <td className="px-2"><IconAction label="View contact" onClick={() => setContact(household)} icon={MapPin} /></td>
-                  <td className="px-2"><IconAction label="Log visit" onClick={() => setVisitFor(household)} icon={Pencil} disabled={!live.viewer.canLogVisit} /></td>
+                  <td className="px-2">
+                    <div className="flex items-center gap-1">
+                      <IconAction label="Log visit" onClick={() => setVisitFor(household)} icon={Pencil} disabled={!live.viewer.canLogVisit} tour={index === 0 ? "visit-log" : undefined} />
+                      {live.viewer.role === "bochur" ? (
+                        <IconAction label="Suggest edit" onClick={() => setEditing(household)} icon={MessageSquare} disabled={Boolean(live.viewer.preview) && !practice.active} tour={index === 0 ? "contacts-suggest" : undefined} />
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="px-2"><IconAction label="Visit history" onClick={() => setHistory(household)} icon={History} /></td>
                   <td className="max-w-[16rem] px-2 text-muted-foreground">
                     <VisitChips visits={household.contactVisits ?? []} />
@@ -866,7 +880,7 @@ function ShareWithBochurimToggle({
         aria-label={`Share ${household.name} with bochurim`}
         onChange={(event) => {
           const share = event.target.checked;
-          if (preview && practice.active) {
+          if (practice.active) {
             practice.setShare(household.id, share);
             toast({ title: share ? "Shared with bochurim (practice)" : "Unshared with bochurim (practice)" });
             return;
@@ -883,9 +897,9 @@ function ShareWithBochurimToggle({
   );
 }
 
-function IconAction({ label, onClick, icon: Icon, disabled }: { label: string; onClick: () => void; icon: typeof History; disabled?: boolean }) {
+function IconAction({ label, onClick, icon: Icon, disabled, tour }: { label: string; onClick: () => void; icon: typeof History; disabled?: boolean; tour?: string }) {
   return (
-    <button type="button" aria-label={label} disabled={disabled} onClick={onClick} className="inline-flex size-7 items-center justify-center rounded-full bg-accent text-primary hover:bg-accent disabled:opacity-30">
+    <button type="button" aria-label={label} disabled={disabled} onClick={onClick} className="inline-flex size-7 items-center justify-center rounded-full bg-accent text-primary hover:bg-accent disabled:opacity-30" data-tour={tour}>
       <Icon className="size-3.5" />
     </button>
   );
@@ -963,6 +977,7 @@ function fromHousehold(household: HouseholdView, data: AppData): HouseholdInput 
 
 function HouseholdDialog({ open, title, data, household, onClose }: { open: boolean; title: string; data: AppData; household: HouseholdView | null; onClose: () => void }) {
   const toast = useToast();
+  const practice = usePractice();
   const [form, setForm] = useState<HouseholdInput>(blankInput(data));
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
@@ -1012,6 +1027,21 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
             };
             start(async () => {
               try {
+                if (practice.active) {
+                  if (data.viewer.role === "bochur" && household) {
+                    practice.recordSuggestion();
+                    toast({ title: "Saved in practice mode" });
+                    onClose();
+                    return;
+                  }
+                  const saved = practice.saveHousehold(payload);
+                  if (typeof payload.sharedWithBochurim === "boolean" && data.viewer.role === "shliach") {
+                    practice.setShare(saved.data.id, payload.sharedWithBochurim);
+                  }
+                  toast({ title: household ? "Contact updated" : "Contact saved" });
+                  onClose();
+                  return;
+                }
                 if (data.viewer.role === "bochur" && household) {
                   const fields: Array<{ field: string; old: string; new: string }> = [];
                   const pairs: Array<[string, string, string]> = [

@@ -25,7 +25,24 @@ export async function saveShliachPrefsAction(input: {
   if (!Object.keys(patch).length) return { ok: true };
   const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
   if (error) return { ok: false, error: error.message };
+  // Keep the planner in sync: toggling see/edit defaults also sets every existing day.
+  if (typeof input.bochurimSeePlannerDefault === "boolean") {
+    const { error: daysError } = await supabase
+      .from("planner_days")
+      .update({ visible_to_bochurim: input.bochurimSeePlannerDefault })
+      .eq("org_id", user.orgId);
+    if (daysError) return { ok: false, error: daysError.message };
+  }
+  if (typeof input.bochurimEditPlanner === "boolean") {
+    const { error: daysError } = await supabase
+      .from("planner_days")
+      .update({ editable_by_bochurim: input.bochurimEditPlanner })
+      .eq("org_id", user.orgId);
+    if (daysError) return { ok: false, error: daysError.message };
+  }
   revalidatePath("/", "layout");
+  revalidatePath("/planner");
+  revalidatePath("/settings");
   return { ok: true };
 }
 

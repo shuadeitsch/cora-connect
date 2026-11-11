@@ -13,6 +13,16 @@ import {
   type TutorialStep,
 } from "@/lib/tutorial";
 import { saveTutorialProgressAction } from "@/lib/tutorial-actions";
+import { startTutorialSandboxAction, exitTutorialSandboxAction } from "@/lib/sandbox-actions";
+import {
+  isTutorialPracticeOn,
+  isTutorialTourActive,
+  loadOrSeedTutorialSandbox,
+  saveTutorialSandbox,
+  setTutorialPracticeOn,
+  setTutorialTourActive,
+} from "@/lib/tutorial-sandbox";
+import { usePractice } from "@/components/practice-provider";
 import type { Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +34,8 @@ type TutorialContextValue = {
   start: () => void;
   resume: () => void;
   restart: () => void;
+  practiceMode: boolean;
+  setPracticeMode: (on: boolean) => void;
 };
 
 const TutorialContext = createContext<TutorialContextValue | null>(null);
@@ -68,11 +80,14 @@ export function TutorialProvider({ viewer, children }: { viewer: Viewer; childre
   const role = tutorialRoleFrom(viewer.role);
   const steps = useMemo(() => tutorialStepsFor(role), [role]);
   const preview = Boolean(viewer.preview);
+  const practice = usePractice();
+  const router = useRouter();
   const [progress, setProgress] = useState<TutorialProgress>(() => ({
     step: viewer.tutorialStep ?? 0,
     done: Boolean(viewer.tutorialDone),
   }));
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(() => isTutorialTourActive());
+  const [practiceMode, setPracticeModeState] = useState(() => Boolean(viewer.sandbox) || isTutorialPracticeOn());
 
   useEffect(() => {
     const local = loadLocalTutorial(viewer.id, role);
@@ -90,20 +105,47 @@ export function TutorialProvider({ viewer, children }: { viewer: Viewer; childre
     (next: TutorialProgress) => {
       setProgress(next);
       saveLocalTutorial(viewer.id, role, next);
-      if (!preview) {
+      if (!preview && !viewer.sandbox && !isTutorialPracticeOn()) {
         void saveTutorialProgressAction({ step: next.step, done: next.done });
       }
     },
-    [preview, role, viewer.id],
+    [preview, role, viewer.id, viewer.sandbox],
+  );
+
+  const setPracticeMode = useCallback(
+    (on: boolean) => {
+      setPracticeModeState(on);
+      if (on) {
+        setTutorialPracticeOn(true);
+        saveTutorialSandbox(loadOrSeedTutorialSandbox());
+        void startTutorialSandboxAction().then(() => router.refresh());
+      } else {
+        practice.clearSandbox();
+        void exitTutorialSandboxAction().then(() => router.refresh());
+      }
+    },
+    [practice, router],
   );
 
   const startAt = useCallback(
     (index: number) => {
       const step = clampStep(index, steps.length);
       persist({ step, done: false });
+      setTutorialTourActive(true);
       setActive(true);
     },
     [persist, steps.length],
+  );
+
+  const stopTour = useCallback(
+    (finished: boolean) => {
+      const step = finished ? Math.max(0, steps.length - 1) : clampStep(progress.step, steps.length);
+      persist({ step, done: finished });
+      setTutorialTourActive(false);
+      setActive(false);
+      if (practiceMode) setPracticeMode(false);
+    },
+    [persist, practiceMode, progress.step, setPracticeMode, steps.length],
   );
 
   const value = useMemo<TutorialContextValue>(
@@ -115,8 +157,10 @@ export function TutorialProvider({ viewer, children }: { viewer: Viewer; childre
       start: () => startAt(0),
       resume: () => startAt(progress.done ? 0 : progress.step),
       restart: () => startAt(0),
+      practiceMode,
+      setPracticeMode,
     }),
-    [active, progress, role, startAt, steps],
+    [active, practiceMode, progress, role, setPracticeMode, startAt, steps],
   );
 
   return (
@@ -128,14 +172,8 @@ export function TutorialProvider({ viewer, children }: { viewer: Viewer; childre
             steps={steps}
             index={clampStep(progress.step, steps.length)}
             onIndex={(step) => persist({ step, done: false })}
-            onFinish={() => {
-              persist({ step: Math.max(0, steps.length - 1), done: true });
-              setActive(false);
-            }}
-            onExit={() => {
-              persist({ step: clampStep(progress.step, steps.length), done: false });
-              setActive(false);
-            }}
+            onFinish={() => stopTour(true)}
+            onExit={() => stopTour(false)}
           />
         </Suspense>
       ) : null}
@@ -163,6 +201,10 @@ function TutorialOverlay({
   const step = steps[index];
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [ready, setReady] = useState(false);
+  const practice = usePractice();
+  const { practiceMode, setPracticeMode } = useTutorial();
+  const practiceOn = practiceMode || practice.sandbox;
+  const didIt = practiceOn && step ? practice.actionDone(step.id) : false;
 
   const go = useCallback(
     (nextIndex: number) => {
@@ -208,14 +250,14 @@ function TutorialOverlay({
         return;
       }
       tries += 1;
-      if (tries < 12) {
+      if (tries < 24) {
         window.setTimeout(tick, 80);
         return;
       }
       setRect(null);
       setReady(true);
     };
-    const start = window.setTimeout(tick, 60);
+    const start = window.setTimeout(tick, 200);
     return () => {
       cancelled = true;
       window.clearTimeout(start);
@@ -270,7 +312,20 @@ function TutorialOverlay({
 
   return (
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
-      <div className="absolute inset-0 bg-foreground/50" onClick={onExit} />
+      {practiceOn ? (
+        hole ? (
+          <>
+            <div className="absolute bg-foreground/50" style={{ top: 0, left: 0, right: 0, height: hole.top }} />
+            <div className="absolute bg-foreground/50" style={{ top: hole.top, left: 0, width: hole.left, height: hole.height }} />
+            <div className="absolute bg-foreground/50" style={{ top: hole.top, left: hole.left + hole.width, right: 0, height: hole.height }} />
+            <div className="absolute bg-foreground/50" style={{ top: hole.top + hole.height, left: 0, right: 0, bottom: 0 }} />
+          </>
+        ) : (
+          <div className="pointer-events-none absolute inset-0 bg-foreground/30" />
+        )
+      ) : (
+        <div className="absolute inset-0 bg-foreground/50" onClick={onExit} />
+      )}
       {hole ? (
         <div
           className="pointer-events-none absolute rounded-2xl ring-2 ring-white/90"
@@ -301,11 +356,25 @@ function TutorialOverlay({
           {step.title}
         </h2>
         <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+        {didIt ? (
+          <p className="mt-2 rounded-xl bg-emerald-50 px-2.5 py-1.5 text-sm font-medium text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+            Nice, you did it!
+          </p>
+        ) : null}
         {!hole && ready ? (
           <p className="mt-2 rounded-xl bg-muted/70 px-2.5 py-1.5 text-xs text-muted-foreground">
             This piece is not on the screen right now, so here is a short note instead. Nothing in this tour changes real data.
           </p>
         ) : null}
+        <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            className="size-4 accent-primary"
+            checked={practiceOn}
+            onChange={(event) => setPracticeMode(event.target.checked)}
+          />
+          <span>Practice mode</span>
+        </label>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <Button type="button" variant="ghost" className="min-h-10 rounded-full px-3 text-sm" onClick={onExit}>
             Exit
@@ -331,16 +400,30 @@ function TutorialOverlay({
 }
 
 export function TutorialIntro({ className }: { className?: string }) {
-  const { steps, progress, start, resume, restart } = useTutorial();
+  const { steps, progress, start, resume, restart, practiceMode, setPracticeMode } = useTutorial();
   const started = progress.step > 0 || progress.done;
   return (
     <div className={cn("mx-auto max-w-xl space-y-4 p-4 sm:p-6", className)}>
       <div className="panel space-y-3 rounded-3xl p-5 sm:p-6">
         <h1 className="font-heading text-2xl font-semibold text-foreground">A short tour of Cora Connect</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          This walkthrough shows you the real pages, one simple step at a time. It is only a guide — it never changes your
-          contacts or visits. You can leave any time and come back to the same step.
+          This walkthrough shows you the real pages, one simple step at a time. With Practice mode off, it is only a guide —
+          it never changes your contacts or visits. You can leave any time and come back to the same step.
         </p>
+        <label className="flex items-start gap-3 rounded-2xl border border-border bg-muted/40 px-3 py-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 accent-primary"
+            checked={practiceMode}
+            onChange={(event) => setPracticeMode(event.target.checked)}
+          />
+          <span>
+            <span className="block font-medium text-foreground">Practice mode</span>
+            <span className="text-xs text-muted-foreground">
+              Try each step on example contacts. Nothing you do here is saved, and the sandbox clears when you exit or turn this off.
+            </span>
+          </span>
+        </label>
         <p className="text-sm leading-relaxed text-muted-foreground">
           There are {steps.length} steps in this tour. Use Next, Back, or Exit on each card.
         </p>

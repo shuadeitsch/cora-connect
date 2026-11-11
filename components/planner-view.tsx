@@ -18,7 +18,6 @@ import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, remo
 import type { PlannerDay, PlannerItem } from "@/lib/planner";
 import type { AppData } from "@/lib/types";
 import { usePractice } from "@/components/practice-provider";
-import { applyPracticeDays } from "@/lib/practice";
 
 type Planned = { dayId: string; itemId: string; date: string };
 const PlannedContext = createContext<Map<string, Planned[]>>(new Map());
@@ -98,8 +97,8 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
   // Live bochurim are RLS-scoped; Beta preview still loads all days as admin — filter here.
   // Practice patches day visibility/edit, then bochur view hides invisible days.
   const visibleDays = useMemo(
-    () => applyPracticeDays(days, practice.patch, bochur),
-    [bochur, days, practice.patch],
+    () => practice.mergeDays(days, bochur),
+    [bochur, days, practice],
   );
   const [seePlanner, setSeePlanner] = useState(live.viewer.bochurimSeePlannerDefault !== false);
   const [editPlanner, setEditPlanner] = useState(Boolean(live.viewer.bochurimEditPlanner));
@@ -125,7 +124,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
       variant="outline"
       className="min-h-11 w-full justify-center rounded-full"
       disabled={pending}
-      onClick={() => run(() => addPlannerDayAction(date))}
+      onClick={() => { if (practice.active) { practice.addPlannerDay(date); toast({ title: "Saved in practice mode" }); return; } run(() => addPlannerDayAction(date)); }}
     >
       <CalendarPlus className="size-4" /> {label} · {shortLabel(date)} · {hebrewLabel(date)}
     </Button>
@@ -166,7 +165,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
               onChange={(event) => {
                 const next = event.target.checked;
                 setSeePlanner(next);
-                if (preview && practice.active) {
+                if (practice.active) {
                   practice.setPref("bochurimSeePlannerDefault", next);
                   toast({ title: "Saved in practice mode" });
                   return;
@@ -176,7 +175,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
             />
             <span>Bochurim can see the planner</span>
           </label>
-          {live.viewer.role === "shliach" ? (
+          {manageVisibility ? (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -186,7 +185,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
                 onChange={(event) => {
                   const next = event.target.checked;
                   setEditPlanner(next);
-                  if (preview && practice.active) {
+                  if (practice.active) {
                     practice.setPref("bochurimEditPlanner", next);
                     toast({ title: "Saved in practice mode" });
                     return;
@@ -194,7 +193,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
                   run(() => setBochurimEditPlannerAction(next));
                 }}
               />
-              <span>Let bochurim edit the daily planner by default</span>
+              <span>Bochurim can edit the planner</span>
             </label>
           ) : null}
         </div>
@@ -204,7 +203,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
           className="mb-4 flex flex-wrap items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
-            if (newDate) run(() => addPlannerDayAction(newDate), () => setNewDate(""));
+            if (newDate) { if (practice.active) { practice.addPlannerDay(newDate); toast({ title: "Saved in practice mode" }); setNewDate(""); return; } run(() => addPlannerDayAction(newDate), () => setNewDate("")); }
           }}
         >
           <Input type="date" value={newDate} onChange={(event) => setNewDate(event.target.value)} aria-label="Day to add" className="w-auto" />
@@ -262,7 +261,7 @@ function DayCard({
               disabled={pending}
               onChange={(event) => {
                 const next = event.target.checked;
-                if (preview && practice.active) {
+                if (practice.active) {
                   practice.setPlannerVisible(day.id, next);
                   toast({ title: next ? "Day visible (practice)" : "Day hidden (practice)" });
                   return;
@@ -280,7 +279,7 @@ function DayCard({
               disabled={pending}
               onChange={(event) => {
                 const next = event.target.checked;
-                if (preview && practice.active) {
+                if (practice.active) {
                   practice.setPlannerEditable(day.id, next);
                   toast({ title: next ? "Day editable (practice)" : "Day locked (practice)" });
                   return;
@@ -306,6 +305,7 @@ function DayCard({
             disabled={pending}
             onClick={() => {
               if (!confirm(day.items.length ? `Remove this day and its ${day.items.length} item${day.items.length === 1 ? "" : "s"}?` : "Remove this day?")) return;
+              if (practice.active) { practice.removePlannerDay(day.id); toast({ title: "Saved in practice mode" }); return; }
               run(() => removePlannerDayAction(day.id));
             }}
           >
@@ -330,7 +330,7 @@ function DayCard({
           dayId={day.id}
           pending={pending}
           onCancel={() => setAdding("")}
-          onSave={(values) => run(() => addPlannerItemAction({ dayId: day.id, kind: adding, ...values }), () => setAdding(""))}
+          onSave={(values) => { if (practice.active) { practice.addPlannerItem({ dayId: day.id, kind: adding, ...values }); toast({ title: "Saved in practice mode" }); setAdding(""); return; } run(() => addPlannerItemAction({ dayId: day.id, kind: adding, ...values }), () => setAdding("")); }}
         />
       ) : null}
     </section>
@@ -435,6 +435,8 @@ function ItemRow({
   run: (task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const practice = usePractice();
+  const toast = useToast();
   const route = item.routeId ? data.routes.find((entry) => entry.id === item.routeId) : undefined;
   if (editing) {
     return (
@@ -446,7 +448,15 @@ function ItemRow({
           dayId={dayId}
           pending={pending}
           onCancel={() => setEditing(false)}
-          onSave={(values) => run(() => updatePlannerItemAction({ id: item.id, kind: item.kind, ...values }), () => setEditing(false))}
+          onSave={(values) => {
+            if (practice.active) {
+              practice.updatePlannerItem({ id: item.id, ...values });
+              toast({ title: "Saved in practice mode" });
+              setEditing(false);
+              return;
+            }
+            run(() => updatePlannerItemAction({ id: item.id, kind: item.kind, ...values }), () => setEditing(false));
+          }}
         />
       </li>
     );
@@ -488,7 +498,7 @@ function ItemRow({
           aria-label="Remove"
           className="inline-flex size-8 items-center justify-center rounded-full text-red-600 hover:bg-muted"
           disabled={pending}
-          onClick={() => run(() => removePlannerItemAction(item.id))}
+          onClick={() => { if (practice.active) { practice.removePlannerItem(item.id); toast({ title: "Saved in practice mode" }); return; } run(() => removePlannerItemAction(item.id)); }}
         >
           <X className="size-4" />
         </button>

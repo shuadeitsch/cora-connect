@@ -21,7 +21,7 @@ import {
 import { Avatar } from "@/components/avatar";
 import { CommandPalette, type PaletteHousehold } from "@/components/command-palette";
 import { FeedbackButton } from "@/components/feedback-button";
-import { PreviewBanner } from "@/components/preview-banner";
+import { PreviewBanner, SandboxBanner } from "@/components/preview-banner";
 import { PracticeProvider } from "@/components/practice-provider";
 import { TutorialProvider } from "@/components/tutorial-tour";
 import { ReloadButton } from "@/components/reload-button";
@@ -242,7 +242,7 @@ export function Shell({
   }, []);
 
   return (
-    <PracticeProvider active={Boolean(preview)}>
+    <PracticeProvider active={Boolean(preview) || Boolean(viewer.sandbox)} sandbox={Boolean(viewer.sandbox)}>
     <TutorialProvider viewer={viewer}>
       <div className="safe-page app-frame flex flex-col">
       <header className="glass z-30 mx-2 mt-2 flex min-h-14 shrink-0 items-center justify-between gap-2 rounded-2xl px-2 py-1 sm:mx-3 sm:px-3">
@@ -324,7 +324,7 @@ export function Shell({
           </Link>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
-          {preview ? <PreviewBanner role={preview.role} state={preview.state} /> : null}
+          {viewer.sandbox ? <SandboxBanner /> : preview ? <PreviewBanner role={preview.role} state={preview.state} /> : null}
           {viewer.expired ? (
             <div className="mx-3 mt-3 rounded-2xl bg-amber-100 px-4 py-2 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">
               Your access expired{viewer.expiresAt ? ` on ${formatMedium(viewer.expiresAt)}` : ""}. You can review records, and editing is turned off.

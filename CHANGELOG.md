@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.43
+- Tutorial step 10 (Log a visit): the pen on the first contact now has `data-tour` in both card and table views, the tour waits about 2 seconds for the list to render, and the copy is “Tap the pen on any contact to log a visit.” Other steps audited for every role — bochur “Suggest edit” is now on the first contact in the list (it was only inside a closed contact card).
+- Optional **Practice mode** toggle on the Tutorial intro and in the tour bar, for every role. When it is on, each step can be done against a local sandbox of example contacts (not real data), reusing the practice overlay and `assertNotPreview` (sandbox cookie) so no write reaches the database. Banner: “Practice mode: nothing you do here is saved.” Detected actions show “Nice, you did it!” Exiting the tutorial or turning practice off clears the sandbox.
+- Home Visits first tile uses the **active** denominator (`X of 145`). X excludes removed contacts. Helper: “Excluding 10 which were removed (not Jewish or doesn't exist)”, with the live count. Include deferred still applies. Other tiles have no helper note.
+- Shliach planner defaults stay in sync: Settings and the Daily planner both have “Bochurim can see the planner” and “Bochurim can edit the planner.” Toggling either side sets every existing day's per-day checkbox to match, then a day can still be changed individually. The Settings edit toggle had only saved the pref and left planner days unchanged. Same write-through in Beta practice as shliach (and Tutorial practice).
+
+
 ## 1.8.42
 - Shliach-facing checkboxes no longer appear in the normal Cora **admin** UI. “Share with bochurim” is gone from Contacts list, cards, contact detail, and the edit form. Daily planner no longer shows “Bochurim can see the planner / this day” or “Bochurim can edit this day.” Settings defaults (share new contacts, bochurim see/edit the planner) stay shliach-only, as before.
 - Those controls belong only to the **shliach** role, including Beta **View as shliach**. In practice mode, toggles take effect immediately in **View as bochur** (contact appears or disappears, planner day shows or hides, edit is allowed or blocked). Practice state stays in sessionStorage across switching views and Exit until **Reset**.

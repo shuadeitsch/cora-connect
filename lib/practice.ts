@@ -12,6 +12,10 @@ export type PracticePatch = {
   shareNewWithBochurim?: boolean;
   bochurimEditPlanner?: boolean;
   bochurimSeePlannerDefault?: boolean;
+  /** When set, apply to every day first; per-day maps override afterward. */
+  plannerVisibleAll?: boolean;
+  plannerEditableAll?: boolean;
+  addedHouseholds?: import("@/lib/types").HouseholdView[];
 };
 
 export function emptyPractice(): PracticePatch {
@@ -65,9 +69,14 @@ export function applyPractice(data: AppData, patch: PracticePatch): AppData {
     return next;
   });
 
-  let filtered = households;
+  const extras = patch.addedHouseholds ?? [];
+  const merged = extras.length
+    ? [...households, ...extras.filter((house) => !households.some((item) => item.id === house.id))]
+    : households;
+
+  let filtered = merged;
   if (data.viewer.role === "bochur") {
-    filtered = households.filter((house) => house.sharedWithBochurim !== false);
+    filtered = merged.filter((house) => house.sharedWithBochurim !== false);
   }
 
   return {
@@ -94,6 +103,8 @@ export function applyPracticeDays<T extends { id: string; visibleToBochurim: boo
 ): T[] {
   const mapped = days.map((day) => {
     const next = { ...day };
+    if (patch.plannerVisibleAll !== undefined) next.visibleToBochurim = Boolean(patch.plannerVisibleAll);
+    if (patch.plannerEditableAll !== undefined) next.editableByBochurim = Boolean(patch.plannerEditableAll);
     if (Object.prototype.hasOwnProperty.call(patch.plannerVisible ?? {}, day.id)) {
       next.visibleToBochurim = Boolean(patch.plannerVisible![day.id]);
     }

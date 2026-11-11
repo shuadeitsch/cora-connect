@@ -43,3 +43,16 @@ export function PreviewBanner({ role, state }: { role: "shliach" | "bochur"; sta
     </div>
   );
 }
+
+
+export function SandboxBanner() {
+  return (
+    <div className="mx-3 mt-3 rounded-2xl bg-amber-100 px-4 py-2 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">
+      <p>
+        <span className="font-semibold">Practice mode: nothing you do here is saved.</span>
+        {" "}
+        These are example contacts, not your real list.
+      </p>
+    </div>
+  );
+}

@@ -79,9 +79,10 @@ function onProjectVisit(
   return false;
 }
 
-/** Home Visits coverage: unique contacts with a matching visit out of FULL total (incl. removed).
+/** Home Visits coverage: unique ACTIVE contacts with a matching visit, out of the active book.
+ *  Removed (not Jewish / doesn't exist) are excluded from both X and the denominator.
  *  includeDeferred=false → completed only; true → completed + deferred.
- *  activeTotal = full total minus removed tags (for helper text on other tiles). */
+ *  total is the full count (incl. removed); activeTotal = total - removed. */
 export function visitCoverage(
   households: {
     id: string;
@@ -105,7 +106,10 @@ export function visitCoverage(
   for (const house of households) {
     if (filters.state && filters.state !== "ALL" && !sameState(house.state, filters.state)) continue;
     total += 1;
-    if (isTaggedContact(house.tags ?? [])) removed += 1;
+    if (isTaggedContact(house.tags ?? [])) {
+      removed += 1;
+      continue;
+    }
     const hit = house.contactVisits.some((cv) => {
       const st = cv.status ?? "completed";
       if (st === "completed") {
@@ -120,7 +124,7 @@ export function visitCoverage(
     if (hit) visited += 1;
   }
   const activeTotal = total - removed;
-  const percent = total ? Math.round((visited / total) * 100) : 0;
+  const percent = activeTotal ? Math.round((visited / activeTotal) * 100) : 0;
   return { visited, total, percent, activeTotal, removed };
 }
 

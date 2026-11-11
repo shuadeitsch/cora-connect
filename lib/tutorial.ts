@@ -157,7 +157,7 @@ const VISIT_LOG: TutorialStep = {
   href: "/households",
   target: "visit-log",
   title: "Log a visit",
-  body: "Tap Visit on a contact after you go. Set the status to Completed or Deferred. Check what was done, such as Tefillin or Challah. Visited by names who went — for example, Mendy Example & Shmuel Example. It often fills in for you, and you can edit it.",
+  body: "Tap the pen on any contact to log a visit. Set the status to Completed or Deferred. Check what was done, such as Tefillin or Challah. Visited by names who went — for example, Mendy Example & Shmuel Example. It often fills in for you, and you can edit it.",
 };
 
 const MAP: TutorialStep = {

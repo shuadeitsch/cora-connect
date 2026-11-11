@@ -4,6 +4,7 @@ import { FOCUS_STATES } from "@/lib/constants";
 import type { Role, User } from "@/lib/types";
 
 export const PREVIEW_COOKIE = "cora_preview";
+export const SANDBOX_COOKIE = "cora_sandbox";
 
 export type PreviewMode = {
   role: "shliach" | "bochur";
@@ -64,8 +65,14 @@ export function applyPreview(user: User, preview: PreviewMode | null): User {
   };
 }
 
+export async function readSandbox(): Promise<boolean> {
+  const jar = await cookies();
+  return jar.get(SANDBOX_COOKIE)?.value === "1";
+}
+
 export async function assertNotPreview(): Promise<{ ok: true } | { ok: false; error: string }> {
   const preview = await readPreview();
   if (preview) return { ok: false, error: "Preview only" };
+  if (await readSandbox()) return { ok: false, error: "Preview only" };
   return { ok: true };
 }

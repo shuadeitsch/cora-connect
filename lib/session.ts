@@ -3,7 +3,7 @@ import { cache } from "react";
 import { todayIso } from "@/lib/format";
 import { normalizeAccountStatus } from "@/lib/constants";
 import { present } from "@/lib/present";
-import { applyPreview, readPreview } from "@/lib/preview";
+import { applyPreview, readPreview, readSandbox } from "@/lib/preview";
 import { loadDemo } from "@/lib/store";
 import { createClient, isSupabaseMode } from "@/lib/supabase/server";
 import { loadSupabase } from "@/lib/supabase/load";
@@ -73,16 +73,15 @@ export const getAppData = cache(async (): Promise<AppData | null> => {
   const found = db.users.find((member) => member.id === user.id);
   const full = found ?? user;
   const preview = await readPreview();
+  const sandbox = await readSandbox();
   const effective = applyPreview(full, preview);
   const data = present(db, effective, isSupabaseMode() ? "supabase" : "demo", todayIso());
-  if (preview && user.role === "admin") {
-    return {
-      ...data,
-      viewer: {
-        ...data.viewer,
-        preview: { role: preview.role, state: preview.state ?? null },
-      },
-    };
+  const flags = {
+    ...(preview && user.role === "admin" ? { preview: { role: preview.role, state: preview.state ?? null } } : {}),
+    ...(sandbox ? { sandbox: true } : {}),
+  };
+  if (Object.keys(flags).length) {
+    return { ...data, viewer: { ...data.viewer, ...flags } };
   }
   return data;
 });

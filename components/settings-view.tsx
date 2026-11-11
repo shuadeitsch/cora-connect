@@ -172,7 +172,7 @@ function ShliachPrefsForm({ data }: { data: AppData }) {
       onSubmit={(event) => {
         event.preventDefault();
         setMessage("");
-        if (preview && practice.active) {
+        if (practice.active) {
           practice.setPref("shareNewWithBochurim", shareNew);
           practice.setPref("bochurimEditPlanner", editPlanner);
           practice.setPref("bochurimSeePlannerDefault", seePlanner);
@@ -197,15 +197,15 @@ function ShliachPrefsForm({ data }: { data: AppData }) {
       <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" className="mt-1 size-4" checked={seePlanner} disabled={pending} onChange={(e) => setSeePlanner(e.target.checked)} />
         <span>
-          <span className="block">Bochurim can see new planner days by default</span>
-          <span className="text-xs text-muted-foreground">New days start visible. You can change each day on the planner.</span>
+          <span className="block">Bochurim can see the planner</span>
+          <span className="text-xs text-muted-foreground">Sets every existing day and the default for new days. You can still change a day on the planner.</span>
         </span>
       </label>
       <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" className="mt-1 size-4" checked={editPlanner} disabled={pending} onChange={(e) => setEditPlanner(e.target.checked)} />
         <span>
-          <span className="block">Let bochurim edit the daily planner by default</span>
-          <span className="text-xs text-muted-foreground">New days start editable. You can change each day on the planner.</span>
+          <span className="block">Bochurim can edit the planner</span>
+          <span className="text-xs text-muted-foreground">Sets every existing day and the default for new days. You can still change a day on the planner.</span>
         </span>
       </label>
       {message ? <Notice tone={message.startsWith("Saved") ? "ok" : "error"}>{message}</Notice> : null}

@@ -390,11 +390,9 @@ export function DashboardReports({
   const denomHint =
     removedCount > 0 ? (
       <p className="text-[10px] leading-snug text-muted-foreground">
-        out of {activeTotal} · excludes {removedCount} removed (not Jewish / doesn&apos;t exist)
+        Excluding {removedCount} which {removedCount === 1 ? "was" : "were"} removed (not Jewish or doesn&apos;t exist)
       </p>
-    ) : (
-      <p className="text-[10px] leading-snug text-muted-foreground">out of {activeTotal}</p>
-    );
+    ) : null;
 
   const tiles: {
     label: string;
@@ -409,7 +407,7 @@ export function DashboardReports({
       label: "Visits",
       count: coverage.visited,
       tone: "accent",
-      detail: `${coverage.visited} of ${coverage.total} contacts`,
+      detail: `${coverage.visited} of ${coverage.activeTotal} contacts`,
       progress: coverage.percent,
       footer: (
         <div className="space-y-1">
@@ -455,11 +453,12 @@ export function DashboardReports({
           <h2 className="font-heading text-xl font-semibold text-foreground">Visits</h2>
           <p className="text-sm text-muted-foreground">
             {allProjects ? "All projects: " : projectName ? `${projectName}: ` : ""}
-            {coverage.visited} of {coverage.total} contacts visited
-            {coverage.total ? ` (${coverage.percent}%)` : ""}
+            {coverage.visited} of {coverage.activeTotal} contacts visited
+            {coverage.activeTotal ? ` (${coverage.percent}%)` : ""}
             {includeDeferred ? " (completed + deferred)" : " (completed only)"}.
-            {" "}Active book: {coverage.activeTotal}
-            {coverage.removed ? ` · excludes ${coverage.removed} removed` : ""}.
+            {coverage.removed
+              ? ` Excluding ${coverage.removed} which ${coverage.removed === 1 ? "was" : "were"} removed (not Jewish or doesn't exist).`
+              : ""}
             {" "}People list matches the checkbox (removed contacts never listed).
           </p>
         </div>
