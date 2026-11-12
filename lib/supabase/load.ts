@@ -23,6 +23,7 @@ import type {
   VisitStatus,
 } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
+import { parseExtraAddresses } from "@/lib/extra-addresses";
 
 type Row = Record<string, unknown>;
 
@@ -222,6 +223,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     country: text(row, "country") || "USA",
     lat: num(row, "lat"),
     lng: num(row, "lng"),
+    extraAddresses: parseExtraAddresses(row.extra_addresses),
     notes: text(row, "notes"),
     projectId: nullableText(row, "project_id"),
     scheduleCategoryId: nullableText(row, "schedule_category_id"),

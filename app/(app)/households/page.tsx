@@ -31,6 +31,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
       initialProject={text(params, "project")}
       initialState={text(params, "state")}
       initialList={text(params, "list")}
+      initialMode={text(params, "mode")}
       focusId={text(params, "focus")}
       twilioConnected={twilioEnvConfigured()}
     />

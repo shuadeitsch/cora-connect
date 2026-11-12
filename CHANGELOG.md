@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.55
+- A contact can hold more than one address. The first address stays where it is; additional addresses (street, city, state, zip, and an optional label like Winter home or Business) are stored in `extra_addresses` on the household. The contact card shows every address, with a map/directions link for each when the main address has one. **Add another address** adds a new one, and extras can be edited or removed. This works on phones and Chromebooks. Search and the possible-duplicates scan look at the extra addresses too. Edits are written through the usual contact save, so `change_log` records them. Beta and Tutorial still do not write to the database.
+- Merging two contacts now moves every visit from both cards onto the surviving contact, including visits that had been removed (soft-deleted). Values the surviving card is missing — an extra address, empty phone or email slots, and notes — are copied from the other card and never overwritten.
+- After merging a pair or marking it **Not a duplicate** from Possible duplicates, the app stays on that list. The handled pair drops off and the next one shows. Scroll position is kept when possible.
+
+
 ## 1.8.54
 - Possible duplicates are found by scanning the live book when it loads, not only during CSV import. Contacts are flagged for a same or similar address (same house number, with street suffixes and spaces normalized), the same phone (including Phone 2 and Phone 3), the same email, or a similar name after titles like Mr./Mrs./Dr. are ignored, with typo tolerance and common nicknames. Each match shows the reason (for example, same address, similar name, same phone). Soft-deleted contacts and pairs marked **Not a duplicate** are skipped. Visibility still follows RLS by state. Nothing is merged or deleted. Import uses the same matcher.
 

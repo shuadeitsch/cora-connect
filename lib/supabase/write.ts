@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { parseExtraAddresses } from "@/lib/extra-addresses";
 import type {
   Category,
   ContactVisit,
@@ -30,6 +31,7 @@ function householdRow(household: Household) {
     country: household.country,
     lat: household.lat,
     lng: household.lng,
+    extra_addresses: parseExtraAddresses(household.extraAddresses),
     notes: household.notes,
     project_id: household.projectId,
     schedule_category_id: household.scheduleCategoryId,
@@ -63,8 +65,15 @@ export async function writeHousehold(
   // policy, and an id lookup cannot see the row being inserted.
   if (isNew) {
     let inserted = await supabase.from("households").insert(flagged);
+    if (inserted.error && missingColumn(inserted.error.message) && "extra_addresses" in flagged) {
+      const { extra_addresses: _dropped, ...rest } = flagged as typeof flagged & { extra_addresses?: unknown };
+      void _dropped;
+      inserted = await supabase.from("households").insert(rest);
+    }
     if (inserted.error && extras && missingColumn(inserted.error.message)) {
-      inserted = await supabase.from("households").insert(row);
+      const { extra_addresses: _dropped, ...plain } = row as typeof row & { extra_addresses?: unknown };
+      void _dropped;
+      inserted = await supabase.from("households").insert(plain);
     }
     await done(inserted, "Save contact");
   } else {
@@ -73,6 +82,11 @@ export async function writeHousehold(
     void created_at;
     void created_by;
     let updated = await supabase.from("households").update(patch).eq("id", household.id);
+    if (updated.error && missingColumn(updated.error.message) && "extra_addresses" in patch) {
+      const { extra_addresses: _dropped, ...rest } = patch as typeof patch & { extra_addresses?: unknown };
+      void _dropped;
+      updated = await supabase.from("households").update(rest).eq("id", household.id);
+    }
     if (updated.error && extras && missingColumn(updated.error.message)) {
       const plain = householdRow(household);
       const { id: plainId, created_at: created, created_by: createdBy, ...plainPatch } = plain;
@@ -222,6 +236,23 @@ export async function markHouseholdsDeleted(ids: string[], deleted: boolean): Pr
     throw new Error(`Save contact: ${result.error.message}`);
   }
   return "soft";
+}
+
+/** Move every visit, including soft-deleted ones, from one contact to another. */
+export async function moveHouseholdVisits(sourceId: string, targetId: string): Promise<number> {
+  const supabase = await createClient();
+  const rpc = await supabase.rpc("move_household_visits", { source_id: sourceId, target_id: targetId });
+  if (!rpc.error) return Number(rpc.data ?? 0);
+  if (!/could not find the function|schema cache|does not exist/i.test(rpc.error.message)) {
+    throw new Error(`Move visits: ${rpc.error.message}`);
+  }
+  let moved = 0;
+  for (const table of ["contact_visits", "visits"] as const) {
+    const updated = await supabase.from(table).update({ household_id: targetId }).eq("household_id", sourceId).select("id");
+    if (updated.error) throw new Error(`Move visits: ${updated.error.message}`);
+    moved += updated.data?.length ?? 0;
+  }
+  return moved;
 }
 
 export async function writeContactVisit(visit: ContactVisit, isNew: boolean) {

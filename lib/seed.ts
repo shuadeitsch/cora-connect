@@ -178,6 +178,7 @@ export function buildSeed(now = new Date()): Database {
       sharedWithCora: true,
       ownerId: null,
       visitReaction: i % 5 === 0 ? "very_happy" : i % 5 === 1 ? "warm" : i % 5 === 2 ? "neutral" : i % 5 === 3 ? "cold" : "very_cold",
+      extraAddresses: [],
       possibleDuplicate: false,
       duplicateOf: null,
       customFields: {

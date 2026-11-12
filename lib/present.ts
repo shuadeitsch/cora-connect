@@ -3,6 +3,7 @@ import { findLiveDuplicates } from "@/lib/duplicate-reason";
 import { isListedProject, listedProjects, parseHouseholdReaction, projectLabel } from "@/lib/constants";
 import { isRealVisit } from "@/lib/visited";
 import { monthKey, fullAddress } from "@/lib/format";
+import { parseExtraAddresses } from "@/lib/extra-addresses";
 import { legMiles } from "@/lib/model";
 import {
   allowedHouseholdIds,
@@ -219,6 +220,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         country: household.country,
         lat: household.lat,
         lng: household.lng,
+        extraAddresses: parseExtraAddresses(household.extraAddresses),
         notes: household.notes,
         projectId: household.projectId,
         projectName: project && isListedProject(project.name) ? projectLabel(project.name) : null,

@@ -61,6 +61,7 @@ import { isNewContact } from "@/lib/new-contacts";
 import { usePractice } from "@/components/practice-provider";
 import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
+import { blankExtraAddress, formatExtraAddress, parseExtraAddresses } from "@/lib/extra-addresses";
 import { CONTACT_TAGS, officialTags } from "@/lib/contact-tags";
 import { ContactFilterControls, ContactStateTabs, useContactFilters } from "@/components/contact-filters";
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
@@ -89,6 +90,7 @@ export function HouseholdsView({
   initialProject = "",
   initialState = "",
   initialList = "",
+  initialMode = "",
   focusId,
   twilioConnected = false,
 }: {
@@ -100,6 +102,7 @@ export function HouseholdsView({
   initialProject?: string;
   initialState?: string;
   initialList?: string;
+  initialMode?: string;
   focusId: string;
   twilioConnected?: boolean;
 }) {
@@ -112,7 +115,7 @@ export function HouseholdsView({
   const [view, setView] = useState<"cards" | "table">("cards");
   const [gone, setGone] = useState<string[]>([]);
   const [sort, setSort] = useState("name");
-  const filterCtl = useContactFilters(live, query, gone);
+  const filterCtl = useContactFilters(live, query, gone, initialMode === "duplicates" ? "duplicates" : "");
   const { filters } = filterCtl;
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -136,6 +139,31 @@ export function HouseholdsView({
   useEffect(() => {
     setViewingState(filters.state);
   }, [filters.state]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const current = url.searchParams.get("mode") || "";
+    const next = filters.mode === "duplicates" ? "duplicates" : "";
+    if (current === next) return;
+    if (next) url.searchParams.set("mode", "duplicates");
+    else url.searchParams.delete("mode");
+    router.replace(`${url.pathname}${url.search}`, { scroll: false });
+  }, [filters.mode, router]);
+
+  useEffect(() => {
+    const main = document.querySelector("main");
+    const saved = sessionStorage.getItem("cora-contacts-scroll");
+    if (saved && main) {
+      const top = Number(saved);
+      if (!Number.isNaN(top)) main.scrollTop = top;
+    }
+    function onScroll() {
+      const el = document.querySelector("main");
+      if (el) sessionStorage.setItem("cora-contacts-scroll", String(el.scrollTop));
+    }
+    main?.addEventListener("scroll", onScroll, { passive: true });
+    return () => main?.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => () => setViewingState(null), []);
 
@@ -457,6 +485,7 @@ export function HouseholdsView({
                           </AddressLink>
                         ) : "No address yet"}
                       </p>
+                      <ExtraAddressSummary household={household} />
                     </div>
                     <DueBadge state={household.dueState} />
                   </div>
@@ -541,6 +570,7 @@ export function HouseholdsView({
                             </AddressLink>
                           ) : "No address yet"}
                         </div>
+                        <ExtraAddressSummary household={household} />
                         <TagBadges tags={household.tags} />
                         <NotePreview notes={notesFor(household, live.viewer.canViewHistory)} compact />
                       </div>
@@ -750,7 +780,68 @@ function ShareWithBochur({ data, ids, className }: { data: AppData; ids: string[
 }
 
 /** "Possible duplicate" with the plain reason and a link to the matching contact. */
-function DuplicateNote({ household, onOpen, className }: { household: HouseholdView; onOpen?: (id: string) => void; className?: string }) {
+
+function ExtraAddressSummary({ household }: { household: HouseholdView }) {
+  const extras = parseExtraAddresses(household.extraAddresses);
+  if (!extras.length) return null;
+  return (
+    <div className="mt-0.5 space-y-0.5 text-[11px] text-muted-foreground">
+      {extras.map((address, index) => {
+        const text = formatExtraAddress(address);
+        if (!text) return null;
+        return (
+          <p key={`${address.street}-${index}`} className="truncate">
+            {address.label ? `${address.label}: ` : ""}
+            {household.address ? <AddressLink address={text} className="truncate">{text}</AddressLink> : text}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function ContactAddresses({ household }: { household: HouseholdView }) {
+  const extras = parseExtraAddresses(household.extraAddresses);
+  const showMaps = Boolean(household.address);
+  return (
+    <div className="mt-3 grid gap-3">
+      <div>
+        <p className="text-xs tracking-wide text-mutedink uppercase">Address</p>
+        <div className="flex items-start justify-between gap-2">
+          {household.address ? (
+            <AddressLink address={household.address} lat={household.lat} lng={household.lng} className="text-sm text-link" />
+          ) : <p className="text-sm text-link">No address yet</p>}
+          {showMaps && household.address ? (
+            <AddressLink address={household.address} lat={household.lat} lng={household.lng} label="Navigate" className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-primary hover:no-underline">
+              <MapPin className="size-4" />
+            </AddressLink>
+          ) : null}
+        </div>
+      </div>
+      {extras.map((address, index) => {
+        const text = formatExtraAddress(address);
+        if (!text) return null;
+        return (
+          <div key={`${address.street}-${index}`}>
+            <p className="text-xs tracking-wide text-mutedink uppercase">{address.label || "Another address"}</p>
+            <div className="flex items-start justify-between gap-2">
+              {showMaps ? (
+                <AddressLink address={text} className="text-sm text-link" />
+              ) : <p className="text-sm text-link">{text}</p>}
+              {showMaps ? (
+                <AddressLink address={text} label={`Navigate to ${address.label || "this address"}`} className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-primary hover:no-underline">
+                  <MapPin className="size-4" />
+                </AddressLink>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DuplicateNote({ household, onOpen, onHandled, className }: { household: HouseholdView; onOpen?: (id: string) => void; onHandled?: () => void; className?: string }) {
   if (!household.possibleDuplicate) return null;
   const reason = household.duplicateReason || "Possible duplicate";
   const id = household.duplicateMatchId;
@@ -769,13 +860,13 @@ function DuplicateNote({ household, onOpen, className }: { household: HouseholdV
           ) : <span className="font-medium">{household.duplicateOfName}</span>}
         </>
       ) : null}
-      {household.canMarkNotDuplicate ? <NotDuplicateButton household={household} /> : null}
+      {household.canMarkNotDuplicate ? <NotDuplicateButton household={household} onHandled={onHandled} /> : null}
     </span>
   );
 }
 
 /** Clears the flag and remembers the pair so imports and matching skip it. Undo in the toast. */
-function NotDuplicateButton({ household }: { household: HouseholdView }) {
+function NotDuplicateButton({ household, onHandled }: { household: HouseholdView; onHandled?: () => void }) {
   const announce = useUndoToast();
   const [pending, start] = useTransition();
   return (
@@ -786,7 +877,7 @@ function NotDuplicateButton({ household }: { household: HouseholdView }) {
       onClick={(event) => {
         event.stopPropagation();
         start(async () => {
-          announce(await dismissDuplicateAction(household.id, household.duplicateMatchId), `${household.name} marked not a duplicate`);
+          if (announce(await dismissDuplicateAction(household.id, household.duplicateMatchId), `${household.name} marked not a duplicate`)) onHandled?.();
         });
       }}
     >
@@ -960,6 +1051,7 @@ function blankInput(data: AppData): HouseholdInput {
     country: "USA",
     lat: "",
     lng: "",
+    extraAddresses: [],
     notes: "",
     projectId: "",
     scheduleCategoryId: "",
@@ -986,6 +1078,7 @@ function fromHousehold(household: HouseholdView, data: AppData): HouseholdInput 
     country: household.country,
     lat: household.lat?.toString() ?? "",
     lng: household.lng?.toString() ?? "",
+    extraAddresses: parseExtraAddresses(household.extraAddresses),
     notes: household.notes,
     projectId: household.projectId ?? "",
     scheduleCategoryId: household.scheduleCategoryId ?? "",
@@ -1186,6 +1279,93 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
             </div>
           )}
           <datalist id="cora-towns">{TOWNS.map((town) => <option key={`${town.city}-${town.state}`} value={town.city}>{town.city}, {town.state}</option>)}</datalist>
+
+          <div className="grid gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">More addresses</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-h-11 rounded-full"
+                onClick={() => setForm({ ...form, extraAddresses: [...(form.extraAddresses ?? []), blankExtraAddress(form.state)] })}
+              >
+                Add another address
+              </Button>
+            </div>
+            {(form.extraAddresses ?? []).map((address, index) => (
+              <div key={index} className="grid gap-2 rounded-2xl border p-3">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Label</span>
+                  <Input
+                    value={address.label}
+                    placeholder="Winter home, Business, …"
+                    onChange={(event) => {
+                      const extraAddresses = [...(form.extraAddresses ?? [])];
+                      extraAddresses[index] = { ...address, label: event.target.value };
+                      setForm({ ...form, extraAddresses });
+                    }}
+                  />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Address</span>
+                  <Input
+                    value={address.street}
+                    onChange={(event) => {
+                      const extraAddresses = [...(form.extraAddresses ?? [])];
+                      extraAddresses[index] = { ...address, street: event.target.value };
+                      setForm({ ...form, extraAddresses });
+                    }}
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <label className="grid gap-1 text-sm sm:col-span-2">
+                    <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">City</span>
+                    <Input
+                      list="cora-towns"
+                      value={address.city}
+                      onChange={(event) => {
+                        const extraAddresses = [...(form.extraAddresses ?? [])];
+                        extraAddresses[index] = { ...address, city: event.target.value };
+                        setForm({ ...form, extraAddresses });
+                      }}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">State</span>
+                    <Input
+                      value={address.state}
+                      onChange={(event) => {
+                        const extraAddresses = [...(form.extraAddresses ?? [])];
+                        extraAddresses[index] = { ...address, state: event.target.value };
+                        setForm({ ...form, extraAddresses });
+                      }}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Zip</span>
+                    <Input
+                      value={address.zip}
+                      onChange={(event) => {
+                        const extraAddresses = [...(form.extraAddresses ?? [])];
+                        extraAddresses[index] = { ...address, zip: event.target.value };
+                        setForm({ ...form, extraAddresses });
+                      }}
+                    />
+                  </label>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 w-full rounded-full sm:w-auto"
+                  onClick={() => setForm({ ...form, extraAddresses: (form.extraAddresses ?? []).filter((_, at) => at !== index) })}
+                >
+                  Remove this address
+                </Button>
+              </div>
+            ))}
+          </div>
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visits</span>
@@ -1386,7 +1566,7 @@ function ContactDialog({
             <section>
               <p className="font-heading text-2xl font-semibold text-foreground">{household.name}</p>
               {household.possibleDuplicate ? (
-                <p className="mt-2 text-sm"><DuplicateNote household={household} onOpen={onOpenOther} /></p>
+                <p className="mt-2 text-sm"><DuplicateNote household={household} onOpen={onOpenOther} onHandled={onClose} /></p>
               ) : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 <ReactionBadge reaction={household.latestReaction} />
@@ -1423,17 +1603,7 @@ function ContactDialog({
               ) : (
                 <p className="mt-2 text-xs text-mutedink">Phone and email are hidden for your access.</p>
               )}
-              <p className="mt-3 text-xs tracking-wide text-mutedink uppercase">Address</p>
-              <div className="flex items-start justify-between gap-2">
-                {household.address ? (
-                  <AddressLink address={household.address} lat={household.lat} lng={household.lng} className="text-sm text-link" />
-                ) : <p className="text-sm text-link">No address yet</p>}
-                {household.address ? (
-                  <AddressLink address={household.address} lat={household.lat} lng={household.lng} label="Navigate" className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-primary hover:no-underline">
-                    <MapPin className="size-4" />
-                  </AddressLink>
-                ) : null}
-              </div>
+              <ContactAddresses household={household} />
             </section>
             {household.possibleDuplicate && canEdit ? (
               <section className="grid gap-2 border-t pt-3 text-sm">

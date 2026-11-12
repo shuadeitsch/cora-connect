@@ -10,6 +10,7 @@ import { CONTACT_TAGS, matchesTagFilter, showInContactList } from "@/lib/contact
 import { formatMedium } from "@/lib/format";
 import { labeledVisitNotes } from "@/lib/visit-notes";
 import { isRealVisit } from "@/lib/visited";
+import { extraAddressSearchText } from "@/lib/extra-addresses";
 import type { AppData, HouseholdView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -57,8 +58,12 @@ export function initialState(data: AppData) {
   return "";
 }
 
-export function useContactFilters(data: AppData, query: string, gone: string[] = []) {
-  const [filters, setFilters] = useState<ContactFilters>(() => ({ ...emptyFilters, state: initialState(data) }));
+export function useContactFilters(data: AppData, query: string, gone: string[] = [], initialMode: SortMode | "" = "") {
+  const [filters, setFilters] = useState<ContactFilters>(() => ({
+    ...emptyFilters,
+    state: initialState(data),
+    ...(initialMode === "duplicates" ? { mode: "duplicates" as SortMode, duplicates: true } : {}),
+  }));
 
   // Everything the filters allow except the city choice, so the Cities counts match what picking a city shows.
   const beforeCity = useMemo(() => {
@@ -68,7 +73,8 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
       const noteHay = data.viewer.canViewHistory
         ? labeledVisitNotes(household.notes, household.contactVisits ?? [], formatMedium).map((note) => `${note.label} ${note.notes}`).join(" ")
         : "";
-      const hay = `${household.name} ${household.city} ${household.state} ${household.zip} ${household.tags.join(" ")} ${household.projectName ?? ""} ${noteHay} ${household.people.map((person) => `${person.name} ${person.phone} ${person.phone2} ${person.phone3} ${person.email}`).join(" ")}`.toLowerCase();
+      const extraHay = extraAddressSearchText(household.extraAddresses);
+      const hay = `${household.name} ${household.city} ${household.state} ${household.zip} ${extraHay} ${household.tags.join(" ")} ${household.projectName ?? ""} ${noteHay} ${household.people.map((person) => `${person.name} ${person.phone} ${person.phone2} ${person.phone3} ${person.email}`).join(" ")}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (filters.list === "shliach-deleted") {
         if (!household.deletedByShliachAt) return false;
@@ -80,7 +86,7 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
       } else if (filters.list === "main" || filters.list === "tagged") {
         if (!showInContactList(household.tags, q, filters.list)) return false;
       } else return false;
-      if (filters.state && !matchesStateFilter(household.state, filters.state)) return false;
+      if (filters.state && !matchesStateFilter(household.state, filters.state) && !(household.extraAddresses ?? []).some((address) => matchesStateFilter(address.state, filters.state))) return false;
       if (filters.visited === VISITED_ANY) {
         if (!(household.contactVisits ?? []).some((visit) => isRealVisit(visit.visited))) return false;
       } else if (filters.visited === VISITED_NONE) {
@@ -120,7 +126,9 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
 
   const matched: HouseholdView[] = useMemo(() => {
     const picked = new Set(filters.cities);
-    return picked.size ? beforeCity.filter((household) => picked.has(cityKey(household.city))) : [...beforeCity];
+    return picked.size
+      ? beforeCity.filter((household) => picked.has(cityKey(household.city)) || (household.extraAddresses ?? []).some((address) => picked.has(cityKey(address.city))))
+      : [...beforeCity];
   }, [beforeCity, filters.cities]);
 
   // Visits are grouped as Summer 5786, Chanukah 5787, or Unsorted (any other or old value).

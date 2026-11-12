@@ -58,6 +58,7 @@ function household(partial: Partial<HouseholdView> & { id: string; name: string 
     deletedByShliachName: null,
     sharedWithBochurim: false,
     visitReaction: null,
+    extraAddresses: [],
     possibleDuplicate: false,
     duplicateOf: null,
     duplicateOfName: null,

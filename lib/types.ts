@@ -1,3 +1,6 @@
+import type { ExtraAddress } from "@/lib/extra-addresses";
+export type { ExtraAddress };
+
 export type Role = "admin" | "shliach" | "bochur" | "visitor" | "limited";
 export type VisitStatus = "completed" | "deferred";
 export type Reaction = "happy" | "warm" | "neutral" | "cold" | "not_interested";
@@ -132,6 +135,7 @@ export interface Household {
   country: string;
   lat: number | null;
   lng: number | null;
+  extraAddresses?: ExtraAddress[];
   notes: string;
   projectId: string | null;
   scheduleCategoryId: string | null;
@@ -309,6 +313,7 @@ export interface HouseholdView {
   country: string;
   lat: number | null;
   lng: number | null;
+  extraAddresses: ExtraAddress[];
   notes: string;
   projectId: string | null;
   projectName: string | null;
@@ -487,6 +492,7 @@ export interface HouseholdInput {
   country: string;
   lat: string;
   lng: string;
+  extraAddresses?: ExtraAddress[];
   notes: string;
   projectId: string;
   scheduleCategoryId: string;

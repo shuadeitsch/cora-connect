@@ -43,6 +43,7 @@ import {
   writeVisit,
   writeContactVisit,
   markHouseholdsDeleted,
+  moveHouseholdVisits,
   markShliachHidden,
   softDeleteVisits,
   undoImportRows,
@@ -50,6 +51,8 @@ import {
   setNotDuplicatePair,
   householdExists,
 } from "@/lib/supabase/write";
+import { keepLostMergeValues } from "@/lib/merge-keep";
+import { parseExtraAddresses } from "@/lib/extra-addresses";
 import type {
   ActionResult,
   ContactSnapshot,
@@ -200,6 +203,7 @@ function householdFromInput(db: Database, actor: User, input: HouseholdInput, ex
       country: input.country.trim() || "USA",
       lat,
       lng,
+      extraAddresses: parseExtraAddresses(input.extraAddresses),
       notes: input.notes.trim(),
       projectId,
       sharedWithCora,
@@ -1357,12 +1361,20 @@ export async function mergeContacts(actor: User, sourceId: string, targetId: str
     assert(source && target, "That contact is no longer here.");
     if (isSupabaseMode()) {
       try {
-        for (const visit of source.contactVisits) await writeContactVisit({ ...visit, householdId: targetId }, false);
+        await moveHouseholdVisits(sourceId, targetId);
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
         if (!tableMissing(message)) throw error;
+        for (const visit of source.contactVisits) await writeContactVisit({ ...visit, householdId: targetId }, false);
+        for (const visit of source.visits) await writeVisit({ ...visit, householdId: targetId }, false);
       }
-      for (const visit of source.visits) await writeVisit({ ...visit, householdId: targetId }, false);
+      const kept = keepLostMergeValues(source, target);
+      if (kept.restored.length) {
+        const withNote = keepLostMergeValues(source, target, {
+          note: `Kept from merged contact ${source.household.name.trim() || "the other card"}: ${kept.restored.join(", ")}.`,
+        });
+        await writeHousehold(withNote.household, withNote.people, false);
+      }
       const mode = await markHouseholdsDeleted([sourceId], true);
       if (mode === "missing") await removeHousehold(sourceId);
     } else {
@@ -1372,6 +1384,12 @@ export async function mergeContacts(actor: User, sourceId: string, targetId: str
         }
         for (const visit of draft.visits) {
           if (visit.householdId === sourceId) visit.householdId = targetId;
+        }
+        const kept = keepLostMergeValues(source, target);
+        const index = draft.households.findIndex((item) => item.id === targetId);
+        if (index >= 0 && kept.restored.length) draft.households[index] = kept.household;
+        if (kept.restored.length) {
+          draft.people = draft.people.filter((person) => person.householdId !== targetId).concat(kept.people);
         }
         draft.households = draft.households.filter((household) => household.id !== sourceId);
         draft.people = draft.people.filter((person) => person.householdId !== sourceId);

@@ -23,6 +23,7 @@ export type DupPlace = {
   street?: string;
   city?: string;
   state?: string;
+  extraAddresses?: { street?: string; city?: string; state?: string; zip?: string }[];
   deletedAt?: string | null;
 };
 
@@ -273,8 +274,8 @@ function tokenStreet(value: string) {
   return tokens;
 }
 
-export function streetParts(side: DupSide): StreetParts {
-  const raw = side.household.street ?? "";
+function streetPartsFrom(place: { street?: string; city?: string; state?: string }): StreetParts {
+  const raw = place.street ?? "";
   const tokens = tokenStreet(raw);
   let house = "";
   let rest = tokens;
@@ -287,9 +288,25 @@ export function streetParts(side: DupSide): StreetParts {
     house,
     street,
     compact: street.replace(/\s+/g, ""),
-    city: normName(side.household.city ?? ""),
-    state: normalizeState(side.household.state ?? "").toLowerCase(),
+    city: normName(place.city ?? ""),
+    state: normalizeState(place.state ?? "").toLowerCase(),
   };
+}
+
+export function streetParts(side: DupSide): StreetParts {
+  return streetPartsFrom(side.household);
+}
+
+function allStreetParts(side: DupSide): StreetParts[] {
+  const main = streetPartsFrom(side.household);
+  const extras = (side.household.extraAddresses ?? []).map((address) =>
+    streetPartsFrom({
+      street: address.street,
+      city: address.city || side.household.city,
+      state: address.state || side.household.state,
+    }),
+  );
+  return [main, ...extras];
 }
 
 function samePlace(a: StreetParts, b: StreetParts) {
@@ -314,7 +331,15 @@ function addressMatch(a: StreetParts, b: StreetParts): "same address" | "similar
 /** The matching parts, strongest first, e.g. ["same address", "same phone", "similar name"]. */
 export function matchParts(a: DupSide, b: DupSide): MatchPart[] {
   const parts: MatchPart[] = [];
-  const address = addressMatch(streetParts(a), streetParts(b));
+  let address: "same address" | "similar address" | "" = "";
+  for (const left of allStreetParts(a)) {
+    for (const right of allStreetParts(b)) {
+      const hit = addressMatch(left, right);
+      if (hit === "same address") { address = hit; break; }
+      if (hit && !address) address = hit;
+    }
+    if (address === "same address") break;
+  }
   if (address) parts.push(address);
   if (shares(phones(a), phones(b))) parts.push("same phone");
   if (shares(emails(a), emails(b))) parts.push("same email");
@@ -345,10 +370,10 @@ export function worthFlagging(parts: string[], a: DupSide, b: DupSide) {
     return true;
   }
   if (!parts.includes("same name") && !parts.includes("similar name")) return false;
-  const left = streetParts(a);
-  const right = streetParts(b);
+  const left = allStreetParts(a).filter((part) => part.house && part.compact);
+  const right = allStreetParts(b).filter((part) => part.house && part.compact);
   // A missing street on one side is still worth flagging (e.g. Vivienne Sohn).
-  if (!left.house || !right.house || !left.compact || !right.compact) return true;
+  if (!left.length || !right.length) return true;
   // Both have a real address and they did not match, so the similar name alone is not enough.
   return false;
 }
