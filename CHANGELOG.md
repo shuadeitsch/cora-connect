@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.53
+- Bot-written contact notes now display as **CORA Connect note**, not **Grok note**. New notes are prefixed with `CORA Connect note:`. Existing `Grok note:` lines are still recognized and shown with the same CORA Connect note label, not as a Summer 5786 visit or project.
+
+
 ## 1.8.52
 - Contact-level notes written by Grok now display as **Grok note**, not as a Summer 5786 (or other project) visit. They stay on the contact, not in visit notes. Each `Grok note:` line is shown as its own note. Existing user-written contact notes are unchanged and still appear as Summer 5786 when they were never copied onto a visit. Going forward, notes the bot adds are prefixed with `Grok note:`.
 
