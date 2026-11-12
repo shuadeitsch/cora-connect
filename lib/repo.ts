@@ -968,17 +968,22 @@ export async function importContacts(
     const fallback = plan.visitedFallback
       ? db.projects.find((item) => item.id === plan.visitedFallback)?.name || plan.visitedFallback
       : "";
-    const prepared = planImport(plan.rows, db.households.map((household) => {
-      const person = db.people.find((item) => item.householdId === household.id);
+    const prepared = planImport(plan.rows, db.households.filter((household) => !household.deletedAt).map((household) => {
+      const people = db.people.filter((item) => item.householdId === household.id);
+      const person = people[0];
       const visits = (db.contactVisits ?? []).filter((visit) => visit.householdId === household.id).map((visit) => visit.visited);
       const project = db.projects.find((item) => item.id === household.projectId)?.name ?? "";
       return {
         id: household.id,
         name: person?.name || household.name,
         phone: person?.phone ?? "",
+        phone2: person?.phone2 ?? "",
+        phone3: person?.phone3 ?? "",
         email: person?.email ?? "",
         street: household.street,
         city: household.city,
+        state: household.state,
+        people: people.map((item) => ({ name: item.name, phone: item.phone, phone2: item.phone2, phone3: item.phone3, email: item.email })),
         visited: visits.length ? visits : project ? [project] : [],
       };
     }), { territory, fallbackVisited: fallback, notDuplicatePairs: db.notDuplicatePairs });

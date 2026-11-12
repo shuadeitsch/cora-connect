@@ -752,7 +752,7 @@ function ShareWithBochur({ data, ids, className }: { data: AppData; ids: string[
 /** "Possible duplicate" with the plain reason and a link to the matching contact. */
 function DuplicateNote({ household, onOpen, className }: { household: HouseholdView; onOpen?: (id: string) => void; className?: string }) {
   if (!household.possibleDuplicate) return null;
-  const reason = household.duplicateReason || "Flagged on import";
+  const reason = household.duplicateReason || "Possible duplicate";
   const id = household.duplicateMatchId;
   return (
     <span className={cn("text-amber-900 dark:text-amber-200", className)}>

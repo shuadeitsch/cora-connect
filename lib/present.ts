@@ -1,5 +1,5 @@
 import { activityCountsFor } from "@/lib/visit-activities";
-import { matchParts, matchScore, reasonLead, worthFlagging } from "@/lib/duplicate-reason";
+import { findLiveDuplicates } from "@/lib/duplicate-reason";
 import { isListedProject, listedProjects, parseHouseholdReaction, projectLabel } from "@/lib/constants";
 import { isRealVisit } from "@/lib/visited";
 import { monthKey, fullAddress } from "@/lib/format";
@@ -11,7 +11,6 @@ import {
   buildActivity,
   canEditContact,
   canMarkNotDuplicate,
-  pairKey,
   categoryCounts,
   checklistFor,
   dueInfo,
@@ -124,6 +123,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
   const hideContact = !perms.canViewContact;
   const notDup = new Set(db.notDuplicatePairs ?? []);
   const hideHistory = !perms.canViewHistory;
+  const liveDups = findLiveDuplicates(visibleHouseholds, peopleBy, notDup);
 
   // For a shliach, "shared with bochurim" means shared with every one of his active bochurim (or none if he has none).
   // In Beta preview the viewer id is still the admin's, so use the territory shliach's bochurim.
@@ -198,29 +198,12 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       }));
       const latest = contactVisits[0] ?? null;
       const realVisits = contactVisits.filter((visit) => isRealVisit(visit.visited));
-      let duplicateMatchId: string | null = null;
-      let duplicateReason = "";
-      if (household.possibleDuplicate) {
-        const side = (item: typeof household) => ({ household: item, people: peopleBy.get(item.id) ?? [] });
-        const target = household.duplicateOf ? db.households.find((item) => item.id === household.duplicateOf) : undefined;
-        if (target) {
-          // Only name the other contact when this viewer is allowed to see it.
-          const seen = !allowed || allowed.has(target.id);
-          duplicateMatchId = seen ? target.id : null;
-          const lead = reasonLead(matchParts(side(household), side(target)));
-          duplicateReason = seen ? lead || "Flagged on import as maybe the same as" : lead ? `${lead} another contact` : "Flagged on import";
-        } else {
-          let best = 0;
-          for (const other of visibleHouseholds) {
-            if (other.id === household.id || notDup.has(pairKey(household.id, other.id))) continue;
-            const parts = matchParts(side(household), side(other));
-            if (!worthFlagging(parts, side(household), side(other))) continue;
-            const score = matchScore(parts);
-            if (score > best) { best = score; duplicateMatchId = other.id; }
-          }
-          duplicateReason = duplicateMatchId ? "Flagged on import · closest match:" : "Flagged on import";
-        }
-      }
+      const live = liveDups.get(household.id);
+      const possibleDuplicate = Boolean(live);
+      // Only name the other contact when this viewer is allowed to see it.
+      const seenMatch = Boolean(live && (!allowed || allowed.has(live.matchId)));
+      const duplicateMatchId = seenMatch && live ? live.matchId : null;
+      const duplicateReason = !live ? "" : seenMatch ? live.reason : "Possible duplicate of another contact";
       const duplicateOfName = duplicateMatchId
         ? visibleHouseholds.find((item) => item.id === duplicateMatchId)?.name
           || db.people.find((person) => person.householdId === duplicateMatchId && person.name.trim())?.name
@@ -258,11 +241,11 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
           : null,
         sharedWithBochurim: isSharedWithBochurim(household.id),
         visitReaction: household.visitReaction,
-        possibleDuplicate: household.possibleDuplicate,
-        duplicateOf: household.duplicateOf,
+        possibleDuplicate,
+        duplicateOf: duplicateMatchId,
         duplicateOfName,
         duplicateMatchId,
-        canMarkNotDuplicate: household.possibleDuplicate && canMarkNotDuplicate(user, household.ownerId, db.users, today, household.sharedWithCora, household.state, household.city),
+        canMarkNotDuplicate: possibleDuplicate && canMarkNotDuplicate(user, household.ownerId, db.users, today, household.sharedWithCora, household.state, household.city),
         duplicateReason,
         contactVisits,
         latestVisited: realVisits[0]?.visited ?? "",

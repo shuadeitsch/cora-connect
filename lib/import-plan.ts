@@ -1,6 +1,7 @@
 import { contactInTerritory, isBlankReactionText, normalizeState, parseHouseholdReaction } from "@/lib/constants";
 import { parseContactTags } from "@/lib/contact-tags";
 import { emailKey, phoneKey } from "@/lib/csv";
+import { asDupSide, matchParts, reasonLead, worthFlagging, type DupPerson } from "@/lib/duplicate-reason";
 import type { HouseholdReaction } from "@/lib/types";
 import { parseVisitStatus, type VisitProgress } from "@/lib/visit-status";
 
@@ -27,9 +28,13 @@ export interface ExistingContact {
   id: string;
   name: string;
   phone: string;
+  phone2?: string;
+  phone3?: string;
   email: string;
   street?: string;
   city?: string;
+  state?: string;
+  people?: DupPerson[];
   visited: string[];
 }
 
@@ -119,42 +124,45 @@ function samePerson(name: string, phone: string, email: string, otherName: strin
   return phoneSame || emailSame;
 }
 
-interface LooseSide { name: string; phone: string; email: string; street?: string; city?: string }
+interface LooseSide {
+  name: string;
+  phone: string;
+  phone2?: string;
+  phone3?: string;
+  email: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  people?: DupPerson[];
+}
+
+function looseSide(item: LooseSide) {
+  const people = item.people?.length
+    ? item.people
+    : [{ name: item.name, phone: item.phone, phone2: item.phone2, phone3: item.phone3, email: item.email }];
+  return asDupSide({ name: item.name, street: item.street ?? "", city: item.city ?? "", state: item.state ?? "" }, people);
+}
 
 /**
  * Why two contacts might be the same, or "" when they shouldn't be flagged.
- * A name match alone never flags when both have an address and the addresses differ.
+ * Uses the same live-book matcher as possible duplicates in the CRM.
  */
 function looseReason(a: LooseSide, b: LooseSide) {
-  const { name, phone, email } = a;
-  const { name: otherName, phone: otherPhone, email: otherEmail } = b;
-  if (samePerson(name, phone, email, otherName, otherPhone, otherEmail)) return "";
-  const aStreet = normName(a.street ?? "");
-  const bStreet = normName(b.street ?? "");
-  const bothAddressed = Boolean(aStreet && bStreet);
-  const sameAddress = bothAddressed && aStreet === bStreet && normName(a.city ?? "") === normName(b.city ?? "");
-  if (phoneKey(phone) && phoneKey(phone) === phoneKey(otherPhone) && normName(name) !== normName(otherName)) {
-    return "Same phone, different name";
-  }
-  if (emailKey(email) && emailKey(email) === emailKey(otherEmail) && normName(name) !== normName(otherName)) {
-    return "Same email, different name";
-  }
-  const nameMatch = Boolean(normName(name) && normName(name) === normName(otherName));
-  const nearName = !nameMatch && namesNearlyMatch(name, otherName);
-  if (sameAddress) return nameMatch || nearName ? "Same name and address" : "Same address, different name";
-  if (bothAddressed) return "";
-  if (nameMatch) return "Same name, no address to compare";
-  if (nearName) return "Name is almost the same, no address to compare";
-  return "";
+  if (samePerson(a.name, a.phone, a.email, b.name, b.phone, b.email)) return "";
+  const left = looseSide(a);
+  const right = looseSide(b);
+  const parts = matchParts(left, right);
+  if (!worthFlagging(parts, left, right)) return "";
+  return reasonLead(parts).replace(/ as$| to$/, "");
 }
 
 function looseScore(reason: string) {
   if (reason.startsWith("Same phone")) return 80;
   if (reason.startsWith("Same email")) return 70;
-  if (reason.startsWith("Same name and address")) return 75;
-  if (reason.startsWith("Same address")) return 50;
+  if (reason.includes("address") && reason.includes("name")) return 75;
+  if (reason.includes("address")) return 50;
   if (reason.startsWith("Same name")) return 60;
-  if (reason.startsWith("Name is almost")) return 40;
+  if (reason.startsWith("Similar name")) return 40;
   return 0;
 }
 

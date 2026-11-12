@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.54
+- Possible duplicates are found by scanning the live book when it loads, not only during CSV import. Contacts are flagged for a same or similar address (same house number, with street suffixes and spaces normalized), the same phone (including Phone 2 and Phone 3), the same email, or a similar name after titles like Mr./Mrs./Dr. are ignored, with typo tolerance and common nicknames. Each match shows the reason (for example, same address, similar name, same phone). Soft-deleted contacts and pairs marked **Not a duplicate** are skipped. Visibility still follows RLS by state. Nothing is merged or deleted. Import uses the same matcher.
+
+
 ## 1.8.53
 - Bot-written contact notes now display as **CORA Connect note**, not **Grok note**. New notes are prefixed with `CORA Connect note:`. Existing `Grok note:` lines are still recognized and shown with the same CORA Connect note label, not as a Summer 5786 visit or project.
 
