@@ -24,7 +24,7 @@ function houseInState(house: Household, state?: string) {
 }
 
 /** Count completed visits that include each activity, scoped for the viewer.
- * Always returns one row per built-in activity (0 if none), a Write-in row, and a Total. */
+ * Always returns one row per built-in activity (0 if none) and a Total. */
 export function activityCountsFor(
   visits: ContactVisit[],
   households: Household[],
@@ -56,11 +56,6 @@ export function activityCountsFor(
     count: counts.get(label) ?? 0,
     kind: "builtin",
   }));
-  let writeIn = 0;
-  for (const [label, count] of counts) {
-    if (!builtIn.includes(label)) writeIn += count;
-  }
-  rows.push({ label: "Write-in", count: writeIn, kind: "writein" });
   const total = rows.reduce((sum, row) => sum + row.count, 0);
   rows.push({ label: "Total", count: total, kind: "total" });
   return rows;

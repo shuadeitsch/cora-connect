@@ -1,7 +1,7 @@
 import "server-only";
 import type { CsvHouseholdRow } from "@/lib/csv";
 import { parseContactTags } from "@/lib/contact-tags";
-import { CONTACT_PROJECTS, OWNER_EMAIL, contactInTerritory, normalizeState, parseHouseholdReaction } from "@/lib/constants";
+import { CONTACT_PROJECTS, OWNER_EMAIL, contactInTerritory, normalizeActivity, normalizeState, parseHouseholdReaction } from "@/lib/constants";
 import { parseVisitStatus } from "@/lib/visit-status";
 import { importWrites, planImport } from "@/lib/import-plan";
 import { DEMO_PASSWORD } from "@/lib/demo-accounts";
@@ -254,7 +254,7 @@ function visitsFromForm(actor: User, householdId: string, orgId: string, input: 
       createdBy: prior?.createdBy ?? actor.id,
       createdAt: prior?.createdAt ?? new Date().toISOString(),
       importBatchId: prior?.importBatchId ?? null,
-      activities: [...new Set((visit.activities ?? prior?.activities ?? []).map((item: string) => item.trim()).filter(Boolean))],
+      activities: [...new Set((visit.activities ?? prior?.activities ?? []).map((item: string) => normalizeActivity(item)).filter(Boolean))],
     };
   });
 }
@@ -543,6 +543,7 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
       existing?.projectId
       ?? (actor.role === "bochur" ? actor.projectId ?? null : null)
       ?? null;
+    const activities = [...new Set((input.activities ?? []).map((item) => normalizeActivity(item)).filter(Boolean))];
     const visit: Visit = {
       id: existing?.id ?? newId(),
       orgId: actor.orgId,
@@ -556,12 +557,12 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
       followUpDate: existing?.followUpDate ?? null,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       projectId: visitProjectId,
+      activities,
     };
     const household = db.households.find((item) => item.id === input.householdId);
     const project = db.projects.find((item) => item.id === household?.projectId)?.name ?? "";
     const priorHistory = (db.contactVisits ?? []).find((item) => item.id === visit.id);
     const chosenVisited = (input.visited ?? "").trim();
-    const activities = [...new Set((input.activities ?? []).map((item) => item.trim()).filter(Boolean))];
     const history: ContactVisit = {
       id: visit.id,
       orgId: visit.orgId,

@@ -196,6 +196,16 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
           }
           return true;
         })(),
+        canEditVisit: (() => {
+          if (visit.id.startsWith("legacy-")) return false;
+          if (editsContact) return true;
+          if (!(perms.canLogVisit && visit.createdBy === user.id)) return false;
+          if (user.role === "bochur") {
+            const visitProject = visit.projectId ?? household.projectId ?? null;
+            return Boolean(user.projectId && visitProject && visitProject === user.projectId);
+          }
+          return true;
+        })(),
       }));
       const latest = contactVisits[0] ?? null;
       const realVisits = contactVisits.filter((visit) => isRealVisit(visit.visited));
@@ -286,6 +296,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         categoryNames: household?.categoryNames ?? [],
         projectName: household?.projectName ?? null,
         createdAt: visit.createdAt,
+        activities: visit.activities ?? [],
       };
     });
 

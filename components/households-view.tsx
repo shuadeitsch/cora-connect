@@ -31,6 +31,7 @@ import { Pager } from "@/components/pager";
 import { Notice, PageHeader } from "@/components/page-header";
 import { useToast } from "@/components/toast";
 import { VisitDialog } from "@/components/visit-dialog";
+import { VisitActivityBadges, VisitActivityPicker } from "@/components/visit-activity-picker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -67,7 +68,7 @@ import { ContactFilterControls, ContactStateTabs, useContactFilters } from "@/co
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
 import { visitStatusChip, visitStatusLabel } from "@/lib/visit-status";
 import { TOWNS } from "@/lib/geo";
-import type { AppData, HouseholdInput, HouseholdReaction, HouseholdView } from "@/lib/types";
+import type { AppData, ContactVisitView, HouseholdInput, HouseholdReaction, HouseholdView, VisitInput } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const control = "h-9 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
@@ -132,6 +133,7 @@ export function HouseholdsView({
     if (match) setContact(match);
   };
   const [visitFor, setVisitFor] = useState<HouseholdView | null>(null);
+  const [visitEdit, setVisitEdit] = useState<VisitInput | undefined>(undefined);
   const [error, setError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
   const [, start] = useTransition();
@@ -505,7 +507,7 @@ export function HouseholdsView({
                   <ShareWithBochurimToggle household={household} data={live} />
                   <div className="mt-auto flex gap-2">
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" onClick={() => setContact(household)}>Contact</Button>
-                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} data-tour={index === 0 ? "visit-log" : undefined} onClick={() => setVisitFor(household)}>
+                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} data-tour={index === 0 ? "visit-log" : undefined} onClick={() => { setVisitEdit(undefined); setVisitFor(household); }}>
                       <Pencil className="size-3.5" /> Visit
                     </Button>
                     {live.viewer.role === "bochur" ? (
@@ -579,7 +581,7 @@ export function HouseholdsView({
                   <td className="px-2"><IconAction label="View contact" onClick={() => setContact(household)} icon={MapPin} /></td>
                   <td className="px-2">
                     <div className="flex items-center gap-1">
-                      <IconAction label="Log visit" onClick={() => setVisitFor(household)} icon={Pencil} disabled={!live.viewer.canLogVisit} tour={index === 0 ? "visit-log" : undefined} />
+                      <IconAction label="Log visit" onClick={() => { setVisitEdit(undefined); setVisitFor(household); }} icon={Pencil} disabled={!live.viewer.canLogVisit} tour={index === 0 ? "visit-log" : undefined} />
                       {live.viewer.role === "bochur" ? (
                         <IconAction label="Suggest edit" onClick={() => setEditing(household)} icon={MessageSquare} disabled={Boolean(live.viewer.preview) && !practice.active} tour={index === 0 ? "contacts-suggest" : undefined} />
                       ) : null}
@@ -627,19 +629,35 @@ export function HouseholdsView({
         onClose={() => setContact(null)}
         onOpenOther={openById}
         onEdit={() => { if (contact) { setEditing(contact); setContact(null); } }}
-        onVisit={() => { if (contact) { setVisitFor(contact); setContact(null); } }}
+        onVisit={() => { if (contact) { setVisitEdit(undefined); setVisitFor(contact); setContact(null); } }}
         onHistory={() => { if (contact) { setHistory(contact); setContact(null); } }}
       />
       <HistoryDialog
         household={history}
         canHistory={live.viewer.canViewHistory}
         onClose={() => setHistory(null)}
+        onEditVisit={(visit) => {
+          if (!history) return;
+          setVisitEdit({
+            id: visit.id,
+            householdId: history.id,
+            visitDate: visit.visitDate ?? "",
+            status: visit.status ?? "",
+            reaction: visit.reaction ?? "",
+            details: visit.notes,
+            visited: visit.visited,
+            visitedBy: visit.visitedBy ?? "",
+            activities: visit.activities ?? [],
+          });
+          setVisitFor(history);
+        }}
       />
       <VisitDialog
         open={Boolean(visitFor)}
-        onOpenChange={(open) => { if (!open) setVisitFor(null); }}
+        onOpenChange={(open) => { if (!open) { setVisitFor(null); setVisitEdit(undefined); } }}
         households={data.households.map((household) => ({ id: household.id, name: household.name }))}
-        initial={visitFor ? { householdId: visitFor.id, visitDate: "", status: "", reaction: "", details: "" } : undefined}
+        initial={visitEdit ?? (visitFor ? { householdId: visitFor.id, visitDate: "", status: "", reaction: "", details: "", visited: "", visitedBy: "", activities: [] } : undefined)}
+        canDelete={Boolean(visitEdit?.id && history?.contactVisits.some((visit) => visit.id === visitEdit.id && visit.canRemove))}
       />
       <CreateRouteDialog data={live} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
       <OutreachDialog
@@ -1435,6 +1453,13 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                     </button>
                   ))}
                 </div>
+                <VisitActivityPicker
+                  value={visit.activities ?? []}
+                  onChange={(activities) => {
+                    const visits = form.visits.map((item, at) => at === index ? { ...item, activities } : item);
+                    setForm({ ...form, visits });
+                  }}
+                />
                 <label className="grid gap-1 text-sm">
                   <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">
                     Notes{visit.visited.trim() ? ` · ${visitNoteLabel(visit.visited, visit.visitDate || null, formatMedium)}` : ""}
@@ -1645,7 +1670,7 @@ function ActionLink({ href, icon: Icon, label }: { href: string; icon: typeof Ph
   );
 }
 
-function HistoryDialog({ household, canHistory, onClose }: { household: HouseholdView | null; canHistory: boolean; onClose: () => void }) {
+function HistoryDialog({ household, canHistory, onClose, onEditVisit }: { household: HouseholdView | null; canHistory: boolean; onClose: () => void; onEditVisit?: (visit: ContactVisitView) => void }) {
   const visits = household?.contactVisits ?? [];
   const announce = useUndoToast();
   const [confirming, setConfirming] = useState("");
@@ -1671,17 +1696,30 @@ function HistoryDialog({ household, canHistory, onClose }: { household: Househol
                       <p className="font-medium text-foreground">{label}</p>
                       <p className="mt-1"><VisitChip visit={visit} wide /></p>
                     </div>
-                    {visit.canRemove && confirming !== visit.id ? (
-                      <button
-                        type="button"
-                        aria-label={`Remove visit ${label}`}
-                        title="Remove visit"
-                        className="-mt-1 -mr-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
-                        onClick={() => setConfirming(visit.id)}
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    ) : null}
+                    <div className="flex shrink-0 items-start">
+                      {visit.canEditVisit && confirming !== visit.id && onEditVisit ? (
+                        <button
+                          type="button"
+                          aria-label={`Edit visit ${label}`}
+                          title="Edit visit"
+                          className="-mt-1 inline-flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+                          onClick={() => onEditVisit(visit)}
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                      ) : null}
+                      {visit.canRemove && confirming !== visit.id ? (
+                        <button
+                          type="button"
+                          aria-label={`Remove visit ${label}`}
+                          title="Remove visit"
+                          className="-mt-1 -mr-1 inline-flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+                          onClick={() => setConfirming(visit.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   {visit.visitedBy?.trim() ? (
                     <p className="mt-2 text-sm text-foreground">
@@ -1689,6 +1727,7 @@ function HistoryDialog({ household, canHistory, onClose }: { household: Househol
                       <span className="mt-0.5 block">{visit.visitedBy.trim()}</span>
                     </p>
                   ) : null}
+                  <VisitActivityBadges activities={visit.activities ?? []} />
                   {reaction ? <p className="mt-2"><ReactionBadge reaction={visit.reaction} /></p> : null}
                   {visit.notes ? (
                     <div className="mt-2">

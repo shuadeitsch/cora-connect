@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useUndoToast } from "@/components/undo-toast";
 import { VisitedPicker } from "@/components/visited-picker";
 import { deleteVisitAction, saveVisitAction } from "@/lib/actions";
-import { VISIT_ACTIVITIES, VISIT_REACTIONS, normalizeActivity } from "@/lib/constants";
-import { ActivityIcon } from "@/components/activity-icon";
+import { VISIT_REACTIONS } from "@/lib/constants";
+import { VisitActivityPicker } from "@/components/visit-activity-picker";
 import type { VisitInput } from "@/lib/types";
 
 const field = "h-9 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
@@ -33,13 +33,11 @@ export function VisitDialog({
   const practice = usePractice();
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
-  const [writeIn, setWriteIn] = useState("");
   const [form, setForm] = useState<VisitInput>(initial ?? emptyVisit(households[0]?.id ?? ""));
 
   useEffect(() => {
     if (!open) return;
     setError("");
-    setWriteIn("");
     setForm(initial ?? emptyVisit(households[0]?.id ?? ""));
     // Reset only when the dialog opens or the edited visit changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,73 +111,7 @@ export function VisitDialog({
             </label>
           </div>
 
-          <fieldset className="grid gap-2">
-            <legend className="text-[11px] font-medium tracking-wide text-mutedink uppercase">What was done</legend>
-            <div className="flex flex-wrap gap-1.5">
-              {VISIT_ACTIVITIES.map((label) => {
-                const on = (form.activities ?? []).includes(label);
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium ring-1 ${on ? "bg-primary text-primary-foreground ring-primary" : "bg-card text-foreground ring-border hover:bg-muted"}`}
-                    onClick={() => {
-                      const current = form.activities ?? [];
-                      set("activities", on ? current.filter((item) => item !== label) : [...current, label]);
-                    }}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      <ActivityIcon label={label} className="size-3.5" />
-                      {label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(form.activities ?? []).filter((item) => !(VISIT_ACTIVITIES as readonly string[]).includes(item)).map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  className="rounded-full bg-primary/15 px-3 py-1.5 text-xs font-medium text-primary ring-1 ring-primary/30"
-                  onClick={() => set("activities", (form.activities ?? []).filter((item) => item !== label))}
-                  title="Remove"
-                >
-                  {label} ×
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Write in another activity"
-                value={writeIn}
-                onChange={(event) => setWriteIn(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  const label = normalizeActivity(writeIn);
-                  if (!label) return;
-                  const current = form.activities ?? [];
-                  if (!current.includes(label)) set("activities", [...current, label]);
-                  setWriteIn("");
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-full"
-                onClick={() => {
-                  const label = normalizeActivity(writeIn);
-                  if (!label) return;
-                  const current = form.activities ?? [];
-                  if (!current.includes(label)) set("activities", [...current, label]);
-                  setWriteIn("");
-                }}
-              >
-                Add
-              </Button>
-            </div>
-          </fieldset>
+          <VisitActivityPicker value={form.activities ?? []} onChange={(activities) => set("activities", activities)} />
           <label className="grid gap-1 text-sm">
             <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visited by</span>
             <Input
@@ -247,6 +179,7 @@ export function visitInputFrom(visit: {
   status: string | null;
   reaction: string | null;
   details: string;
+  visited?: string | null;
   visitedBy?: string | null;
   activities?: string[];
 }): VisitInput {
@@ -257,7 +190,7 @@ export function visitInputFrom(visit: {
     status: visit.status ?? "",
     reaction: visit.reaction ?? "",
     details: visit.details,
-    visited: "",
+    visited: visit.visited ?? "",
     visitedBy: visit.visitedBy ?? "",
     activities: visit.activities ?? [],
   };

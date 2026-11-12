@@ -72,4 +72,27 @@ const withPhone = keepLostMergeValues(
 );
 assert(!withPhone.restored.includes("phone"), "does not overwrite or duplicate a phone");
 
+
+const tagged = keepLostMergeValues(
+  snap(household("a", "Source", { tags: ["Not Jewish", "Probably doesn't exist"] })),
+  snap(household("b", "Target")),
+);
+assert(tagged.restored.includes("tags"), "reports that tags were kept");
+assert(tagged.household.tags.includes("Not Jewish"), "keeps Not Jewish");
+assert(tagged.household.tags.includes("Probably doesn't exist"), "keeps Probably doesn't exist");
+
+const alreadyTagged = keepLostMergeValues(
+  snap(household("a", "Source", { tags: ["Not Jewish"] })),
+  snap(household("b", "Target", { tags: ["Not Jewish"] })),
+);
+assert(!alreadyTagged.restored.includes("tags"), "does not duplicate a tag the survivor already has");
+assert(alreadyTagged.household.tags.filter((tag) => tag === "Not Jewish").length === 1, "Not Jewish stays once");
+
+const unionTags = keepLostMergeValues(
+  snap(household("a", "Source", { tags: ["Probably doesn't exist"] })),
+  snap(household("b", "Target", { tags: ["Not Jewish"] })),
+);
+assert(unionTags.household.tags.includes("Not Jewish") && unionTags.household.tags.includes("Probably doesn't exist"), "unions different tags from both cards");
+assert(unionTags.restored.includes("tags"), "reports the added tag");
+
 console.log("extra addresses and merge-keep ok");

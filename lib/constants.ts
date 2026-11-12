@@ -216,9 +216,55 @@ export function projectChoices<T extends { id: string; name: string }>(projects:
   return listedProjects(projects);
 }
 
-/** Built-in visit activity chips. Write-ins are free text beyond these. */
-export const VISIT_ACTIVITIES = ["Tefillin", "Menorah/package", "Mezuzah", "Challah"] as const;
+/** Built-in visit activity chips, in Mendel's order. */
+export const VISIT_ACTIVITIES = [
+  "Nice conversation",
+  "Tefillin",
+  "Shabbos candles",
+  "Menorah",
+  "Package",
+  "Challah",
+  "Mezuzah",
+] as const;
 
+const ACTIVITY_ALIASES: Record<string, (typeof VISIT_ACTIVITIES)[number]> = {
+  "nice conversation": "Nice conversation",
+  conversation: "Nice conversation",
+  tefillin: "Tefillin",
+  "put on tefillin": "Tefillin",
+  "put tefillin on": "Tefillin",
+  "shabbos candles": "Shabbos candles",
+  "shabbat candles": "Shabbos candles",
+  "shabbos candle": "Shabbos candles",
+  "shabbat candle": "Shabbos candles",
+  menorah: "Menorah",
+  "chanukah menorah": "Menorah",
+  "hanukkah menorah": "Menorah",
+  package: "Package",
+  "gave a package": "Package",
+  "gave package": "Package",
+  challah: "Challah",
+  mezuzah: "Mezuzah",
+};
+
+/** Trim, collapse spaces, and use the official chip wording when the value is a known activity or alias. */
 export function normalizeActivity(value: string) {
-  return value.trim().replace(/\s+/g, " ");
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (!trimmed) return "";
+  const folded = trimmed.toLowerCase();
+  const aliased = ACTIVITY_ALIASES[folded];
+  if (aliased) return aliased;
+  const official = (VISIT_ACTIVITIES as readonly string[]).find((label) => label.toLowerCase() === folded);
+  return official ?? trimmed;
+}
+
+export function isOfficialActivity(value: string) {
+  const label = normalizeActivity(value);
+  return (VISIT_ACTIVITIES as readonly string[]).includes(label);
+}
+
+export function sameActivity(left: string, right: string) {
+  const a = normalizeActivity(left);
+  const b = normalizeActivity(right);
+  return Boolean(a) && a === b;
 }

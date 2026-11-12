@@ -174,7 +174,7 @@ export interface ContactVisit {
   createdBy: string | null;
   createdAt: string;
   importBatchId: string | null;
-  /** Built-in chips and write-ins, e.g. Tefillin, Menorah/package, custom text. */
+  /** Built-in chips and write-ins, e.g. Tefillin, Package, Mezuzah. */
   activities: string[];
   /** Project this visit belongs to (bochur edit/delete scope). */
   projectId?: string | null;
@@ -193,6 +193,7 @@ export interface Visit {
   followUpDate: string | null;
   createdAt: string;
   projectId?: string | null;
+  activities?: string[];
 }
 
 export interface RouteStop {
@@ -369,6 +370,7 @@ export interface ContactVisitView {
   /** Who logged it (null for imported history). */
   createdBy: string | null;
   canRemove: boolean;
+  canEditVisit: boolean;
   /** Bochur may edit/remove only when this matches his project. */
   projectId?: string | null;
   activities: string[];
@@ -389,6 +391,7 @@ export interface VisitView {
   categoryNames: string[];
   projectName: string | null;
   createdAt: string;
+  activities?: string[];
 }
 
 export interface RouteStopView {

@@ -272,6 +272,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     followUpDate: nullableText(row, "follow_up_date")?.slice(0, 10) ?? null,
     createdAt: text(row, "created_at"),
     projectId: nullableText(row, "project_id"),
+    activities: list(row.activities),
   }));
 
   const contactVisits: ContactVisit[] = contactVisitLoad.rows.filter(alive).map((row) => ({

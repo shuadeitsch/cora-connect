@@ -185,18 +185,22 @@ export async function writeVisit(visit: Visit, isNew: boolean) {
     reaction: visit.reaction,
     details: visit.details,
     created_at: visit.createdAt,
+    activities: visit.activities ?? [],
   };
-  if (isNew) {
-    await done(
-      await supabase.from("visits").insert({ ...row, follow_up_date: visit.followUpDate }),
-      "Save visit",
-    );
-    return;
+  const write = async (payload: Record<string, unknown>, insert: boolean) => {
+    if (insert) return supabase.from("visits").insert({ ...payload, follow_up_date: visit.followUpDate });
+    const { id, created_at, ...patch } = payload;
+    void id;
+    void created_at;
+    return supabase.from("visits").update(patch).eq("id", visit.id);
+  };
+  let result = await write(row, isNew);
+  if (result.error && missingColumn(result.error.message) && "activities" in row) {
+    const { activities: _dropped, ...rest } = row as typeof row & { activities?: unknown };
+    void _dropped;
+    result = await write(rest, isNew);
   }
-  const { id, created_at, ...patch } = row;
-  void id;
-  void created_at;
-  await done(await supabase.from("visits").update(patch).eq("id", visit.id), "Save visit");
+  await done(result, "Save visit");
 }
 
 export async function removeVisit(id: string) {

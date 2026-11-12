@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.56
+- Every visit on a contact is fully editable. On the contact form, Visited, date, reaction, notes, who visited, and status could already be changed; **What happened** activity chips are now on that form too. Visit history had been view-only (except Remove); it now has Edit, so you can change an existing visit without opening the whole contact. Edits go through the usual save, so `change_log` records them.
+- Each visit has **What happened** chips, on new and existing visits, in this order: Nice conversation, Tefillin, Shabbos candles, Menorah, Package, Challah, and Mezuzah. Chosen activities show on the visit in History. Home has a **Visit activities** box, styled like the other stat boxes, with a total for each of those categories. It counts only live visits that were not removed, and follows the dashboard's project and state filters: an admin can view every state they can access, and a shliach sees only his state. The existing **Removed: not Jewish / not existent** box is unchanged. Older wordings such as “Put on tefillin” still count under Tefillin. Activities are stored in `activities` on `contact_visits` (already present) and on `visits`. Merge already moves the whole visit row, so activities go with it. Beta and Tutorial still do not write to the database.
+
+
+
 ## 1.8.55
 - A contact can hold more than one address. The first address stays where it is; additional addresses (street, city, state, zip, and an optional label like Winter home or Business) are stored in `extra_addresses` on the household. The contact card shows every address, with a map/directions link for each when the main address has one. **Add another address** adds a new one, and extras can be edited or removed. This works on phones and Chromebooks. Search and the possible-duplicates scan look at the extra addresses too. Edits are written through the usual contact save, so `change_log` records them. Beta and Tutorial still do not write to the database.
 - Merging two contacts now moves every visit from both cards onto the surviving contact, including visits that had been removed (soft-deleted). Values the surviving card is missing — an extra address, empty phone or email slots, and notes — are copied from the other card and never overwritten.

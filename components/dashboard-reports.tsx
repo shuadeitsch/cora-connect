@@ -57,9 +57,7 @@ const INCLUDE_REMOVED_KEY = "cora-visits-include-removed";
 
 function TileGlyph({ label }: { label: string }) {
   const activity = <ActivityIcon label={label} className="size-3.5" />;
-  if (label === "Tefillin" || label === "Menorah/package" || label === "Mezuzah" || label === "Challah" || label === "Write-in") {
-    return activity;
-  }
+  if (activity) return activity;
   const Lucide = TILE_ICON[label] ?? BookOpen;
   return <Lucide className="size-3.5 shrink-0" aria-hidden />;
 }
@@ -132,7 +130,7 @@ function StatTile({
   return body;
 }
 
-/** One Visits box: activity tiles (always, including 0) + people list. Filters from the Dashboard bar. */
+/** Visits coverage box + a separate Visit activities box. Filters from the Dashboard bar. */
 export function DashboardReports({
   data,
   projectId,
@@ -456,19 +454,19 @@ export function DashboardReports({
       count: removedTagged,
       href: `/households?list=tagged${state && state !== "ALL" ? `&state=${encodeURIComponent(state)}` : ""}`,
     },
-    ...VISIT_ACTIVITIES.map((label) => ({
-      label,
-      count: activityRows.find((r) => r.label === label)?.count ?? 0,
-    })),
-    { label: "Write-in", count: activityRows.find((r) => r.label === "Write-in")?.count ?? 0 },
-    { label: "Total", count: activityRows.find((r) => r.label === "Total")?.count ?? 0, tone: "muted" as const },
   ];
+
+  const activityTiles = VISIT_ACTIVITIES.map((label) => ({
+    label,
+    count: activityRows.find((r) => r.label === label)?.count ?? 0,
+  }));
 
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, pages);
   const pageRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
+    <div className="space-y-4">
     <section className="panel space-y-4 rounded-3xl p-4" aria-label="Visits" data-tour="visits">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -527,7 +525,7 @@ export function DashboardReports({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-9">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {tiles.map((tile) => (
           <StatTile key={tile.label} label={tile.label} count={tile.count} tone={tile.tone} detail={tile.detail} progress={tile.progress} href={tile.href} footer={tile.footer} />
         ))}
@@ -601,5 +599,19 @@ export function DashboardReports({
         </p>
       )}
     </section>
+    <section className="panel space-y-4 rounded-3xl p-4" aria-label="Visit activities">
+      <div>
+        <h2 className="font-heading text-xl font-semibold text-foreground">Visit activities</h2>
+        <p className="text-sm text-muted-foreground">
+          Totals from live visits that were not removed. Follows the project and state filters above.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {activityTiles.map((tile) => (
+          <StatTile key={tile.label} label={tile.label} count={tile.count} />
+        ))}
+      </div>
+    </section>
+    </div>
   );
 }

@@ -115,6 +115,7 @@ const SEED_VISIT: ContactVisitView = {
   createdAt: "2026-07-15T16:00:00.000Z",
   createdBy: null,
   canRemove: true,
+  canEditVisit: true,
   projectId: null,
   activities: ["Tefillin"],
 };
@@ -353,6 +354,7 @@ export function applySandboxVisit(house: HouseholdView, input: VisitInput): Hous
     createdAt: new Date().toISOString(),
     createdBy: null,
     canRemove: true,
+  canEditVisit: true,
     projectId: house.projectId,
     activities: input.activities ?? [],
   };

@@ -1,7 +1,8 @@
 "use client";
 
-import { PenLine, ScrollText } from "lucide-react";
+import { Flame, MessageCircle, PenLine, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { normalizeActivity } from "@/lib/constants";
 
 /** Small tefillin box with straps — emoji-sized inline SVG (no standard emoji). */
 export function TefillinIcon({ className }: { className?: string }) {
@@ -36,32 +37,25 @@ export function TefillinIcon({ className }: { className?: string }) {
   );
 }
 
+function Glyph({ children, className }: { children: string; className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center justify-center", className)} aria-hidden>
+      {children}
+    </span>
+  );
+}
+
 /** Glyph for a visit activity label (emoji or SVG), sized like a lucide icon. */
 export function ActivityIcon({ label, className }: { label: string; className?: string }) {
   const size = cn("size-3.5 shrink-0 text-[0.95rem] leading-none", className);
-  if (label === "Challah") {
-    return (
-      <span className={cn(size, "inline-flex items-center justify-center")} aria-hidden>
-        🍞
-      </span>
-    );
-  }
-  if (label === "Menorah/package") {
-    return (
-      <span className={cn(size, "inline-flex items-center justify-center")} aria-hidden>
-        📦
-      </span>
-    );
-  }
-  if (label === "Tefillin") {
-    return <TefillinIcon className={size} />;
-  }
-  if (label === "Mezuzah") {
-    return <ScrollText className={size} aria-hidden />;
-  }
-  if (label === "Write-in") {
-    return <PenLine className={size} aria-hidden />;
-  }
+  const official = normalizeActivity(label) || label;
+  if (official === "Nice conversation") return <MessageCircle className={size} aria-hidden />;
+  if (official === "Tefillin") return <TefillinIcon className={size} />;
+  if (official === "Shabbos candles") return <Flame className={size} aria-hidden />;
+  if (official === "Menorah") return <Glyph className={size}>🕎</Glyph>;
+  if (official === "Package" || label === "Menorah/package") return <Glyph className={size}>📦</Glyph>;
+  if (official === "Challah") return <Glyph className={size}>🍞</Glyph>;
+  if (official === "Mezuzah") return <ScrollText className={size} aria-hidden />;
+  if (label === "Write-in" || official === "Other") return <PenLine className={size} aria-hidden />;
   return null;
 }
-
