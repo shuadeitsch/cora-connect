@@ -15,6 +15,7 @@ import { ThemePicker } from "@/components/theme-picker";
 import { TeamView } from "@/components/team-view";
 import { TwilioSettingsCard } from "@/components/twilio-settings-card";
 import { EmailTemplatesCard } from "@/components/email-templates-card";
+import { SenderAddressesCard } from "@/components/sender-addresses-card";
 import type { AppData, OrgInput } from "@/lib/types";
 
 function AccountSection({ data, recovery, twilioConnected = false }: { data: AppData; recovery: boolean; twilioConnected?: boolean }) {
@@ -25,6 +26,7 @@ function AccountSection({ data, recovery, twilioConnected = false }: { data: App
       <ThemePicker saved={data.viewer.theme} backgroundUrl={data.viewer.backgroundUrl ?? null} themeMatchPhoto={Boolean(data.viewer.themeMatchPhoto)} themeColors={data.viewer.themeColors ?? null} />
       {data.viewer.role === "shliach" ? <ShliachPrefsForm data={data} /> : null}
       {data.viewer.role === "admin" || data.viewer.role === "shliach" ? <TwilioSettingsCard connected={twilioConnected} /> : null}
+      {data.viewer.canOutreach ? <SenderAddressesCard senders={data.outreachSenders} loginEmail={data.viewer.email} textSettings={data.outreachText} /> : null}
       <form action={logoutAction} className="mt-4">
         <Button type="submit" variant="outline" className="min-h-11 rounded-full">Log out</Button>
       </form>

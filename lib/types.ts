@@ -231,6 +231,25 @@ export interface OutreachTemplate {
   sortOrder: number;
 }
 
+export interface OutreachSender {
+  id: string;
+  orgId: string;
+  userId: string;
+  email: string;
+  isGoogle: boolean;
+  lastUsedAt: string | null;
+}
+
+export type TextFromMode = "sms" | "google_voice";
+
+export interface OutreachTextSettings {
+  userId: string;
+  orgId: string;
+  textFrom: TextFromMode;
+  googleVoiceNumber: string;
+}
+
+
 export interface Database {
   version: 1;
   organization: Organization;
@@ -240,6 +259,8 @@ export interface Database {
   categories: Category[];
   customFields: CustomFieldDef[];
   outreachTemplates?: OutreachTemplate[];
+  outreachSenders?: OutreachSender[];
+  outreachText?: OutreachTextSettings | null;
   households: Household[];
   people: Person[];
   visits: Visit[];
@@ -489,6 +510,8 @@ export interface AppData {
   categories: Category[];
   customFields: CustomFieldDef[];
   outreachTemplates: OutreachTemplate[];
+  outreachSenders: OutreachSender[];
+  outreachText: OutreachTextSettings | null;
   households: HouseholdView[];
   visits: VisitView[];
   routes: RouteView[];

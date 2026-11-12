@@ -45,6 +45,9 @@ import {
   writeOutreachTemplate,
   removeOutreachTemplate,
   writeOutreachSend,
+  writeOutreachSender,
+  removeOutreachSender,
+  writeOutreachTextSettings,
   markHouseholdsDeleted,
   moveHouseholdVisits,
   markShliachHidden,
@@ -71,8 +74,11 @@ import type {
   HouseholdInput,
   MemberInput,
   OrgInput,
+  OutreachSender,
   OutreachTemplate,
+  OutreachTextSettings,
   Person,
+  TextFromMode,
   ProjectInput,
   Reaction,
   RouteInput,
@@ -1538,9 +1544,73 @@ export async function deleteOutreachTemplate(actor: User, id: string): Promise<A
   }
 }
 
+
+export async function saveOutreachSender(actor: User, input: { id?: string; email: string; isGoogle?: boolean }): Promise<ActionResult<{ id: string }>> {
+  try {
+    assert(perms(actor).canOutreach, "You don't have permission to send outreach.");
+    const email = input.email.trim().toLowerCase();
+    assert(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), "Enter a valid email address.");
+    const db = await loadDatabase();
+    const existing = (db.outreachSenders ?? []).find((item) => item.id === input.id || item.email.toLowerCase() === email);
+    const sender: OutreachSender = {
+      id: existing?.id ?? input.id ?? newId(),
+      orgId: actor.orgId,
+      userId: actor.id,
+      email,
+      isGoogle: Boolean(input.isGoogle) || /@(gmail|googlemail)\.com$/i.test(email),
+      lastUsedAt: existing?.lastUsedAt ?? null,
+    };
+    if (isSupabaseMode()) await writeOutreachSender(sender);
+    else applyDemo((draft) => {
+      const list = (draft.outreachSenders ?? []).filter((item) => item.id !== sender.id && !(item.userId === actor.id && item.email.toLowerCase() === email));
+      list.push(sender);
+      draft.outreachSenders = list;
+    });
+    return { ok: true, data: { id: sender.id } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not save that address." };
+  }
+}
+
+export async function deleteOutreachSender(actor: User, id: string): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canOutreach, "You don't have permission to send outreach.");
+    if (isSupabaseMode()) await removeOutreachSender(id);
+    else applyDemo((draft) => {
+      draft.outreachSenders = (draft.outreachSenders ?? []).filter((item) => item.id !== id);
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not remove that address." };
+  }
+}
+
+
+export async function saveOutreachTextSettings(actor: User, input: { textFrom: TextFromMode; googleVoiceNumber?: string }): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canOutreach, "You don't have permission to send outreach.");
+    const settings: OutreachTextSettings = {
+      userId: actor.id,
+      orgId: actor.orgId,
+      textFrom: input.textFrom === "google_voice" ? "google_voice" : "sms",
+      googleVoiceNumber: (input.googleVoiceNumber ?? "").trim(),
+    };
+    if (settings.textFrom === "google_voice") {
+      assert(settings.googleVoiceNumber, "Enter your Google Voice number.");
+    }
+    if (isSupabaseMode()) await writeOutreachTextSettings(settings);
+    else applyDemo((draft) => {
+      draft.outreachText = settings;
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not save the text setting." };
+  }
+}
+
 export async function logOutreachSend(
   actor: User,
-  input: { mode: string; templateId?: string; templateName?: string; subject: string; body: string; recipientCount: number },
+  input: { mode: string; templateId?: string; templateName?: string; subject: string; body: string; recipientCount: number; fromAddress?: string },
 ): Promise<ActionResult> {
   try {
     assert(perms(actor).canOutreach, "You don't have permission to send outreach.");
@@ -1554,6 +1624,22 @@ export async function logOutreachSend(
         subject: input.subject,
         body: input.body,
         recipientCount: input.recipientCount,
+        fromAddress: input.fromAddress,
+      });
+      const from = input.fromAddress?.trim().toLowerCase();
+      if (from) {
+        const db = await loadDatabase();
+        const sender = (db.outreachSenders ?? []).find((item) => item.userId === actor.id && item.email.toLowerCase() === from);
+        if (sender) await writeOutreachSender({ ...sender, lastUsedAt: new Date().toISOString() });
+      }
+    } else if (input.fromAddress) {
+      const from = input.fromAddress.trim().toLowerCase();
+      const used = new Date().toISOString();
+      applyDemo((draft) => {
+        const list = draft.outreachSenders ?? [];
+        const index = list.findIndex((item) => item.userId === actor.id && item.email.toLowerCase() === from);
+        if (index >= 0) list[index] = { ...list[index]!, lastUsedAt: used };
+        draft.outreachSenders = list;
       });
     }
     return { ok: true };

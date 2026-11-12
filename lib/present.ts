@@ -473,6 +473,8 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
     categories: db.categories,
     customFields: db.customFields,
     outreachTemplates: db.outreachTemplates ?? [],
+    outreachSenders: (db.outreachSenders ?? []).filter((item) => item.userId === user.id),
+    outreachText: db.outreachText && db.outreachText.userId === user.id ? db.outreachText : null,
     households,
     visits,
     routes,

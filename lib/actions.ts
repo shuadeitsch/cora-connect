@@ -33,6 +33,9 @@ import {
   saveOutreachTemplate,
   deleteOutreachTemplate,
   logOutreachSend,
+  saveOutreachSender,
+  deleteOutreachSender,
+  saveOutreachTextSettings,
   setAccountApproval,
   saveCustomField,
   saveHousehold,
@@ -436,11 +439,36 @@ export async function logOutreachSendAction(input: {
   subject: string;
   body: string;
   recipientCount: number;
+  fromAddress?: string;
 }) {
   const writable = await requireWritable();
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return logOutreachSend(user, input);
+}
+
+export async function saveOutreachSenderAction(input: { id?: string; email: string; isGoogle?: boolean }) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await saveOutreachSender(user, input));
+}
+
+export async function deleteOutreachSenderAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await deleteOutreachSender(user, id));
+}
+
+export async function saveOutreachTextSettingsAction(input: { textFrom: "sms" | "google_voice"; googleVoiceNumber?: string }) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await saveOutreachTextSettings(user, input));
 }
 

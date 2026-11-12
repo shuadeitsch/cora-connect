@@ -5,13 +5,13 @@ import { ChevronDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CONTACT_PROJECTS, FOCUS_STATES, UNSORTED_PROJECT, matchesStateFilter, projectLabel, sameState, stateLabel } from "@/lib/constants";
+import { CONTACT_PROJECTS, FOCUS_STATES, UNSORTED_PROJECT, matchesStateFilter, sameState, stateLabel } from "@/lib/constants";
 import { CONTACT_TAGS, matchesTagFilter, showInContactList } from "@/lib/contact-tags";
+import { contactHasEmail, contactHasPhone, matchesVisitStatusFilters } from "@/lib/contact-match";
 import { formatMedium } from "@/lib/format";
 import { labeledVisitNotes } from "@/lib/visit-notes";
-import { isRealVisit } from "@/lib/visited";
-import { compareVisitStatusGroup, visitFilterSeason } from "@/lib/visit-status";
 import { extraAddressSearchText } from "@/lib/extra-addresses";
+import { compareVisitStatusGroup } from "@/lib/visit-status";
 import type { AppData, HouseholdView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -36,12 +36,78 @@ export const emptyFilters = {
   state: "",
   cities: [] as string[],
   visited: "",
+  seasons: [] as string[],
   tag: "",
+  tagsOn: false,
   duplicates: false,
+  shliachDeleted: false,
+  hasEmail: false,
+  hasPhone: false,
+  visitCompleted: false,
+  visitDeferred: false,
+  visitNotVisited: false,
   list: "main" as "main" | "tagged" | "shliach-deleted",
 };
 
 export type ContactFilters = typeof emptyFilters;
+
+export function withDerivedFilters(filters: ContactFilters): ContactFilters {
+  const list: ContactFilters["list"] = filters.shliachDeleted ? "shliach-deleted" : filters.tagsOn ? "tagged" : "main";
+  let mode: SortMode = "";
+  if (filters.shliachDeleted) mode = "shliach-deleted";
+  else if (filters.duplicates) mode = "duplicates";
+  else if (filters.tagsOn) mode = "tags";
+  else if (filters.visitCompleted || filters.visitDeferred || filters.visitNotVisited || filters.seasons.length) mode = "visits";
+  return { ...filters, list, mode };
+}
+
+export function filtersActive(filters: ContactFilters): boolean {
+  return Boolean(
+    filters.hasEmail
+    || filters.hasPhone
+    || filters.visitCompleted
+    || filters.visitDeferred
+    || filters.visitNotVisited
+    || filters.tagsOn
+    || filters.tag
+    || filters.duplicates
+    || filters.shliachDeleted
+    || filters.seasons.length
+    || filters.cities.length,
+  );
+}
+
+export function activeFilterChips(filters: ContactFilters, isAdmin: boolean): { key: string; label: string }[] {
+  const chips: { key: string; label: string }[] = [];
+  if (filters.hasEmail) chips.push({ key: "hasEmail", label: "Has email" });
+  if (filters.hasPhone) chips.push({ key: "hasPhone", label: "Has phone" });
+  if (filters.visitCompleted) chips.push({ key: "visitCompleted", label: "Completed" });
+  if (filters.visitDeferred) chips.push({ key: "visitDeferred", label: "Deferred" });
+  if (filters.visitNotVisited) chips.push({ key: "visitNotVisited", label: "Not visited" });
+  for (const season of filters.seasons) chips.push({ key: `season:${season}`, label: season });
+  if (filters.tagsOn) chips.push({ key: "tagsOn", label: filters.tag || "Tags" });
+  if (filters.duplicates) chips.push({ key: "duplicates", label: "Possible duplicates" });
+  if (isAdmin && filters.shliachDeleted) chips.push({ key: "shliachDeleted", label: "Deleted by shliach" });
+  if (filters.cities.length) chips.push({ key: "cities", label: filters.cities.length === 1 ? "1 city" : `${filters.cities.length} cities` });
+  return chips;
+}
+
+export function clearActiveFilter(filters: ContactFilters, key: string): ContactFilters {
+  if (key === "hasEmail") return withDerivedFilters({ ...filters, hasEmail: false });
+  if (key === "hasPhone") return withDerivedFilters({ ...filters, hasPhone: false });
+  if (key === "visitCompleted") return withDerivedFilters({ ...filters, visitCompleted: false });
+  if (key === "visitDeferred") return withDerivedFilters({ ...filters, visitDeferred: false });
+  if (key === "visitNotVisited") return withDerivedFilters({ ...filters, visitNotVisited: false });
+  if (key === "tagsOn") return withDerivedFilters({ ...filters, tagsOn: false, tag: "" });
+  if (key === "duplicates") return withDerivedFilters({ ...filters, duplicates: false });
+  if (key === "shliachDeleted") return withDerivedFilters({ ...filters, shliachDeleted: false });
+  if (key === "cities") return withDerivedFilters({ ...filters, cities: [] });
+  if (key.startsWith("season:")) {
+    const season = key.slice(7);
+    return withDerivedFilters({ ...filters, seasons: filters.seasons.filter((item) => item !== season) });
+  }
+  return filters;
+}
 
 export function stateTabs(data: AppData): { id: string; label: string }[] {
   if (data.viewer.role === "shliach") {
@@ -63,7 +129,7 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
   const [filters, setFilters] = useState<ContactFilters>(() => ({
     ...emptyFilters,
     state: initialState(data),
-    ...(initialMode === "duplicates" ? { mode: "duplicates" as SortMode, duplicates: true } : {}),
+    ...(initialMode === "duplicates" ? withDerivedFilters({ ...emptyFilters, state: initialState(data), duplicates: true }) : {}),
   }));
 
   // Everything the filters allow except the city choice, so the Cities counts match what picking a city shows.
@@ -77,30 +143,30 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
       const extraHay = extraAddressSearchText(household.extraAddresses);
       const hay = `${household.name} ${household.city} ${household.state} ${household.zip} ${extraHay} ${household.tags.join(" ")} ${household.projectName ?? ""} ${noteHay} ${household.people.map((person) => `${person.name} ${person.phone} ${person.phone2} ${person.phone3} ${person.email}`).join(" ")}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (filters.list === "shliach-deleted") {
+      if (filters.shliachDeleted) {
         if (!household.deletedByShliachAt) return false;
       } else if (household.deletedByShliachAt && data.viewer.role === "admin") {
         // Soft-hidden contacts stay off the main admin list unless the filter is on.
         return false;
-      } else if (filters.tag) {
-        if (!matchesTagFilter(household.tags, filters.tag)) return false;
-      } else if (filters.list === "main" || filters.list === "tagged") {
-        if (!showInContactList(household.tags, q, filters.list)) return false;
-      } else return false;
-      if (filters.state && !matchesStateFilter(household.state, filters.state) && !(household.extraAddresses ?? []).some((address) => matchesStateFilter(address.state, filters.state))) return false;
-      if (filters.visited === VISITED_ANY) {
-        if (!(household.contactVisits ?? []).some((visit) => isRealVisit(visit.visited))) return false;
-      } else if (filters.visited === VISITED_NONE) {
-        if ((household.contactVisits ?? []).some((visit) => isRealVisit(visit.visited))) return false;
-      } else if (filters.visited) {
-        const visits = household.contactVisits ?? [];
-        const hit = visits.some((visit) => isRealVisit(visit.visited) && projectLabel(visit.visited) === filters.visited);
-        if (!hit) return false;
       }
+      if (filters.tagsOn) {
+        if (filters.tag) {
+          if (!matchesTagFilter(household.tags, filters.tag)) return false;
+        } else if (!showInContactList(household.tags, q, "tagged")) return false;
+      } else if (!showInContactList(household.tags, q, "main")) return false;
+      if (filters.state && !matchesStateFilter(household.state, filters.state) && !(household.extraAddresses ?? []).some((address) => matchesStateFilter(address.state, filters.state))) return false;
+      if (filters.hasEmail && !contactHasEmail(household)) return false;
+      if (filters.hasPhone && !contactHasPhone(household)) return false;
+      if (!matchesVisitStatusFilters(household.contactVisits, {
+        visitCompleted: filters.visitCompleted,
+        visitDeferred: filters.visitDeferred,
+        visitNotVisited: filters.visitNotVisited,
+        seasons: filters.seasons,
+      })) return false;
       if (filters.duplicates && !household.possibleDuplicate) return false;
       return true;
     });
-  }, [data.households, data.viewer.canViewHistory, data.viewer.role, query, filters.tag, filters.list, filters.state, filters.visited, filters.duplicates, gone]);
+  }, [data.households, data.viewer.canViewHistory, data.viewer.role, query, filters.tag, filters.tagsOn, filters.shliachDeleted, filters.state, filters.hasEmail, filters.hasPhone, filters.visitCompleted, filters.visitDeferred, filters.visitNotVisited, filters.seasons, filters.duplicates, gone]);
 
   // Every city in the chosen state, alphabetical, with how many contacts each would show.
   const cityChoices = useMemo(() => {
@@ -130,30 +196,38 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
     const rows = picked.size
       ? beforeCity.filter((household) => picked.has(cityKey(household.city)) || (household.extraAddresses ?? []).some((address) => picked.has(cityKey(address.city))))
       : [...beforeCity];
-    if (filters.mode === "visits") {
-      const season = visitFilterSeason(filters.visited, VISITED_ANY, VISITED_NONE);
-      rows.sort((a, b) => compareVisitStatusGroup(a, b, season) || a.name.localeCompare(b.name));
+    const visitOn = filters.visitCompleted || filters.visitDeferred || filters.visitNotVisited || filters.seasons.length;
+    if (visitOn) {
+      rows.sort((a, b) => compareVisitStatusGroup(a, b, filters.seasons) || a.name.localeCompare(b.name));
     }
     return rows;
-  }, [beforeCity, filters.cities, filters.mode, filters.visited]);
+  }, [beforeCity, filters.cities, filters.visitCompleted, filters.visitDeferred, filters.visitNotVisited, filters.seasons]);
 
   // Visits are grouped as Summer 5786, Chanukah 5787, or Unsorted (any other or old value).
   const seasonChoices: string[] = [...CONTACT_PROJECTS, UNSORTED_PROJECT];
 
   function chooseMode(mode: SortMode) {
-    const base = { ...emptyFilters, state: filters.state, cities: filters.cities, mode };
-    if (mode === "tags") setFilters({ ...base, list: "tagged" });
-    else if (mode === "duplicates") setFilters({ ...base, duplicates: true });
-    else if (mode === "visits") setFilters({ ...base, visited: VISITED_ANY });
-    else if (mode === "shliach-deleted") setFilters({ ...base, list: "shliach-deleted" });
-    else setFilters(base);
+    // Kept for older callers. New filters are toggled independently and do not clear each other.
+    if (mode === "tags") setFilters((current) => withDerivedFilters({ ...current, tagsOn: true }));
+    else if (mode === "duplicates") setFilters((current) => withDerivedFilters({ ...current, duplicates: true }));
+    else if (mode === "visits") setFilters((current) => withDerivedFilters({ ...current, visitCompleted: true, visitDeferred: true }));
+    else if (mode === "shliach-deleted") setFilters((current) => withDerivedFilters({ ...current, shliachDeleted: true }));
+    else setFilters((current) => withDerivedFilters({ ...emptyFilters, state: current.state, cities: current.cities }));
+  }
+
+  function toggle<K extends keyof ContactFilters>(key: K, value: ContactFilters[K]) {
+    setFilters((current) => withDerivedFilters({ ...current, [key]: value }));
+  }
+
+  function clearFilters() {
+    setFilters((current) => withDerivedFilters({ ...emptyFilters, state: current.state }));
   }
 
   function resetFilters() {
     setFilters({ ...emptyFilters, state: initialState(data) });
   }
 
-  return { filters, setFilters, tabs: stateTabs(data), beforeCity, cityChoices, matched, seasonChoices, chooseMode, resetFilters, isAdmin: data.viewer.role === "admin" };
+  return { filters, setFilters, tabs: stateTabs(data), beforeCity, cityChoices, matched, seasonChoices, chooseMode, resetFilters, clearFilters, toggle, isAdmin: data.viewer.role === "admin" };
 }
 
 export type ContactFilterState = ReturnType<typeof useContactFilters>;
@@ -185,58 +259,136 @@ export function ContactStateTabs({ ctl, onChange, className }: { ctl: ContactFil
   );
 }
 
-/** Sort by, its second menu, and Cities when a state is picked. */
+function FilterToggle({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label={label}
+      className={cn(pill, on && "border-primary bg-primary text-primary-foreground")}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** Independent, combinable filters, plus Cities when a state is picked. */
 export function ContactFilterControls({ ctl, onChange }: { ctl: ContactFilterState; onChange?: () => void }) {
-  const { filters, setFilters, chooseMode, seasonChoices, cityChoices } = ctl;
+  const { filters, setFilters, seasonChoices, cityChoices } = ctl;
+  function set(patch: Partial<ContactFilters>) {
+    setFilters(withDerivedFilters({ ...filters, ...patch }));
+    onChange?.();
+  }
   return (
     <>
-      <select
-        aria-label="Sort by"
-        className={cn(pill, filters.mode && "border-primary")}
-        value={filters.mode}
-        onChange={(event) => { chooseMode(event.target.value as SortMode); onChange?.(); }}
-      >
-        <option value="">All</option>
-        <option value="tags">Tags</option>
-        <option value="visits">Visits</option>
-        <option value="duplicates">Possible duplicates</option>
-        {ctl.isAdmin ? <option value="shliach-deleted">Deleted by shliach</option> : null}
-      </select>
-      {filters.mode === "visits" ? (
-        <select
-          aria-label="Which visits"
-          className={pill}
-          value={filters.visited}
-          onChange={(event) => { setFilters({ ...filters, visited: event.target.value }); onChange?.(); }}
-        >
-          <option value={VISITED_ANY}>All visits</option>
-          <option value={VISITED_NONE}>Not visited</option>
-          {seasonChoices.map((name) => <option key={name} value={name}>{name}</option>)}
-        </select>
-      ) : null}
-      {filters.mode === "tags" ? (
+      <FilterToggle on={filters.hasEmail} label="Has email" onClick={() => set({ hasEmail: !filters.hasEmail })} />
+      <FilterToggle on={filters.hasPhone} label="Has phone" onClick={() => set({ hasPhone: !filters.hasPhone })} />
+      <FilterToggle on={filters.visitCompleted} label="Completed" onClick={() => set({ visitCompleted: !filters.visitCompleted })} />
+      <FilterToggle on={filters.visitDeferred} label="Deferred" onClick={() => set({ visitDeferred: !filters.visitDeferred })} />
+      <FilterToggle on={filters.visitNotVisited} label="Not visited" onClick={() => set({ visitNotVisited: !filters.visitNotVisited })} />
+      <SeasonFilter
+        choices={seasonChoices}
+        picked={filters.seasons}
+        onChange={(seasons) => set({ seasons })}
+      />
+      <FilterToggle on={filters.tagsOn} label="Tags" onClick={() => set({ tagsOn: !filters.tagsOn, tag: filters.tagsOn ? "" : filters.tag })} />
+      {filters.tagsOn ? (
         <select
           aria-label="Which tag"
           className={pill}
           value={filters.tag}
-          onChange={(event) => {
-            const tag = event.target.value;
-            setFilters({ ...filters, tag, list: tag ? "main" : "tagged" });
-            onChange?.();
-          }}
+          onChange={(event) => set({ tag: event.target.value })}
         >
           <option value="">Any tag</option>
           {CONTACT_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
         </select>
       ) : null}
+      <FilterToggle on={filters.duplicates} label="Possible duplicates" onClick={() => set({ duplicates: !filters.duplicates })} />
+      {ctl.isAdmin ? (
+        <FilterToggle on={filters.shliachDeleted} label="Deleted by shliach" onClick={() => set({ shliachDeleted: !filters.shliachDeleted })} />
+      ) : null}
       {filters.state ? (
         <CityFilter
           choices={cityChoices}
           picked={filters.cities}
-          onChange={(cities) => { setFilters({ ...filters, cities }); onChange?.(); }}
+          onChange={(cities) => set({ cities })}
         />
       ) : null}
     </>
+  );
+}
+
+export function ActiveFilterChips({ ctl, onChange }: { ctl: ContactFilterState; onChange?: () => void }) {
+  const chips = activeFilterChips(ctl.filters, ctl.isAdmin);
+  if (!chips.length) return null;
+  return (
+    <div className="mb-3 flex w-full flex-wrap items-center gap-2" aria-label="Active filters">
+      {chips.map((chip) => (
+        <button
+          key={chip.key}
+          type="button"
+          className={cn(pill, "border-primary bg-primary/10 pr-2")}
+          aria-label={`Clear ${chip.label}`}
+          onClick={() => { ctl.setFilters(clearActiveFilter(ctl.filters, chip.key)); onChange?.(); }}
+        >
+          {chip.label}
+          <span aria-hidden="true" className="text-muted-foreground">×</span>
+        </button>
+      ))}
+      <button
+        type="button"
+        className={pill}
+        onClick={() => { ctl.clearFilters(); onChange?.(); }}
+      >
+        Clear filters
+      </button>
+    </div>
+  );
+}
+
+function SeasonFilter({
+  choices,
+  picked,
+  onChange,
+}: {
+  choices: string[];
+  picked: string[];
+  onChange: (seasons: string[]) => void;
+}) {
+  const label = !picked.length ? "Seasons" : picked.length === 1 ? picked[0] : `${picked.length} seasons`;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" aria-label="Seasons" className={cn(pill, "max-w-[11rem]", picked.length && "border-primary bg-primary text-primary-foreground")}>
+          <span className="truncate">{label}</span>
+          <ChevronDown className="size-4 shrink-0 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[min(16rem,calc(100vw-1.5rem))] p-2">
+        <button
+          type="button"
+          className={cn("mb-1 flex h-9 w-full items-center rounded-md px-2 text-left text-sm hover:bg-muted", !picked.length && "font-semibold text-primary")}
+          onClick={() => onChange([])}
+        >
+          Any season
+        </button>
+        <div className="max-h-64 overflow-y-auto">
+          {choices.map((name) => {
+            const on = picked.includes(name);
+            return (
+              <label key={name} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-muted">
+                <Checkbox
+                  checked={on}
+                  onCheckedChange={(value) => onChange(value ? [...picked, name] : picked.filter((item) => item !== name))}
+                />
+                <span className="min-w-0 flex-1 truncate">{name}</span>
+              </label>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

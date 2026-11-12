@@ -222,3 +222,53 @@ export function whatsappHrefWithText(phone: string, text: string): string {
   const q = text ? `?text=${encodeURIComponent(text)}` : "";
   return `https://wa.me/${digits}${q}`;
 }
+
+export function normalizeSenderEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export function isValidSenderEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeSenderEmail(value));
+}
+
+/** Gmail and googlemail.com are always Google. Other domains are Google Workspace only when marked. */
+export function isGoogleSender(email: string, isGoogle = false): boolean {
+  const domain = normalizeSenderEmail(email).split("@")[1] ?? "";
+  if (domain === "gmail.com" || domain === "googlemail.com") return true;
+  return isGoogle;
+}
+
+export function gmailComposeHref(input: { authuser: string; emails: string[]; subject: string; body: string }): string {
+  const params = new URLSearchParams({
+    authuser: input.authuser,
+    view: "cm",
+    fs: "1",
+    su: input.subject,
+    body: input.body,
+  });
+  if (input.emails.length === 1) params.set("to", input.emails[0]!);
+  else if (input.emails.length) params.set("bcc", input.emails.join(","));
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
+export function openEmailHref(input: {
+  from?: string;
+  isGoogle?: boolean;
+  emails: string[];
+  subject: string;
+  body: string;
+}): { href: string; google: boolean } {
+  const from = input.from?.trim() ?? "";
+  const google = Boolean(from) && isGoogleSender(from, input.isGoogle);
+  if (google) {
+    return { href: gmailComposeHref({ authuser: from, emails: input.emails, subject: input.subject, body: input.body }), google: true };
+  }
+  return { href: mailtoBccHref({ emails: input.emails, subject: input.subject, body: input.body }), google: false };
+}
+
+export const GOOGLE_VOICE_MESSAGES_URL = "https://voice.google.com/u/0/messages";
+
+/** Clipboard text for Google Voice: the recipient number, then the message. */
+export function googleVoiceCopy(number: string, message: string): string {
+  return [number.trim(), message.trim()].filter(Boolean).join("\n\n");
+}

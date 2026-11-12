@@ -8,6 +8,8 @@ import type {
   Household,
   Invite,
   Organization,
+  OutreachSender,
+  OutreachTextSettings,
   OutreachTemplate,
   Person,
   Project,
@@ -718,6 +720,7 @@ export async function writeOutreachSend(row: {
   subject: string;
   body: string;
   recipientCount: number;
+  fromAddress?: string | null;
 }) {
   const supabase = await createClient();
   await done(
@@ -730,8 +733,45 @@ export async function writeOutreachSend(row: {
       subject: row.subject,
       body: row.body,
       recipient_count: row.recipientCount,
+      from_address: row.fromAddress || null,
     }),
     "Log outreach",
   );
 }
 
+
+
+export async function writeOutreachSender(sender: OutreachSender) {
+  const supabase = await createClient();
+  await done(
+    await supabase.from("outreach_sender_addresses").upsert({
+      id: sender.id,
+      org_id: sender.orgId,
+      user_id: sender.userId,
+      email: sender.email,
+      is_google: sender.isGoogle,
+      last_used_at: sender.lastUsedAt,
+    }),
+    "Save sender address",
+  );
+}
+
+export async function removeOutreachSender(id: string) {
+  const supabase = await createClient();
+  await done(await supabase.from("outreach_sender_addresses").delete().eq("id", id), "Remove sender address");
+}
+
+
+export async function writeOutreachTextSettings(settings: OutreachTextSettings) {
+  const supabase = await createClient();
+  await done(
+    await supabase.from("outreach_text_settings").upsert({
+      user_id: settings.userId,
+      org_id: settings.orgId,
+      text_from: settings.textFrom,
+      google_voice_number: settings.googleVoiceNumber,
+      updated_at: new Date().toISOString(),
+    }),
+    "Save text setting",
+  );
+}

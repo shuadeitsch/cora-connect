@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.60
+- Contacts can be ordered by **Has email** or **Has phone** (contacts with an address or any of phone / phone2 / phone3 come first, then name). Filters are now independent and can be combined: Has email, Has phone, Completed, Deferred, Not visited, plus Tags, Seasons, Possible duplicates, and Deleted by shliach. Different kinds of filters use AND (Has phone + Deferred). Completed + Deferred (or any mix of visit statuses) uses OR. Has email + Has phone shows contacts with both. Active filters appear as chips with a one-tap **Clear filters**.
+- When composing an email, a **Send from** picker lets each user save their own sender addresses (private to them). The last address used is remembered. If the chosen address is Gmail or Google Workspace, **Open in Gmail** opens Gmail compose for that account. Otherwise the mail app opens, with a hint to switch to the chosen address. The chosen from-address is recorded in `outreach_sends`.
+- A **Text from** setting, next to Send from, chooses **Phone's messaging app** (the usual SMS link) or **Google Voice** with that user's number. Mendel's account is set to Google Voice (347) 770-1863. Choosing Google Voice copies the message and the recipient number, shows "Message copied, paste it in Google Voice," and opens Google Voice messages in a new tab. WhatsApp still uses wa.me, with a note that it sends from the number WhatsApp is registered to. The sender is logged in `outreach_sends`. Beta and Tutorial still do not write to the database.
+
+
+
 ## 1.8.59
 - When you order contacts by Visited, or sort/filter by Visits (including on the Map and when picking contacts for a route or bulk select), actually visited contacts come first, then Deferred, then contacts with no real visit. Within each group the current order is kept (name, or the latest visit label then name for the Visited order). Removed visits do not count. A contact with both a completed visit and a deferred visit stays in the visited group. The only stored statuses are Completed (shown as Visited) and Deferred; a real visit with no status saved counts as visited.
 

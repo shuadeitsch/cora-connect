@@ -64,9 +64,10 @@ import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitRea
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { blankExtraAddress, formatExtraAddress, parseExtraAddresses } from "@/lib/extra-addresses";
 import { CONTACT_TAGS, officialTags } from "@/lib/contact-tags";
-import { ContactFilterControls, ContactStateTabs, useContactFilters, VISITED_ANY, VISITED_NONE } from "@/components/contact-filters";
+import { ActiveFilterChips, ContactFilterControls, ContactStateTabs, filtersActive, useContactFilters } from "@/components/contact-filters";
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
-import { compareVisitStatusGroup, visitFilterSeason, visitStatusChip, visitStatusLabel } from "@/lib/visit-status";
+import { compareHasEmail, compareHasPhone } from "@/lib/contact-match";
+import { compareVisitStatusGroup, visitStatusChip, visitStatusLabel } from "@/lib/visit-status";
 import { TOWNS } from "@/lib/geo";
 import type { AppData, ContactVisitView, HouseholdInput, HouseholdReaction, HouseholdView, VisitInput } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,8 @@ const SORT_ORDERS = [
   ["city", "City"],
   ["state", "State"],
   ["visited", "Visited"],
+  ["has_email", "Has email"],
+  ["has_phone", "Has phone"],
 ] as const;
 
 export function HouseholdsView({
@@ -145,12 +148,12 @@ export function HouseholdsView({
   useEffect(() => {
     const url = new URL(window.location.href);
     const current = url.searchParams.get("mode") || "";
-    const next = filters.mode === "duplicates" ? "duplicates" : "";
+    const next = filters.duplicates ? "duplicates" : "";
     if (current === next) return;
     if (next) url.searchParams.set("mode", "duplicates");
     else url.searchParams.delete("mode");
     router.replace(`${url.pathname}${url.search}`, { scroll: false });
-  }, [filters.mode, router]);
+  }, [filters.duplicates, router]);
 
   useEffect(() => {
     const main = document.querySelector("main");
@@ -206,6 +209,8 @@ export function HouseholdsView({
     if (initialList !== "tagged" && initialList !== "shliach-deleted") return;
     filterCtl.setFilters((current) => ({
       ...current,
+      tagsOn: initialList === "tagged" ? true : current.tagsOn,
+      shliachDeleted: initialList === "shliach-deleted" ? true : current.shliachDeleted,
       list: initialList as "tagged" | "shliach-deleted",
       mode: initialList === "tagged" ? "tags" : "shliach-deleted",
     }));
@@ -228,12 +233,14 @@ export function HouseholdsView({
         return false;
       });
     }
-    const season = visitFilterSeason(filters.visited, VISITED_ANY, VISITED_NONE);
+    const visitOn = filters.visitCompleted || filters.visitDeferred || filters.visitNotVisited || filters.seasons.length;
     rows.sort((a, b) => {
-      if (sort === "visited" || filters.mode === "visits") {
-        const byVisit = compareVisitStatusGroup(a, b, season);
+      if (sort === "visited" || visitOn) {
+        const byVisit = compareVisitStatusGroup(a, b, filters.seasons);
         if (byVisit) return byVisit;
       }
+      if (sort === "has_email") return compareHasEmail(a, b);
+      if (sort === "has_phone") return compareHasPhone(a, b);
       if (sort === "name_desc") return b.name.localeCompare(a.name);
       if (sort === "state") return a.state.localeCompare(b.state) || a.city.localeCompare(b.city) || a.name.localeCompare(b.name);
       if (sort === "city") return a.city.localeCompare(b.city) || a.name.localeCompare(b.name);
@@ -243,7 +250,7 @@ export function HouseholdsView({
       return a.name.localeCompare(b.name);
     });
     return rows;
-  }, [data.projects, filterCtl.matched, filters.mode, filters.visited, initialProject, onlyFound, sort]);
+  }, [data.projects, filterCtl.matched, filters.visitCompleted, filters.visitDeferred, filters.visitNotVisited, filters.seasons, initialProject, onlyFound, sort]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pages);
@@ -385,7 +392,7 @@ export function HouseholdsView({
         </select>
         <button
           type="button"
-          className={cn(pill, !filters.mode && !query && sort === "name" && "bg-primary text-primary-foreground")}
+          className={cn(pill, !filtersActive(filters) && !query && sort === "name" && "bg-primary text-primary-foreground")}
           onClick={showEveryone}
         >
           All contacts
@@ -409,6 +416,7 @@ export function HouseholdsView({
           </button>
         ) : null}
       </div>
+      <ActiveFilterChips ctl={filterCtl} onChange={() => setPage(1)} />
       {live.viewer.canOutreach ? (
         <div className="sticky top-0 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-2xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur">
           <p className="text-sm font-medium text-foreground">
@@ -671,6 +679,9 @@ export function HouseholdsView({
         households={filtered.filter((row) => selected.includes(row.id))}
         role={live.viewer.role}
         templates={live.outreachTemplates}
+        senders={live.outreachSenders}
+        loginEmail={live.viewer.email}
+        textSettings={live.outreachText}
         twilioConnected={twilioConnected}
         onClose={() => setOutreach(null)}
       />

@@ -13,7 +13,10 @@ import type {
   Household,
   HouseholdReaction,
   Invite,
+  OutreachSender,
+  OutreachTextSettings,
   OutreachTemplate,
+  TextFromMode,
   Person,
   Project,
   Reaction,
@@ -115,6 +118,8 @@ export async function loadSupabase(actor: User): Promise<Database> {
   const contactVisitLoad = await optionalTable("contact_visits");
   const shareLoad = await optionalTable("contact_shares");
   const templateLoad = await optionalTable("outreach_templates");
+  const senderLoad = await optionalTable("outreach_sender_addresses");
+  const textLoad = await optionalTable("outreach_text_settings");
   const pairLoad = await supabase.from("not_duplicate_pairs").select("a_id, b_id");
   const notDuplicatePairs = pairLoad.error ? [] : ((pairLoad.data ?? []) as { a_id: string; b_id: string }[]).map((row) => `${row.a_id}|${row.b_id}`);
   const [profiles, projects, categories, fields, householdRows, peopleRows, categoryLinks, visitRows, routeRows, stopRows, assignmentRows, notifications, reads] =
@@ -387,6 +392,27 @@ export async function loadSupabase(actor: User): Promise<Database> {
     projects: mappedProjects,
     categories: mappedCategories,
     customFields,
+    outreachText: (() => {
+      const row = textLoad.rows.find((item) => text(item, "user_id") === actor.id);
+      if (!row) return null;
+      const textFrom = text(row, "text_from") === "google_voice" ? "google_voice" : "sms";
+      return {
+        userId: text(row, "user_id"),
+        orgId: text(row, "org_id"),
+        textFrom: textFrom as TextFromMode,
+        googleVoiceNumber: text(row, "google_voice_number"),
+      } satisfies OutreachTextSettings;
+    })(),
+    outreachSenders: senderLoad.rows
+      .filter((row) => text(row, "user_id") === actor.id)
+      .map((row) => ({
+        id: text(row, "id"),
+        orgId: text(row, "org_id"),
+        userId: text(row, "user_id"),
+        email: text(row, "email"),
+        isGoogle: Boolean(row.is_google),
+        lastUsedAt: nullableText(row, "last_used_at"),
+      })) satisfies OutreachSender[],
     outreachTemplates: templateLoad.rows
       .slice()
       .sort((a, b) => (num(a, "sort_order") ?? 0) - (num(b, "sort_order") ?? 0) || text(a, "name").localeCompare(text(b, "name")))

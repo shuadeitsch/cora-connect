@@ -21,6 +21,8 @@ import {
   ContactFilterControls,
   ContactStateTabs,
   filterPill,
+  ActiveFilterChips,
+  filtersActive,
   useContactFilters,
 } from "@/components/contact-filters";
 import { CreateRouteDialog } from "@/components/create-route";
@@ -208,8 +210,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
       ) : null}
     </>
   );
-  const filtersUnset =
-    !ctl.filters.mode && !ctl.filters.cities.length && !query;
+  const filtersUnset = !filtersActive(ctl.filters) && !query;
   const createDialog = (
     <CreateRouteDialog
       data={data}
@@ -395,6 +396,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
                 <div className="flex flex-wrap items-center gap-2 [&_select]:h-11 [&_[role=tab]]:h-11 [&>button]:h-11">
                   <ContactStateTabs ctl={ctl} />
                   <ContactFilterControls ctl={ctl} />
+                  <ActiveFilterChips ctl={ctl} />
                   <RouteProjectSelect data={data} />
                   <button
                     type="button"
@@ -488,6 +490,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
           </Link>
           <ContactStateTabs ctl={ctl} />
           <ContactFilterControls ctl={ctl} />
+          <ActiveFilterChips ctl={ctl} />
                   <RouteProjectSelect data={data} />
           <Input
             value={query}
@@ -500,10 +503,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
             type="button"
             className={cn(
               filterPill,
-              !ctl.filters.mode &&
-                !ctl.filters.cities.length &&
-                !query &&
-                "bg-primary text-primary-foreground",
+              filtersUnset && "bg-primary text-primary-foreground",
             )}
             onClick={() => {
               ctl.resetFilters();

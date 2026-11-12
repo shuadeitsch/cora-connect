@@ -40,10 +40,11 @@ type VisitForGroup = { visited: string; status?: "completed" | "deferred" | null
  * then Deferred, then never visited. Removed visits should already be omitted from `visits`.
  * When `season` is set, only visits in that season count.
  */
-export function visitStatusGroup(visits: VisitForGroup[] | undefined, season?: string): VisitStatusGroup {
+export function visitStatusGroup(visits: VisitForGroup[] | undefined, season?: string | string[]): VisitStatusGroup {
+  const seasons = !season ? [] : Array.isArray(season) ? season.filter(Boolean) : [season];
   const scoped = (visits ?? []).filter((visit) => {
     if (!isRealVisit(visit.visited)) return false;
-    if (season && projectLabel(visit.visited) !== season) return false;
+    if (seasons.length && !seasons.includes(projectLabel(visit.visited))) return false;
     return true;
   });
   if (scoped.some((visit) => visit.status !== "deferred")) return "visited";
@@ -56,7 +57,7 @@ const GROUP_RANK: Record<VisitStatusGroup, number> = { visited: 0, deferred: 1, 
 export function compareVisitStatusGroup(
   a: { contactVisits?: VisitForGroup[] },
   b: { contactVisits?: VisitForGroup[] },
-  season?: string,
+  season?: string | string[],
 ): number {
   return GROUP_RANK[visitStatusGroup(a.contactVisits, season)] - GROUP_RANK[visitStatusGroup(b.contactVisits, season)];
 }
