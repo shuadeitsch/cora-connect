@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.52
+- Contact-level notes written by Grok now display as **Grok note**, not as a Summer 5786 (or other project) visit. They stay on the contact, not in visit notes. Each `Grok note:` line is shown as its own note. Existing user-written contact notes are unchanged and still appear as Summer 5786 when they were never copied onto a visit. Going forward, notes the bot adds are prefixed with `Grok note:`.
+
+
 ## 1.8.51
 - Contacts have **Phone 2** and **Phone 3**. These are nullable columns `phone2` and `phone3` on `public.people` (the same table as the existing `phone` field). They appear on the contact form and contact detail, in the admin Contacts CSV export, and in the import template (`phone`, `phone2`, `phone3`). The Text / WhatsApp composer and **Copy all phone numbers** include every number, deduped and normalized to +1. Bochurim see them when they can already see phone numbers (the `people_visible` view still redacts them when `can_view_contact()` is false). RLS on `people` is unchanged. `change_log` already records `people` as JSON, so the new columns are captured. Beta practice still does not write to the database.
 

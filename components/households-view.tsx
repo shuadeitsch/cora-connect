@@ -1549,7 +1549,7 @@ function HistoryDialog({ household, canHistory, onClose }: { household: Househol
                 </article>
               );
             }) : null}
-            {household && canHistory ? notesFor(household, true).filter((note) => note.id === "household-notes").map((note) => (
+            {household && canHistory ? notesFor(household, true).filter((note) => note.id === "household-notes" || note.id.startsWith("grok-note")).map((note) => (
               <article key={note.id} className="rounded-xl border p-3 text-sm">
                 <p className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Notes from {note.label}</p>
                 <p className="mt-1 whitespace-pre-wrap text-foreground">{note.notes}</p>
