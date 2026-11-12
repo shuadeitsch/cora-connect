@@ -10,6 +10,7 @@ import { CONTACT_TAGS, matchesTagFilter, showInContactList } from "@/lib/contact
 import { formatMedium } from "@/lib/format";
 import { labeledVisitNotes } from "@/lib/visit-notes";
 import { isRealVisit } from "@/lib/visited";
+import { compareVisitStatusGroup, visitFilterSeason } from "@/lib/visit-status";
 import { extraAddressSearchText } from "@/lib/extra-addresses";
 import type { AppData, HouseholdView } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -126,10 +127,15 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
 
   const matched: HouseholdView[] = useMemo(() => {
     const picked = new Set(filters.cities);
-    return picked.size
+    const rows = picked.size
       ? beforeCity.filter((household) => picked.has(cityKey(household.city)) || (household.extraAddresses ?? []).some((address) => picked.has(cityKey(address.city))))
       : [...beforeCity];
-  }, [beforeCity, filters.cities]);
+    if (filters.mode === "visits") {
+      const season = visitFilterSeason(filters.visited, VISITED_ANY, VISITED_NONE);
+      rows.sort((a, b) => compareVisitStatusGroup(a, b, season) || a.name.localeCompare(b.name));
+    }
+    return rows;
+  }, [beforeCity, filters.cities, filters.mode, filters.visited]);
 
   // Visits are grouped as Summer 5786, Chanukah 5787, or Unsorted (any other or old value).
   const seasonChoices: string[] = [...CONTACT_PROJECTS, UNSORTED_PROJECT];

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.59
+- When you order contacts by Visited, or sort/filter by Visits (including on the Map and when picking contacts for a route or bulk select), actually visited contacts come first, then Deferred, then contacts with no real visit. Within each group the current order is kept (name, or the latest visit label then name for the Visited order). Removed visits do not count. A contact with both a completed visit and a deferred visit stays in the visited group. The only stored statuses are Completed (shown as Visited) and Deferred; a real visit with no status saved counts as visited.
+
+
+
 ## 1.8.58
 - When you pick an email or text template for a contact, the subject and message open already filled in (name, state, and so on) so you can change that one message without changing the saved template. **Reset to template** puts the filled draft back. Sending is still the existing Open in email app, copy, SMS, and WhatsApp flow, now using your customized text. Those sends are recorded in `outreach_sends` and `change_log`.
 - Admins can create, edit, and delete the templates themselves under Settings › Email templates. The four built-in drafts are saved for the organization so they can be changed. Shliachim can use the templates but not manage them. RLS limits reads to the organization and writes to admins. Beta and Tutorial still do not write to the database.

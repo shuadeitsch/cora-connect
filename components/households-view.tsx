@@ -64,9 +64,9 @@ import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitRea
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { blankExtraAddress, formatExtraAddress, parseExtraAddresses } from "@/lib/extra-addresses";
 import { CONTACT_TAGS, officialTags } from "@/lib/contact-tags";
-import { ContactFilterControls, ContactStateTabs, useContactFilters } from "@/components/contact-filters";
+import { ContactFilterControls, ContactStateTabs, useContactFilters, VISITED_ANY, VISITED_NONE } from "@/components/contact-filters";
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
-import { visitStatusChip, visitStatusLabel } from "@/lib/visit-status";
+import { compareVisitStatusGroup, visitFilterSeason, visitStatusChip, visitStatusLabel } from "@/lib/visit-status";
 import { TOWNS } from "@/lib/geo";
 import type { AppData, ContactVisitView, HouseholdInput, HouseholdReaction, HouseholdView, VisitInput } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -228,7 +228,12 @@ export function HouseholdsView({
         return false;
       });
     }
+    const season = visitFilterSeason(filters.visited, VISITED_ANY, VISITED_NONE);
     rows.sort((a, b) => {
+      if (sort === "visited" || filters.mode === "visits") {
+        const byVisit = compareVisitStatusGroup(a, b, season);
+        if (byVisit) return byVisit;
+      }
       if (sort === "name_desc") return b.name.localeCompare(a.name);
       if (sort === "state") return a.state.localeCompare(b.state) || a.city.localeCompare(b.city) || a.name.localeCompare(b.name);
       if (sort === "city") return a.city.localeCompare(b.city) || a.name.localeCompare(b.name);
@@ -238,7 +243,7 @@ export function HouseholdsView({
       return a.name.localeCompare(b.name);
     });
     return rows;
-  }, [data.projects, filterCtl.matched, initialProject, onlyFound, sort]);
+  }, [data.projects, filterCtl.matched, filters.mode, filters.visited, initialProject, onlyFound, sort]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pages);
