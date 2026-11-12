@@ -68,7 +68,7 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
       const noteHay = data.viewer.canViewHistory
         ? labeledVisitNotes(household.notes, household.contactVisits ?? [], formatMedium).map((note) => `${note.label} ${note.notes}`).join(" ")
         : "";
-      const hay = `${household.name} ${household.city} ${household.state} ${household.zip} ${household.tags.join(" ")} ${household.projectName ?? ""} ${noteHay} ${household.people.map((person) => `${person.name} ${person.phone} ${person.email}`).join(" ")}`.toLowerCase();
+      const hay = `${household.name} ${household.city} ${household.state} ${household.zip} ${household.tags.join(" ")} ${household.projectName ?? ""} ${noteHay} ${household.people.map((person) => `${person.name} ${person.phone} ${person.phone2} ${person.phone3} ${person.email}`).join(" ")}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (filters.list === "shliach-deleted") {
         if (!household.deletedByShliachAt) return false;

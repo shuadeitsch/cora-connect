@@ -114,6 +114,8 @@ export interface Person {
   name: string;
   gender: Gender | null;
   phone: string;
+  phone2: string;
+  phone3: string;
   email: string;
   whatsapp: string;
   sortOrder: number;
@@ -509,6 +511,8 @@ export interface HouseholdInput {
     name: string;
     gender: string;
     phone: string;
+    phone2: string;
+    phone3: string;
     email: string;
     whatsapp: string;
   }[];
@@ -527,6 +531,8 @@ export interface ContactImport {
   rows: {
     name: string;
     phone: string;
+    phone2: string;
+    phone3: string;
     email: string;
     street: string;
     city: string;

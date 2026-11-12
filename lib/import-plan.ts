@@ -7,6 +7,8 @@ import { parseVisitStatus, type VisitProgress } from "@/lib/visit-status";
 export interface ImportRow {
   name: string;
   phone: string;
+  phone2?: string;
+  phone3?: string;
   email: string;
   street: string;
   city: string;
@@ -43,6 +45,8 @@ export interface PlannedContact {
   id: string;
   name: string;
   phone: string;
+  phone2: string;
+  phone3: string;
   email: string;
   street: string;
   city: string;
@@ -202,6 +206,8 @@ function attachVisit(anchor: Anchor, visit: PlannedVisit, contacts: PlannedConta
     id: anchor.id,
     name: anchor.name,
     phone: anchor.phone,
+    phone2: "",
+    phone3: "",
     email: anchor.email,
     street: "",
     city: "",
@@ -248,6 +254,8 @@ export function planImport(
     const name = named || "Unnamed contact";
     if (!named) rowWarnings.push("A row had no name, so it was saved as Unnamed contact.");
     const phone = row.phone.trim();
+    const phone2 = (row.phone2 ?? "").trim();
+    const phone3 = (row.phone3 ?? "").trim();
     let email = row.email.trim();
     if (email && !/.+@.+\..+/.test(email)) {
       rowWarnings.push(`${name}: “${email}” is not an email address, so it was left blank.`);
@@ -304,6 +312,8 @@ export function planImport(
       attachVisit(same, visit, contacts);
       if (same.contact) {
         for (const tag of tags.tags) if (!same.contact.tags.includes(tag)) same.contact.tags.push(tag);
+        if (!same.contact.phone2 && phone2) same.contact.phone2 = phone2;
+        if (!same.contact.phone3 && phone3) same.contact.phone3 = phone3;
       }
       same.contact?.warnings.push(...rowWarnings);
       warnings.push(...rowWarnings);
@@ -316,6 +326,8 @@ export function planImport(
       id,
       name,
       phone,
+      phone2,
+      phone3,
       email,
       street,
       city,

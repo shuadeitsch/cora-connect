@@ -93,6 +93,8 @@ export async function writeHousehold(
           name: person.name,
           gender: person.gender,
           phone: person.phone,
+          phone2: person.phone2 || null,
+          phone3: person.phone3 || null,
           email: person.email,
           whatsapp: person.phone || person.whatsapp,
           sort_order: person.sortOrder,

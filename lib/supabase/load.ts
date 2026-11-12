@@ -250,6 +250,8 @@ export async function loadSupabase(actor: User): Promise<Database> {
     name: text(row, "name"),
     gender: (nullableText(row, "gender") as Gender | null) ?? null,
     phone: text(row, "phone"),
+    phone2: text(row, "phone2"),
+    phone3: text(row, "phone3"),
     email: text(row, "email"),
     whatsapp: text(row, "whatsapp"),
     sortOrder: Number(row.sort_order ?? 0),

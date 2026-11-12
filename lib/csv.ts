@@ -83,6 +83,12 @@ const HEADER_MAP: Record<string, string> = {
   phone: "phone",
   mobile: "phone",
   "mobile phone": "phone",
+  "phone 2": "phone2",
+  phone2: "phone2",
+  "secondary phone": "phone2",
+  "phone 3": "phone3",
+  phone3: "phone3",
+  "other phone": "phone3",
   email: "email",
   whatsapp: "whatsapp",
   "whats app": "whatsapp",
@@ -111,6 +117,8 @@ export interface CsvHouseholdRow {
   personName: string;
   gender: string;
   phone: string;
+  phone2: string;
+  phone3: string;
   email: string;
   whatsapp: string;
   categories: string;
@@ -144,6 +152,8 @@ export function rowsFromCsv(text: string): { rows: CsvHouseholdRow[]; error?: st
       personName: record.personName ?? "",
       gender: record.gender ?? "",
       phone: record.phone ?? "",
+      phone2: record.phone2 ?? "",
+      phone3: record.phone3 ?? "",
       email: record.email ?? "",
       whatsapp: record.whatsapp ?? "",
       categories: record.categories ?? "",
@@ -161,6 +171,8 @@ export function rowsFromCsv(text: string): { rows: CsvHouseholdRow[]; error?: st
 export const CANONICAL_HEADERS = [
   "name",
   "phone",
+  "phone2",
+  "phone3",
   "email",
   "address",
   "city",
@@ -177,6 +189,8 @@ export const CANONICAL_HEADERS = [
 export const IMPORT_FIELDS = [
   { key: "name", label: "Name" },
   { key: "phone", label: "Phone" },
+  { key: "phone2", label: "Phone 2" },
+  { key: "phone3", label: "Phone 3" },
   { key: "email", label: "Email" },
   { key: "street", label: "Address" },
   { key: "city", label: "City" },
@@ -196,6 +210,8 @@ export type ImportField = (typeof IMPORT_FIELDS)[number]["key"];
 const IMPORT_HINTS: Record<ImportField, string[]> = {
   name: ["name", "full name", "contact name", "contact", "person", "person name", "household name", "household", "family", "family name"],
   phone: ["phone", "mobile", "cell", "whatsapp", "telephone"],
+  phone2: ["phone 2", "phone2", "secondary phone", "other phone", "alternate phone"],
+  phone3: ["phone 3", "phone3", "third phone"],
   email: ["email", "e-mail", "email address"],
   street: ["address", "street", "home address", "address 1"],
   city: ["city", "town"],
@@ -212,14 +228,14 @@ const IMPORT_HINTS: Record<ImportField, string[]> = {
 
 export const IMPORT_TEMPLATE_CSV = [
   CANONICAL_HEADERS.join(","),
-  "EXAMPLE Sample Contact,207-555-0100,sample.contact@example.com,12 Harbor Rd,Bangor,ME,04401,,Summer 5786,Completed,Warm,Stopped by the house,2026-07-01",
-  "EXAMPLE Sample Contact,207-555-0100,sample.contact@example.com,12 Harbor Rd,Bangor,ME,04401,,Chanukah 5787,Deferred,Neutral,Brought a menorah,",
+  "EXAMPLE Sample Contact,207-555-0100,,,sample.contact@example.com,12 Harbor Rd,Bangor,ME,04401,,Summer 5786,Completed,Warm,Stopped by the house,2026-07-01",
+  "EXAMPLE Sample Contact,207-555-0100,,,sample.contact@example.com,12 Harbor Rd,Bangor,ME,04401,,Chanukah 5787,Deferred,Neutral,Brought a menorah,",
 ].join("\n");
 
 export const IMPORT_AI_PROMPT = `You are formatting a contact list for Cora Connect. Output a CSV file and nothing else.
 
 Use this header row exactly, in this order:
-name,phone,email,address,city,state,zip,tags,visited,status,reaction,notes,visit_date
+name,phone,phone2,phone3,email,address,city,state,zip,tags,visited,status,reaction,notes,visit_date
 
 One row is one visit. The same person can appear on several rows when they were visited more than once. Those rows become that contact's Visit History. A row is the same person only when the name matches AND the phone or email matches, and the Visited value is different. Any other row becomes its own contact. Nothing is skipped.
 
@@ -233,6 +249,7 @@ Allowed values:
 - tags: Not Jewish, Probably doesn't exist, or both. Separate tags with a comma or a semicolon. Matching ignores capitalization. Leave blank if neither applies.
 - state: Maine, Wisconsin, New Hampshire, or Unsorted. A 2-letter code (ME, WI, NH) or the full name is fine. Unsorted is for a contact that is not in one of those three states.
 - phone: digits, with or without dashes or parentheses. Example: 207-555-0100.
+- phone2, phone3: optional extra numbers, same format. Leave blank if you only have one.
 - email: a normal email address, or blank.
 
 Do not add a year-arrived column. Do not invent people who were not in the source list.`;
@@ -283,6 +300,8 @@ export function guessImportMap(headers: string[]): Record<ImportField, string> {
 const HEADER_NAMES: Record<ImportField, string> = {
   name: "name",
   phone: "phone",
+  phone2: "phone2",
+  phone3: "phone3",
   email: "email",
   street: "address",
   city: "city",
@@ -298,6 +317,7 @@ const HEADER_NAMES: Record<ImportField, string> = {
 };
 
 const EXACT_HEADER_SETS: ImportField[][] = [
+  ["name", "phone", "phone2", "phone3", "email", "street", "city", "state", "zip", "tags", "visited", "status", "visitReaction", "notes", "visitDate"],
   ["name", "phone", "email", "street", "city", "state", "zip", "tags", "visited", "status", "visitReaction", "notes", "visitDate"],
   ["name", "phone", "email", "street", "city", "state", "zip", "share", "visited", "visitReaction", "notes", "visitDate"],
 ];
@@ -319,6 +339,8 @@ export function canonicalImportMap(headers: string[]): Record<ImportField, strin
 export interface MappedContact {
   name: string;
   phone: string;
+  phone2: string;
+  phone3: string;
   email: string;
   street: string;
   city: string;
@@ -381,6 +403,8 @@ export function mapContacts(
     contacts.push({
       name,
       phone: value("phone"),
+      phone2: value("phone2"),
+      phone3: value("phone3"),
       email,
       street: value("street"),
       city: value("city"),

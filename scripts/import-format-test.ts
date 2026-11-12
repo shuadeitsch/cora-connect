@@ -11,8 +11,12 @@ function assert(condition: boolean, message: string) {
 const template = IMPORT_TEMPLATE_CSV.split("\n")[0]!.split(",");
 assert(!template.includes("share_with_cora"), "the template has no share column");
 assert(template.includes("tags") && template.includes("status"), "the template has tags and status");
+assert(template.includes("phone2") && template.includes("phone3"), "the template has phone2 and phone3");
 const mapped = canonicalImportMap(template);
 assert(mapped?.tags === "tags" && mapped.status === "status" && mapped.share === "", "the new header maps itself");
+assert(mapped?.phone2 === "phone2" && mapped.phone3 === "phone3", "phone2 and phone3 map themselves");
+assert(guessImportMap(["Name", "Phone", "Phone 2", "Phone 3"]).phone2 === "Phone 2", "Phone 2 is not stolen by Phone");
+assert(guessImportMap(["Name", "Phone", "Phone 2", "Phone 3"]).phone === "Phone", "Phone still maps to the first number");
 
 const old = "name,phone,email,address,city,state,zip,share_with_cora,visited,reaction,notes,visit_date".split(",");
 const oldMap = canonicalImportMap(old);

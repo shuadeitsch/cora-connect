@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.51
+- Contacts have **Phone 2** and **Phone 3**. These are nullable columns `phone2` and `phone3` on `public.people` (the same table as the existing `phone` field). They appear on the contact form and contact detail, in the admin Contacts CSV export, and in the import template (`phone`, `phone2`, `phone3`). The Text / WhatsApp composer and **Copy all phone numbers** include every number, deduped and normalized to +1. Bochurim see them when they can already see phone numbers (the `people_visible` view still redacts them when `can_view_contact()` is false). RLS on `people` is unchanged. `change_log` already records `people` as JSON, so the new columns are captured. Beta practice still does not write to the database.
+
+
 ## 1.8.50
 - Text / WhatsApp composer (admins and shluchim, including Beta **View as shliach**): **Send through Twilio** opens https://www.twilio.com/try-twilio in a new tab. A short note says anyone can make their own account: “Want to send texts from your own number? Make a free Twilio account, then ask Cora to connect it.” Sending is not built yet. A server flag checks whether `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` are set, so this button can later switch to real sending without a redesign. Those env vars are not set today.
 - Settings (Account) for admins and shluchim gets a small **Texting (Twilio)** card: status **Not connected**, a **Create a Twilio account** link to the same page, and the same note. No fields for keys or tokens. Bochurim do not see the button, the note, or the card (including View as bochur).

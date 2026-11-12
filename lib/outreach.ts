@@ -111,7 +111,7 @@ function uniquePhones(people: Person[]): { e164: string; waDigits: string }[] {
   const out: { e164: string; waDigits: string }[] = [];
   const seen = new Set<string>();
   for (const person of people) {
-    for (const value of [person.phone, person.whatsapp]) {
+    for (const value of [person.phone, person.phone2, person.phone3, person.whatsapp]) {
       const parsed = normalizeUsPhone(value);
       if (!parsed || seen.has(parsed.e164)) continue;
       seen.add(parsed.e164);

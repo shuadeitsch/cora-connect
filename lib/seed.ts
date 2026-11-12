@@ -199,6 +199,8 @@ export function buildSeed(now = new Date()): Database {
         name: member.name,
         gender: member.gender,
         phone,
+        phone2: "",
+        phone3: "",
         email: hideEmail ? "" : `${slug(member.name)}.${i}@example.com`,
         whatsapp: hidePhone || i % 4 === 0 ? "" : phone,
         sortOrder: index,

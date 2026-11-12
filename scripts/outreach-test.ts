@@ -24,6 +24,8 @@ function person(partial: Partial<Person> & { name: string }): Person {
     name: partial.name,
     gender: partial.gender ?? null,
     phone: partial.phone ?? "",
+    phone2: partial.phone2 ?? "",
+    phone3: partial.phone3 ?? "",
     email: partial.email ?? "",
     whatsapp: partial.whatsapp ?? "",
     sortOrder: partial.sortOrder ?? 0,
@@ -105,6 +107,18 @@ const emails = emailsForCopy(people);
 if (emails.addresses.join(",") !== "sarah@example.com" || emails.skipped !== 2) fail(`emails ${JSON.stringify(emails)}`);
 const phones = phonesForCopy(people);
 if (phones.numbers.join(",") !== "+12075550100,+16085550101" || phones.skipped !== 1) fail(`phones ${JSON.stringify(phones)}`);
+
+const extras = outreachPeople([
+  household({
+    id: "5",
+    name: "Multi Phone",
+    state: "ME",
+    people: [person({ name: "Multi Phone", phone: "207-555-0100", phone2: "+1 (207) 555-0100", phone3: "207-555-0199" })],
+  }),
+]);
+const extraPhones = phonesForCopy(extras);
+if (extraPhones.numbers.join(",") !== "+12075550100,+12075550199" || extraPhones.skipped !== 0) fail(`extra phones ${JSON.stringify(extraPhones)}`);
+
 
 const filled = fillPlaceholders("Hi {first name}, Chabad of {state} is visiting {state}.", { firstName: "Sarah", state: "Maine" });
 if (filled !== "Hi Sarah, Chabad of Maine is visiting Maine.") fail(filled);

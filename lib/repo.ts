@@ -136,6 +136,8 @@ function householdFromInput(db: Database, actor: User, input: HouseholdInput, ex
   const name = input.name.trim();
   assert(name, "Enter a name.");
   const phone = (input.people[0]?.phone ?? "").trim();
+  const phone2 = (input.people[0]?.phone2 ?? "").trim();
+  const phone3 = (input.people[0]?.phone3 ?? "").trim();
   const email = (input.people[0]?.email ?? "").trim();
   if (email && !/.+@.+\..+/.test(email)) throw new Error("Check the email address.");
   const self = db.users.find((user) => user.id === actor.id) ?? actor;
@@ -180,6 +182,8 @@ function householdFromInput(db: Database, actor: User, input: HouseholdInput, ex
     name,
     gender: null,
     phone,
+    phone2,
+    phone3,
     email,
     whatsapp: phone,
     sortOrder: 0,
@@ -454,6 +458,8 @@ export async function importHouseholds(actor: User, rows: CsvHouseholdRow[]): Pr
           name: row.personName,
           gender: row.gender,
           phone: row.phone,
+          phone2: row.phone2 ?? "",
+          phone3: row.phone3 ?? "",
           email: row.email,
           whatsapp: row.whatsapp,
         }));
@@ -484,6 +490,8 @@ export async function importHouseholds(actor: User, rows: CsvHouseholdRow[]): Pr
               name: person.name,
               gender: person.gender ?? "",
               phone: person.phone,
+              phone2: person.phone2 ?? "",
+              phone3: person.phone3 ?? "",
               email: person.email,
               whatsapp: person.whatsapp,
             })) : []),
@@ -1046,7 +1054,7 @@ export async function importContacts(
           notes: visit.notes,
           visitDate: visit.visitDate,
         })),
-        people: [{ name: contact.name, gender: "", phone: contact.phone, email: contact.email, whatsapp: "" }],
+        people: [{ name: contact.name, gender: "", phone: contact.phone, phone2: contact.phone2 ?? "", phone3: contact.phone3 ?? "", email: contact.email, whatsapp: "" }],
       };
       try {
         const { household, people } = householdFromInput(db, actor, input, undefined);

@@ -236,6 +236,8 @@ export function HouseholdsView({
         return lines.map((visit) => [
           row.name,
           person?.phone ?? "",
+          person?.phone2 ?? "",
+          person?.phone3 ?? "",
           person?.email ?? "",
           row.street,
           row.city,
@@ -969,7 +971,7 @@ function blankInput(data: AppData): HouseholdInput {
     ownerId: "",
     visitReaction: "",
     visits: [],
-    people: [{ name: "", gender: "", phone: "", email: "", whatsapp: "" }],
+    people: [{ name: "", gender: "", phone: "", phone2: "", phone3: "", email: "", whatsapp: "" }],
   };
 }
 
@@ -1011,6 +1013,8 @@ function fromHousehold(household: HouseholdView, data: AppData): HouseholdInput 
       name: household.name,
       gender: "",
       phone: household.people[0]?.phone ?? "",
+      phone2: household.people[0]?.phone2 ?? "",
+      phone3: household.people[0]?.phone3 ?? "",
       email: household.people[0]?.email ?? "",
       whatsapp: household.people[0]?.phone ?? "",
     }],
@@ -1026,6 +1030,8 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
   const announce = useUndoToast();
   const shliachStates = [...new Set(data.viewer.territory.map((row) => stateLabel(row.state)).filter(Boolean))];
   const phone = form.people[0]?.phone ?? "";
+  const phone2 = form.people[0]?.phone2 ?? "";
+  const phone3 = form.people[0]?.phone3 ?? "";
   const email = form.people[0]?.email ?? "";
 
   useEffect(() => {
@@ -1034,7 +1040,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
     setForm(household ? fromHousehold(household, data) : blankInput(data));
   }, [open, household, data]);
 
-  function setContact(patch: { phone?: string; email?: string }) {
+  function setContact(patch: { phone?: string; phone2?: string; phone3?: string; email?: string }) {
     setForm((current) => ({
       ...current,
       people: [{
@@ -1042,6 +1048,8 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
         name: current.name,
         gender: "",
         phone: patch.phone ?? current.people[0]?.phone ?? "",
+        phone2: patch.phone2 ?? current.people[0]?.phone2 ?? "",
+        phone3: patch.phone3 ?? current.people[0]?.phone3 ?? "",
         email: patch.email ?? current.people[0]?.email ?? "",
         whatsapp: patch.phone ?? current.people[0]?.phone ?? "",
       }],
@@ -1063,6 +1071,8 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                 name: form.name,
                 gender: "",
                 phone,
+                phone2,
+                phone3,
                 email,
                 whatsapp: phone,
               }],
@@ -1135,8 +1145,10 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
         >
           <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Name</span><Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Phone</span><Input value={phone} onChange={(event) => setContact({ phone: event.target.value })} inputMode="tel" /></label>
+            <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Phone</span><Input value={phone} onChange={(event) => setContact({ phone: event.target.value })} inputMode="tel" autoComplete="tel" /></label>
             <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Email</span><Input value={email} onChange={(event) => setContact({ email: event.target.value })} inputMode="email" /></label>
+            <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Phone 2</span><Input value={phone2} onChange={(event) => setContact({ phone2: event.target.value })} inputMode="tel" autoComplete="off" /></label>
+            <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Phone 3</span><Input value={phone3} onChange={(event) => setContact({ phone3: event.target.value })} inputMode="tel" autoComplete="off" /></label>
           </div>
           <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Address</span><Input value={form.street} onChange={(event) => setForm({ ...form, street: event.target.value })} /></label>
           <div className="grid gap-3 sm:grid-cols-4">
@@ -1386,13 +1398,24 @@ function ContactDialog({
               </div>
               {canContact ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {household.people.some((person) => person.phone) ? household.people.filter((person) => person.phone).map((person) => (
-                    <span key={person.id} className="flex flex-wrap gap-2">
-                      <ActionLink href={telHref(person.phone)} icon={Phone} label="Call" />
-                      <ActionLink href={smsHref(person.phone)} icon={MessageSquare} label="Text" />
-                      <ActionLink href={whatsAppHref(person.whatsapp || person.phone)} icon={MessageCircle} label="WhatsApp" />
-                    </span>
-                  )) : null}
+                  {household.people.flatMap((person) => {
+                    const numbers = [person.phone, person.phone2, person.phone3, person.whatsapp].map((value) => value.trim()).filter(Boolean);
+                    const seen = new Set<string>();
+                    const unique: string[] = [];
+                    for (const value of numbers) {
+                      const key = value.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "") || value;
+                      if (seen.has(key)) continue;
+                      seen.add(key);
+                      unique.push(value);
+                    }
+                    return unique.map((number, index) => (
+                      <span key={`${person.id}-${index}`} className="flex flex-wrap gap-2">
+                        <ActionLink href={telHref(number)} icon={Phone} label={unique.length > 1 ? `Call (${index + 1})` : "Call"} />
+                        <ActionLink href={smsHref(number)} icon={MessageSquare} label={unique.length > 1 ? `Text (${index + 1})` : "Text"} />
+                        <ActionLink href={whatsAppHref(number)} icon={MessageCircle} label={unique.length > 1 ? `WhatsApp (${index + 1})` : "WhatsApp"} />
+                      </span>
+                    ));
+                  })}
                   {household.people.filter((person) => person.email).map((person) => (
                     <ActionLink key={`${person.id}-email`} href={`mailto:${person.email}`} icon={Mail} label="Email" />
                   ))}
