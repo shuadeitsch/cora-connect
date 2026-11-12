@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { addPlannerDayAction, addPlannerItemAction, removePlannerDayAction, removePlannerItemAction, setBochurimEditPlannerAction, setBochurimSeePlannerAction, setPlannerDayChavrusaAction, setPlannerDayEditableAction, setPlannerDayVisibleAction, updatePlannerItemAction } from "@/lib/planner-actions";
+import { markPreplannerScheduledAction } from "@/lib/actions";
+import { normalizeRequestedTime, preplannerWhen, reachedHowLabel } from "@/lib/preplanner";
 import { chavrusaLabel, newDayChavrusa, showChavrusosUi, type Chavrusa, type PlannerChavrusaFilter } from "@/lib/chavrusa";
 import type { PlannerDay, PlannerItem } from "@/lib/planner";
 import type { AppData } from "@/lib/types";
@@ -275,6 +277,80 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
   );
 }
 
+
+function RequestedVisitsStrip({
+  data,
+  day,
+  canEdit,
+  pending,
+  run,
+}: {
+  data: AppData;
+  day: PlannerDay;
+  canEdit: boolean;
+  pending: boolean;
+  run: (task: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) => void;
+}) {
+  const practice = usePractice();
+  const toast = useToast();
+  const entries = (data.preplannerEntries ?? [])
+    .filter((entry) => entry.requestedDate === day.date && !entry.scheduledAt)
+    .slice()
+    .sort((a, b) => (a.requestedTime || "").localeCompare(b.requestedTime || "") || a.createdAt.localeCompare(b.createdAt));
+  if (!entries.length) return null;
+  const byId = new Map(data.households.map((household) => [household.id, household]));
+
+  return (
+    <div className="mt-3 rounded-2xl border border-amber-400/50 bg-amber-500/15 p-3">
+      <p className="text-sm font-semibold text-foreground">Requested visits</p>
+      <ul className="mt-2 grid gap-2">
+        {entries.map((entry) => {
+          const household = byId.get(entry.householdId);
+          const time = normalizeRequestedTime(entry.requestedTime) ?? entry.requestedTime.slice(0, 5);
+          const title = household?.name ? `Visit: ${household.name}` : "Requested visit";
+          const notes = [reachedHowLabel(entry.reachedHow) ? `Reached out by ${reachedHowLabel(entry.reachedHow)}` : "", entry.notes].filter(Boolean).join("\n\n");
+          return (
+            <li key={entry.id} className="flex flex-col gap-2 rounded-xl bg-background/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">{household?.name ?? "Contact no longer on your list"}</p>
+                <p className="text-sm text-muted-foreground">{preplannerWhen(entry.requestedDate, entry.requestedTime)} · {reachedHowLabel(entry.reachedHow)}</p>
+              </div>
+              {canEdit ? (
+                <Button
+                  type="button"
+                  className="min-h-11 shrink-0 rounded-full"
+                  disabled={pending}
+                  onClick={() => {
+                    if (practice.active) {
+                      practice.addPlannerItem({ dayId: day.id, kind: "event", title, time, notes, address: household?.address ?? "" });
+                      toast({ title: "Added in practice mode" });
+                      return;
+                    }
+                    run(async () => {
+                      const added = await addPlannerItemAction({
+                        dayId: day.id,
+                        kind: "event",
+                        title,
+                        time,
+                        notes,
+                        address: household?.address ?? "",
+                      });
+                      if (!added.ok) return added;
+                      return markPreplannerScheduledAction(entry.id, day.id);
+                    });
+                  }}
+                >
+                  Add to this day
+                </Button>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function DayCard({
   data,
   day,
@@ -390,6 +466,7 @@ function DayCard({
           </button>
         ) : null}
       </div>
+      <RequestedVisitsStrip data={data} day={day} canEdit={canEdit} pending={pending} run={run} />
       <ul className="mt-3 grid gap-2">
         {day.items.map((item) => <ItemRow key={item.id} data={data} dayId={day.id} item={item} canEdit={canEdit} pending={pending} run={run} />)}
         {!day.items.length ? <li className="text-sm text-muted-foreground">Nothing planned.</li> : null}

@@ -242,6 +242,22 @@ export interface OutreachSender {
 
 export type TextFromMode = "sms" | "google_voice";
 
+export type PreplannerReachedHow = "email" | "text" | "whatsapp" | "phone" | "in_person" | "other";
+
+export interface PreplannerEntry {
+  id: string;
+  orgId: string;
+  householdId: string;
+  requestedDate: string;
+  requestedTime: string;
+  reachedHow: PreplannerReachedHow;
+  notes: string;
+  scheduledAt: string | null;
+  scheduledDayId: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
 export interface OutreachTextSettings {
   userId: string;
   orgId: string;
@@ -261,6 +277,7 @@ export interface Database {
   outreachTemplates?: OutreachTemplate[];
   outreachSenders?: OutreachSender[];
   outreachText?: OutreachTextSettings | null;
+  preplannerEntries?: PreplannerEntry[];
   households: Household[];
   people: Person[];
   visits: Visit[];
@@ -512,6 +529,7 @@ export interface AppData {
   outreachTemplates: OutreachTemplate[];
   outreachSenders: OutreachSender[];
   outreachText: OutreachTextSettings | null;
+  preplannerEntries: PreplannerEntry[];
   households: HouseholdView[];
   visits: VisitView[];
   routes: RouteView[];

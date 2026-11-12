@@ -36,6 +36,9 @@ import {
   saveOutreachSender,
   deleteOutreachSender,
   saveOutreachTextSettings,
+  savePreplannerEntry,
+  deletePreplannerEntry,
+  markPreplannerScheduled,
   setAccountApproval,
   saveCustomField,
   saveHousehold,
@@ -470,5 +473,36 @@ export async function saveOutreachTextSettingsAction(input: { textFrom: "sms" | 
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await saveOutreachTextSettings(user, input));
+}
+
+export async function savePreplannerEntryAction(input: {
+  id?: string;
+  householdId: string;
+  requestedDate: string;
+  requestedTime: string;
+  reachedHow: string;
+  notes: string;
+}) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await savePreplannerEntry(user, input));
+}
+
+export async function deletePreplannerEntryAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await deletePreplannerEntry(user, id));
+}
+
+export async function markPreplannerScheduledAction(id: string, dayId: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await markPreplannerScheduled(user, id, dayId));
 }
 

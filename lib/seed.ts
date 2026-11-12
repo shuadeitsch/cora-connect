@@ -379,6 +379,7 @@ export function buildSeed(now = new Date()): Database {
     categories,
     outreachSenders: [],
     outreachText: null,
+    preplannerEntries: [],
     outreachTemplates: OUTREACH_TEMPLATES.map((item, index) => ({
       ...item,
       orgId: ORG_ID,

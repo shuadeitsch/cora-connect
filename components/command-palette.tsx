@@ -19,6 +19,8 @@ const PAGES = [
   { href: "/households", label: "Contacts", hint: "People" },
   { href: "/map", label: "Map", hint: "Pins and routes" },
   { href: "/saved-routes", label: "Saved routes", hint: "Driving order" },
+  { href: "/planner", label: "Daily planner", hint: "Day by day" },
+  { href: "/pre-planner", label: "Pre-planner", hint: "Requested visits" },
   { href: "/team", label: "My Team", hint: "Team, invites & approvals" },
   { href: "/settings", label: "Settings", hint: "House and account" },
   { href: "/settings?tab=account", label: "Account", hint: "Password" },

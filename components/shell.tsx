@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BookOpen,
+  CalendarClock,
   CalendarDays,
   ChevronDown,
   FlaskConical,
@@ -46,6 +47,7 @@ const PRIMARY: NavItem[] = [
   { href: "/households", label: "Contacts", icon: House },
   { href: "/saved-routes", label: "Routes", icon: Route },
   { href: "/planner", label: "Daily planner", short: "Planner", icon: CalendarDays },
+  { href: "/pre-planner", label: "Pre-planner", icon: CalendarClock },
 ];
 
 const SIDEBAR_EXTRA: NavItem[] = [

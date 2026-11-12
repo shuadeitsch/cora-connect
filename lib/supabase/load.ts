@@ -16,6 +16,8 @@ import type {
   OutreachSender,
   OutreachTextSettings,
   OutreachTemplate,
+  PreplannerEntry,
+  PreplannerReachedHow,
   TextFromMode,
   Person,
   Project,
@@ -120,6 +122,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
   const templateLoad = await optionalTable("outreach_templates");
   const senderLoad = await optionalTable("outreach_sender_addresses");
   const textLoad = await optionalTable("outreach_text_settings");
+  const preplannerLoad = await optionalTable("preplanner_entries");
   const pairLoad = await supabase.from("not_duplicate_pairs").select("a_id, b_id");
   const notDuplicatePairs = pairLoad.error ? [] : ((pairLoad.data ?? []) as { a_id: string; b_id: string }[]).map((row) => `${row.a_id}|${row.b_id}`);
   const [profiles, projects, categories, fields, householdRows, peopleRows, categoryLinks, visitRows, routeRows, stopRows, assignmentRows, notifications, reads] =
@@ -392,6 +395,19 @@ export async function loadSupabase(actor: User): Promise<Database> {
     projects: mappedProjects,
     categories: mappedCategories,
     customFields,
+    preplannerEntries: preplannerLoad.rows.map((row) => ({
+        id: text(row, "id"),
+        orgId: text(row, "org_id"),
+        householdId: text(row, "household_id"),
+        requestedDate: text(row, "requested_date").slice(0, 10),
+        requestedTime: text(row, "requested_time").slice(0, 5),
+        reachedHow: (["email", "text", "whatsapp", "phone", "in_person", "other"].includes(text(row, "reached_how")) ? text(row, "reached_how") : "other") as PreplannerReachedHow,
+        notes: text(row, "notes"),
+        scheduledAt: nullableText(row, "scheduled_at"),
+        scheduledDayId: nullableText(row, "scheduled_day_id"),
+        createdBy: nullableText(row, "created_by"),
+        createdAt: text(row, "created_at"),
+      })) satisfies PreplannerEntry[],
     outreachText: (() => {
       const row = textLoad.rows.find((item) => text(item, "user_id") === actor.id);
       if (!row) return null;

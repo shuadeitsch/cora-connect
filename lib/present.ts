@@ -475,6 +475,10 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
     outreachTemplates: db.outreachTemplates ?? [],
     outreachSenders: (db.outreachSenders ?? []).filter((item) => item.userId === user.id),
     outreachText: db.outreachText && db.outreachText.userId === user.id ? db.outreachText : null,
+    preplannerEntries: (db.preplannerEntries ?? [])
+      .filter((entry) => visibleIds.has(entry.householdId))
+      .slice()
+      .sort((a, b) => `${a.requestedDate}T${a.requestedTime}`.localeCompare(`${b.requestedDate}T${b.requestedTime}`) || a.createdAt.localeCompare(b.createdAt)),
     households,
     visits,
     routes,

@@ -11,6 +11,7 @@ import type {
   OutreachSender,
   OutreachTextSettings,
   OutreachTemplate,
+  PreplannerEntry,
   Person,
   Project,
   Route,
@@ -774,4 +775,43 @@ export async function writeOutreachTextSettings(settings: OutreachTextSettings) 
     }),
     "Save text setting",
   );
+}
+
+
+export async function writePreplannerEntry(entry: PreplannerEntry) {
+  const supabase = await createClient();
+  await done(
+    await supabase.from("preplanner_entries").upsert({
+      id: entry.id,
+      org_id: entry.orgId,
+      household_id: entry.householdId,
+      requested_date: entry.requestedDate,
+      requested_time: entry.requestedTime,
+      reached_how: entry.reachedHow,
+      notes: entry.notes,
+      scheduled_at: entry.scheduledAt,
+      scheduled_day_id: entry.scheduledDayId,
+      created_by: entry.createdBy,
+      created_at: entry.createdAt,
+      updated_at: new Date().toISOString(),
+    }),
+    "Save Pre-planner entry",
+  );
+}
+
+export async function removePreplannerEntry(id: string) {
+  const supabase = await createClient();
+  await done(await supabase.from("preplanner_entries").delete().eq("id", id), "Remove Pre-planner entry");
+}
+
+export async function moveHouseholdPreplanner(sourceId: string, targetId: string): Promise<number> {
+  const supabase = await createClient();
+  const rpc = await supabase.rpc("move_household_preplanner", { source_id: sourceId, target_id: targetId });
+  if (!rpc.error) return Number(rpc.data ?? 0);
+  if (!/could not find the function|schema cache|does not exist/i.test(rpc.error.message)) {
+    throw new Error(`Move Pre-planner: ${rpc.error.message}`);
+  }
+  const updated = await supabase.from("preplanner_entries").update({ household_id: targetId }).eq("household_id", sourceId).select("id");
+  if (updated.error) throw new Error(`Move Pre-planner: ${updated.error.message}`);
+  return updated.data?.length ?? 0;
 }

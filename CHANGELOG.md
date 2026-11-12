@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.61
+- A **Pre-planner** sidebar page (under More on phones) holds contacts who said they are ready for a visit. From a contact card, or with a bulk select action, add them with a required requested date and time, how they reached out (Email, Text, WhatsApp, Phone call, In person, or Other), and notes for the back-and-forth. Entries can be edited or removed, and the list is sorted by that date and time. Admins see the contacts in their states; each shliach sees only his.
+- When the Daily planner is showing a day that has unscheduled Pre-planner requests, a highlighted **Requested visits** strip appears at the top of that day with the requested time and an **Add to this day** button. That adds the visit to the planner at that time, marks the entry as scheduled, and hides it from that day's strip. Merging two contacts moves Pre-planner entries onto the surviving contact. Additive schema with RLS and `change_log`. Beta and Tutorial still do not write to the database.
+
+
 ## 1.8.60
 - Contacts can be ordered by **Has email** or **Has phone** (contacts with an address or any of phone / phone2 / phone3 come first, then name). Filters are now independent and can be combined: Has email, Has phone, Completed, Deferred, Not visited, plus Tags, Seasons, Possible duplicates, and Deleted by shliach. Different kinds of filters use AND (Has phone + Deferred). Completed + Deferred (or any mix of visit statuses) uses OR. Has email + Has phone shows contacts with both. Active filters appear as chips with a one-tap **Clear filters**.
 - When composing an email, a **Send from** picker lets each user save their own sender addresses (private to them). The last address used is remembered. If the chosen address is Gmail or Google Workspace, **Open in Gmail** opens Gmail compose for that account. Otherwise the mail app opens, with a hint to switch to the chosen address. The chosen from-address is recorded in `outreach_sends`.

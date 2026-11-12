@@ -7,6 +7,7 @@ export const PAGE_DESCRIPTIONS: Record<string, string> = {
   "Saved routes": "Plan your routes here. There are lots of ways to build one, so try them out! Once a route is saved, add it to your Daily planner.",
   Routes: "Plan your routes here. There are lots of ways to build one, so try them out! Once a route is saved, add it to your Daily planner.",
   "Daily planner": "Give each saved route a day, so your bochurim have a full day planned.",
+  "Pre-planner": "Contacts who said they are ready for a visit, with the date and time they asked for.",
   "Daily schedule": "Your day's routes from your shliach. Open Google or Apple Maps to start.",
   Home: "Your stats and the visits reported lately, at a glance.",
   Dashboard: "Your stats and the visits reported lately, at a glance.",

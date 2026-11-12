@@ -48,6 +48,9 @@ import {
   writeOutreachSender,
   removeOutreachSender,
   writeOutreachTextSettings,
+  writePreplannerEntry,
+  removePreplannerEntry,
+  moveHouseholdPreplanner,
   markHouseholdsDeleted,
   moveHouseholdVisits,
   markShliachHidden,
@@ -78,6 +81,8 @@ import type {
   OutreachTemplate,
   OutreachTextSettings,
   Person,
+  PreplannerEntry,
+  PreplannerReachedHow,
   TextFromMode,
   ProjectInput,
   Reaction,
@@ -1362,6 +1367,86 @@ export async function dismissDuplicate(actor: User, id: string, otherId?: string
   }
 }
 
+
+export async function savePreplannerEntry(
+  actor: User,
+  input: { id?: string; householdId: string; requestedDate: string; requestedTime: string; reachedHow: string; notes: string },
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    assert(perms(actor).canEdit || perms(actor).canLogVisit, "You don't have permission to add to the Pre-planner.");
+    const date = input.requestedDate.trim();
+    const time = input.requestedTime.trim();
+    assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "Pick the requested date.");
+    const timeMatch = time.match(/^(\d{1,2}):(\d{2})/);
+    if (!timeMatch) throw new Error("Pick the requested time.");
+    const requestedTime = `${String(Number(timeMatch[1])).padStart(2, "0")}:${timeMatch[2]}`;
+    const reachedHow: PreplannerReachedHow = ["email", "text", "whatsapp", "phone", "in_person", "other"].includes(input.reachedHow)
+      ? (input.reachedHow as PreplannerReachedHow)
+      : "other";
+    const db = await loadDatabase();
+    const household = db.households.find((item) => item.id === input.householdId);
+    assert(household, "That contact is no longer here.");
+    const existing = input.id ? (db.preplannerEntries ?? []).find((item) => item.id === input.id) : undefined;
+    const entry: PreplannerEntry = {
+      id: existing?.id ?? newId(),
+      orgId: actor.orgId,
+      householdId: input.householdId,
+      requestedDate: date,
+      requestedTime,
+      reachedHow,
+      notes: input.notes.trim(),
+      scheduledAt: existing?.scheduledAt ?? null,
+      scheduledDayId: existing?.scheduledDayId ?? null,
+      createdBy: existing?.createdBy ?? actor.id,
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
+    };
+    if (isSupabaseMode()) await writePreplannerEntry(entry);
+    else applyDemo((draft) => {
+      const list = draft.preplannerEntries ?? [];
+      const index = list.findIndex((item) => item.id === entry.id);
+      if (index >= 0) list[index] = entry;
+      else list.push(entry);
+      draft.preplannerEntries = list;
+    });
+    return { ok: true, data: { id: entry.id } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not save the Pre-planner entry." };
+  }
+}
+
+export async function deletePreplannerEntry(actor: User, id: string): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canEdit || perms(actor).canLogVisit, "You don't have permission to change the Pre-planner.");
+    if (isSupabaseMode()) await removePreplannerEntry(id);
+    else applyDemo((draft) => {
+      draft.preplannerEntries = (draft.preplannerEntries ?? []).filter((item) => item.id !== id);
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not remove that entry." };
+  }
+}
+
+export async function markPreplannerScheduled(actor: User, id: string, dayId: string): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canEdit || perms(actor).canLogVisit, "You don't have permission to change the Pre-planner.");
+    const db = await loadDatabase();
+    const existing = (db.preplannerEntries ?? []).find((item) => item.id === id);
+    assert(existing, "That Pre-planner entry is no longer here.");
+    const entry: PreplannerEntry = { ...existing, scheduledAt: new Date().toISOString(), scheduledDayId: dayId };
+    if (isSupabaseMode()) await writePreplannerEntry(entry);
+    else applyDemo((draft) => {
+      const list = draft.preplannerEntries ?? [];
+      const index = list.findIndex((item) => item.id === id);
+      if (index >= 0) list[index] = entry;
+      draft.preplannerEntries = list;
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not mark that visit as scheduled." };
+  }
+}
+
 export async function mergeContacts(actor: User, sourceId: string, targetId: string): Promise<ActionResult> {
   try {
     assert(perms(actor).canEdit, "You don't have permission to edit contacts.");
@@ -1379,6 +1464,12 @@ export async function mergeContacts(actor: User, sourceId: string, targetId: str
         for (const visit of source.contactVisits) await writeContactVisit({ ...visit, householdId: targetId }, false);
         for (const visit of source.visits) await writeVisit({ ...visit, householdId: targetId }, false);
       }
+      try {
+        await moveHouseholdPreplanner(sourceId, targetId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        if (!tableMissing(message) && !/does not exist|schema cache/i.test(message)) throw error;
+      }
       const kept = keepLostMergeValues(source, target);
       if (kept.restored.length) {
         const withNote = keepLostMergeValues(source, target, {
@@ -1395,6 +1486,9 @@ export async function mergeContacts(actor: User, sourceId: string, targetId: str
         }
         for (const visit of draft.visits) {
           if (visit.householdId === sourceId) visit.householdId = targetId;
+        }
+        for (const entry of draft.preplannerEntries ?? []) {
+          if (entry.householdId === sourceId) entry.householdId = targetId;
         }
         const kept = keepLostMergeValues(source, target);
         const index = draft.households.findIndex((item) => item.id === targetId);

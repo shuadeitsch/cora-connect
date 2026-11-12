@@ -18,6 +18,7 @@ import {
   Trash2,
   Upload,
   Route as RouteIcon,
+  CalendarClock,
   Check,
   CircleSlash,
   Minus,
@@ -27,6 +28,7 @@ import { AddressLink } from "@/components/address-link";
 import { Avatar } from "@/components/avatar";
 import { ImportContacts } from "@/components/import-contacts";
 import { OutreachDialog } from "@/components/outreach-dialog";
+import { PreplannerDialog } from "@/components/preplanner-dialog";
 import { Pager } from "@/components/pager";
 import { Notice, PageHeader } from "@/components/page-header";
 import { useToast } from "@/components/toast";
@@ -124,6 +126,7 @@ export function HouseholdsView({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selected, setSelected] = useState<string[]>([]);
+  const [preplanFor, setPreplanFor] = useState<HouseholdView[] | null>(null);
   const [outreach, setOutreach] = useState<"email" | "text" | null>(null);
   const [routeFromPicked, setRouteFromPicked] = useState(false);
   const [editing, setEditing] = useState<HouseholdView | null>(null);
@@ -397,6 +400,11 @@ export function HouseholdsView({
         >
           All contacts
         </button>
+        {selected.length && (live.viewer.canEdit || live.viewer.canLogVisit) ? (
+          <button type="button" className={pill} onClick={() => setPreplanFor(filtered.filter((row) => selected.includes(row.id)))}>
+            <CalendarClock className="size-3.5" /> Add to Pre-planner ({selected.length})
+          </button>
+        ) : null}
         {selected.length && live.viewer.canCreateRoute ? (
           <button type="button" className={pill} onClick={() => setRouteFromPicked(true)}>
             <RouteIcon className="size-3.5" /> Build route ({selected.length})
@@ -528,6 +536,11 @@ export function HouseholdsView({
                         Suggest
                       </Button>
                     ) : null}
+                    {live.viewer.canEdit || live.viewer.canLogVisit ? (
+                      <Button size="sm" variant="outline" className="h-10 rounded-full" onClick={() => setPreplanFor([household])}>
+                        <CalendarClock className="size-3.5" /> Pre-planner
+                      </Button>
+                    ) : null}
                     <Button size="sm" variant="outline" className="h-10 rounded-full" onClick={() => setHistory(household)}>History</Button>
                   </div>
                 </article>
@@ -644,6 +657,7 @@ export function HouseholdsView({
         onEdit={() => { if (contact) { setEditing(contact); setContact(null); } }}
         onVisit={() => { if (contact) { setVisitEdit(undefined); setVisitFor(contact); setContact(null); } }}
         onHistory={() => { if (contact) { setHistory(contact); setContact(null); } }}
+        onPreplan={() => { if (contact) { setPreplanFor([contact]); setContact(null); } }}
       />
       <HistoryDialog
         household={history}
@@ -671,6 +685,11 @@ export function HouseholdsView({
         households={data.households.map((household) => ({ id: household.id, name: household.name }))}
         initial={visitEdit ?? (visitFor ? { householdId: visitFor.id, visitDate: "", status: "", reaction: "", details: "", visited: "", visitedBy: "", activities: [] } : undefined)}
         canDelete={Boolean(visitEdit?.id && history?.contactVisits.some((visit) => visit.id === visitEdit.id && visit.canRemove))}
+      />
+      <PreplannerDialog
+        open={Boolean(preplanFor?.length)}
+        households={preplanFor ?? []}
+        onClose={() => setPreplanFor(null)}
       />
       <CreateRouteDialog data={live} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
       <OutreachDialog
@@ -1562,6 +1581,7 @@ function ContactDialog({
   onEdit,
   onVisit,
   onHistory,
+  onPreplan,
   onOpenOther,
 }: {
   household: HouseholdView | null;
@@ -1574,6 +1594,7 @@ function ContactDialog({
   onEdit: () => void;
   onVisit: () => void;
   onHistory: () => void;
+  onPreplan?: () => void;
   onOpenOther: (id: string) => void;
 }) {
   const announce = useUndoToast();
@@ -1602,6 +1623,9 @@ function ContactDialog({
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" className="rounded-full" onClick={onHistory}><History className="size-4" /> History</Button>
               <Button type="button" variant="outline" className="rounded-full" onClick={onVisit}><Pencil className="size-4" /> Report</Button>
+              {onPreplan && (canEdit || data.viewer.canLogVisit) ? (
+                <Button type="button" variant="outline" className="rounded-full" onClick={onPreplan}><CalendarClock className="size-4" /> Pre-planner</Button>
+              ) : null}
             </div>
             {household ? <div className="pt-1"><ShareWithBochurimToggle household={household} data={data} /></div> : null}
             {household && data.viewer.role === "bochur" ? <BochurSuggestionStatus householdId={household.id} /> : null}
