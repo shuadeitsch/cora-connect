@@ -67,6 +67,7 @@ function StatTile({
   label,
   count,
   tone = "default",
+  surface = "card",
   detail,
   progress,
   href,
@@ -75,6 +76,7 @@ function StatTile({
   label: string;
   count: number;
   tone?: "default" | "accent" | "muted";
+  surface?: "card" | "canvas";
   detail?: string;
   progress?: number;
   href?: string;
@@ -86,7 +88,8 @@ function StatTile({
         "flex min-h-[5.5rem] h-full flex-col justify-between rounded-2xl border p-3 sm:p-3.5",
         tone === "accent" && "border-primary/30 bg-primary/5",
         tone === "muted" && "bg-muted/40",
-        tone === "default" && "bg-card",
+        tone === "default" && surface === "card" && "bg-card",
+        tone === "default" && surface === "canvas" && "bg-background",
         detail && "sm:col-span-2 lg:col-span-2",
         href && "transition hover:ring-2 hover:ring-primary/40",
       )}
@@ -179,87 +182,6 @@ export function DashboardReports({
       /* ignore */
     }
   }
-
-  const contactVisits = useMemo(
-    () =>
-      data.households.flatMap((h) =>
-        h.contactVisits.map((v) => ({
-          id: v.id,
-          orgId: data.viewer.orgId,
-          householdId: h.id,
-          visited: v.visited,
-          visitedBy: v.visitedBy ?? null,
-          reaction: v.reaction,
-          notes: v.notes,
-          visitDate: v.visitDate,
-          status: v.status,
-          arrived: "",
-          createdBy: v.createdBy,
-          createdAt: v.createdAt,
-          importBatchId: null as string | null,
-          activities: v.activities ?? [],
-          projectId: v.projectId ?? null,
-        })),
-      ),
-    [data.households, data.viewer.orgId],
-  );
-
-  const householdsForCounts = useMemo(
-    () =>
-      data.households.map((h) => ({
-        id: h.id,
-        orgId: data.viewer.orgId,
-        name: h.name,
-        street: h.street,
-        city: h.city,
-        state: h.state,
-        zip: h.zip,
-        country: h.country,
-        lat: h.lat,
-        lng: h.lng,
-        notes: h.notes,
-        projectId: h.projectId,
-        scheduleCategoryId: h.scheduleCategoryId,
-        categoryIds: h.categoryIds,
-        tags: h.tags,
-        customFields: h.customFields,
-        sharedWithCora: h.sharedWithCora,
-        ownerId: h.ownerId,
-        visitReaction: h.visitReaction,
-        possibleDuplicate: h.possibleDuplicate,
-        duplicateOf: h.duplicateOf,
-        createdAt: h.createdAt,
-        importBatchId: h.importBatchId,
-        deletedByShliachAt: h.deletedByShliachAt,
-        deletedByShliachBy: h.deletedByShliachBy,
-      })),
-    [data.households, data.viewer.orgId],
-  );
-
-  const activityRows = useMemo(() => {
-    return activityCountsFor(
-      contactVisits,
-      householdsForCounts as never,
-      {
-        id: viewer.id,
-        orgId: viewer.orgId,
-        name: viewer.name,
-        email: viewer.email,
-        passwordHash: "",
-        role: viewer.role,
-        status: viewer.status,
-        expiresAt: viewer.expiresAt,
-        canViewHistory: viewer.canViewHistory,
-        canViewContact: viewer.canViewContact,
-        canEdit: viewer.canEdit,
-        assignedRouteIds: [],
-        leaderId: viewer.leaderId,
-        territory: viewer.territory,
-        projectId: viewer.projectId,
-      },
-      { state, projectId, projectName },
-    );
-  }, [contactVisits, householdsForCounts, projectId, projectName, state, viewer]);
 
   const visitedFor = useMemo(() => {
     const names = new Map(projects.map((project) => [project.name.trim().toLowerCase(), project.name]));
@@ -456,17 +378,11 @@ export function DashboardReports({
     },
   ];
 
-  const activityTiles = VISIT_ACTIVITIES.map((label) => ({
-    label,
-    count: activityRows.find((r) => r.label === label)?.count ?? 0,
-  }));
-
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, pages);
   const pageRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
-    <div className="space-y-4">
     <section className="panel space-y-4 rounded-3xl p-4" aria-label="Visits" data-tour="visits">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -599,19 +515,106 @@ export function DashboardReports({
         </p>
       )}
     </section>
-    <section className="panel space-y-4 rounded-3xl p-4" aria-label="Visit activities">
-      <div>
-        <h2 className="font-heading text-xl font-semibold text-foreground">Visit activities</h2>
-        <p className="text-sm text-muted-foreground">
-          Totals from live visits that were not removed. Follows the project and state filters above.
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        {activityTiles.map((tile) => (
-          <StatTile key={tile.label} label={tile.label} count={tile.count} />
+  );
+}
+
+/** Seven activity totals at the top of Home. Canvas-colored tiles, no white panel. */
+export function VisitActivitiesBoard({
+  data,
+  projectId,
+  state = "ALL",
+}: {
+  data: AppData;
+  projectId: string;
+  state?: string;
+}) {
+  const viewer = data.viewer;
+  const allProjects = !projectId || projectId === "ALL";
+  const projectName = allProjects ? undefined : data.projects.find((p) => p.id === projectId)?.name;
+
+  const rows = useMemo(() => {
+    const visits = data.households.flatMap((h) =>
+      h.contactVisits.map((v) => ({
+        id: v.id,
+        orgId: data.viewer.orgId,
+        householdId: h.id,
+        visited: v.visited,
+        reaction: v.reaction,
+        notes: v.notes,
+        visitDate: v.visitDate,
+        status: v.status,
+        arrived: "",
+        createdBy: v.createdBy,
+        createdAt: v.createdAt,
+        importBatchId: null as string | null,
+        activities: v.activities ?? [],
+        projectId: v.projectId ?? null,
+      })),
+    );
+    const households = data.households.map((h) => ({
+      id: h.id,
+      orgId: data.viewer.orgId,
+      name: h.name,
+      street: h.street,
+      city: h.city,
+      state: h.state,
+      zip: h.zip,
+      country: h.country,
+      lat: h.lat,
+      lng: h.lng,
+      notes: h.notes,
+      projectId: h.projectId,
+      scheduleCategoryId: h.scheduleCategoryId,
+      categoryIds: h.categoryIds,
+      tags: h.tags,
+      customFields: h.customFields,
+      sharedWithCora: h.sharedWithCora,
+      ownerId: h.ownerId,
+      visitReaction: h.visitReaction,
+      possibleDuplicate: h.possibleDuplicate,
+      duplicateOf: h.duplicateOf,
+      createdAt: h.createdAt,
+      importBatchId: h.importBatchId,
+      deletedByShliachAt: h.deletedByShliachAt,
+      deletedByShliachBy: h.deletedByShliachBy,
+    }));
+    return activityCountsFor(
+      visits,
+      households as never,
+      {
+        id: viewer.id,
+        orgId: viewer.orgId,
+        name: viewer.name,
+        email: viewer.email,
+        passwordHash: "",
+        role: viewer.role,
+        status: viewer.status,
+        expiresAt: viewer.expiresAt,
+        canViewHistory: viewer.canViewHistory,
+        canViewContact: viewer.canViewContact,
+        canEdit: viewer.canEdit,
+        assignedRouteIds: [],
+        leaderId: viewer.leaderId,
+        territory: viewer.territory,
+        projectId: viewer.projectId,
+      },
+      { state, projectId, projectName },
+    );
+  }, [data.households, data.projects, data.viewer, projectId, projectName, state, viewer]);
+
+  return (
+    <section aria-label="Visit activities">
+      <h2 className="mb-2 font-heading text-lg font-semibold text-foreground sm:text-xl">Visit activities</h2>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        {VISIT_ACTIVITIES.map((label) => (
+          <StatTile
+            key={label}
+            label={label}
+            count={rows.find((row) => row.label === label)?.count ?? 0}
+            surface="canvas"
+          />
         ))}
       </div>
     </section>
-    </div>
   );
 }

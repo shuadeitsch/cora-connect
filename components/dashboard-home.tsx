@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Sparkles, UserPlus, Users } from "lucide-react";
 import { Greeting } from "@/components/greeting";
-import { DashboardReports } from "@/components/dashboard-reports";
+import { DashboardReports, VisitActivitiesBoard } from "@/components/dashboard-reports";
 import { FeedbackCard } from "@/components/feedback-card";
 import { SuggestedEditsCard } from "@/components/suggested-edits-card";
 import { FOCUS_STATES } from "@/lib/constants";
@@ -211,6 +211,8 @@ export function DashboardHome({ data }: { data: AppData }) {
           </label>
         ) : null}
       </div>
+
+      <VisitActivitiesBoard data={data} projectId={safeProjectId} state={filters.state} />
 
       {bochur && bochurStats ? (
         <section aria-label="Your stats">
