@@ -6,10 +6,12 @@ export type OutreachMode = "email" | "text";
 
 export type OutreachTemplate = {
   id: string;
+  orgId?: string;
   name: string;
   subject: string;
   email: string;
   sms: string;
+  sortOrder?: number;
 };
 
 /** Pre-made drafts. {first name} and {state} are filled per contact, or with a group-safe fallback. */
@@ -60,6 +62,23 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function fillPlaceholders(template: string, vars: { firstName: string; state: string }): string {
   return template.replace(/\{first name\}/gi, vars.firstName).replace(/\{state\}/gi, vars.state);
+}
+
+/** Prefill a draft from a saved template, with {first name} and {state} already filled in. */
+export function draftFromTemplate(
+  template: OutreachTemplate,
+  mode: OutreachMode,
+  vars: { firstName: string; state: string },
+): { subject: string; body: string } {
+  return {
+    subject: fillPlaceholders(template.subject, vars),
+    body: fillPlaceholders(mode === "text" ? template.sms : template.email, vars),
+  };
+}
+
+/** Use saved org templates when any exist; otherwise the built-in drafts. */
+export function templatesOrDefault(list?: OutreachTemplate[] | null): OutreachTemplate[] {
+  return list?.length ? list : OUTREACH_TEMPLATES;
 }
 
 /** Group email/SMS body: shared first name or "there"; shared state or "your area". */

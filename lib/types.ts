@@ -221,6 +221,16 @@ export interface AppNotification {
   readBy: string[];
 }
 
+export interface OutreachTemplate {
+  id: string;
+  orgId: string;
+  name: string;
+  subject: string;
+  email: string;
+  sms: string;
+  sortOrder: number;
+}
+
 export interface Database {
   version: 1;
   organization: Organization;
@@ -229,6 +239,7 @@ export interface Database {
   projects: Project[];
   categories: Category[];
   customFields: CustomFieldDef[];
+  outreachTemplates?: OutreachTemplate[];
   households: Household[];
   people: Person[];
   visits: Visit[];
@@ -477,6 +488,7 @@ export interface AppData {
   projects: Project[];
   categories: Category[];
   customFields: CustomFieldDef[];
+  outreachTemplates: OutreachTemplate[];
   households: HouseholdView[];
   visits: VisitView[];
   routes: RouteView[];

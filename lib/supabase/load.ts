@@ -13,6 +13,7 @@ import type {
   Household,
   HouseholdReaction,
   Invite,
+  OutreachTemplate,
   Person,
   Project,
   Reaction,
@@ -113,6 +114,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
 
   const contactVisitLoad = await optionalTable("contact_visits");
   const shareLoad = await optionalTable("contact_shares");
+  const templateLoad = await optionalTable("outreach_templates");
   const pairLoad = await supabase.from("not_duplicate_pairs").select("a_id, b_id");
   const notDuplicatePairs = pairLoad.error ? [] : ((pairLoad.data ?? []) as { a_id: string; b_id: string }[]).map((row) => `${row.a_id}|${row.b_id}`);
   const [profiles, projects, categories, fields, householdRows, peopleRows, categoryLinks, visitRows, routeRows, stopRows, assignmentRows, notifications, reads] =
@@ -385,6 +387,18 @@ export async function loadSupabase(actor: User): Promise<Database> {
     projects: mappedProjects,
     categories: mappedCategories,
     customFields,
+    outreachTemplates: templateLoad.rows
+      .slice()
+      .sort((a, b) => (num(a, "sort_order") ?? 0) - (num(b, "sort_order") ?? 0) || text(a, "name").localeCompare(text(b, "name")))
+      .map((row) => ({
+        id: text(row, "id"),
+        orgId: text(row, "org_id"),
+        name: text(row, "name"),
+        subject: text(row, "subject"),
+        email: text(row, "email"),
+        sms: text(row, "sms"),
+        sortOrder: num(row, "sort_order") ?? 0,
+      })),
     households,
     people,
     visits,

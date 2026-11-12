@@ -30,6 +30,9 @@ import {
   readNotifications,
   resetDemoData,
   saveCategory,
+  saveOutreachTemplate,
+  deleteOutreachTemplate,
+  logOutreachSend,
   setAccountApproval,
   saveCustomField,
   saveHousehold,
@@ -409,3 +412,35 @@ export async function geocodeStartAction(text: string) {
   const point = await geocodeText(text);
   return point ? { ok: true as const, data: point } : { ok: false as const, error: "Couldn't find that address. Try adding the town and state." };
 }
+
+export async function saveOutreachTemplateAction(input: { id?: string; name: string; subject: string; email: string; sms: string }) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await saveOutreachTemplate(user, input));
+}
+
+export async function deleteOutreachTemplateAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await deleteOutreachTemplate(user, id));
+}
+
+export async function logOutreachSendAction(input: {
+  mode: string;
+  templateId?: string;
+  templateName?: string;
+  subject: string;
+  body: string;
+  recipientCount: number;
+}) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return logOutreachSend(user, input);
+}
+

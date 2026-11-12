@@ -472,6 +472,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
     projects: listedProjects(db.projects),
     categories: db.categories,
     customFields: db.customFields,
+    outreachTemplates: db.outreachTemplates ?? [],
     households,
     visits,
     routes,

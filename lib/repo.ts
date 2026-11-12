@@ -42,6 +42,9 @@ import {
   writeRoute,
   writeVisit,
   writeContactVisit,
+  writeOutreachTemplate,
+  removeOutreachTemplate,
+  writeOutreachSend,
   markHouseholdsDeleted,
   moveHouseholdVisits,
   markShliachHidden,
@@ -68,6 +71,7 @@ import type {
   HouseholdInput,
   MemberInput,
   OrgInput,
+  OutreachTemplate,
   Person,
   ProjectInput,
   Reaction,
@@ -1479,6 +1483,82 @@ export async function deleteCategory(actor: User, id: string): Promise<ActionRes
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not delete the category." };
+  }
+}
+
+
+export type OutreachTemplateInput = {
+  id?: string;
+  name: string;
+  subject: string;
+  email: string;
+  sms: string;
+};
+
+export async function saveOutreachTemplate(actor: User, input: OutreachTemplateInput): Promise<ActionResult<{ id: string }>> {
+  try {
+    assert(perms(actor).canManage, "Only an admin can change email templates.");
+    assert(input.name.trim(), "Name the template.");
+    const db = await loadDatabase();
+    const existing = input.id && /^[0-9a-f-]{36}$/i.test(input.id) ? (db.outreachTemplates ?? []).find((item) => item.id === input.id) : undefined;
+    const others = (db.outreachTemplates ?? []).filter((item) => item.id !== existing?.id);
+    const template: OutreachTemplate = {
+      id: existing?.id ?? newId(),
+      orgId: actor.orgId,
+      name: input.name.trim(),
+      subject: input.subject.trim(),
+      email: input.email.trim(),
+      sms: input.sms.trim(),
+      sortOrder: existing?.sortOrder ?? (others.reduce((max, item) => Math.max(max, item.sortOrder), 0) + 1),
+    };
+    if (isSupabaseMode()) await writeOutreachTemplate(template);
+    else applyDemo((draft) => {
+      const list = draft.outreachTemplates ?? [];
+      const index = list.findIndex((item) => item.id === template.id);
+      if (index >= 0) list[index] = template;
+      else list.push(template);
+      draft.outreachTemplates = list;
+    });
+    return { ok: true, data: { id: template.id } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not save the template." };
+  }
+}
+
+export async function deleteOutreachTemplate(actor: User, id: string): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canManage, "Only an admin can change email templates.");
+    if (isSupabaseMode()) await removeOutreachTemplate(id);
+    else applyDemo((draft) => {
+      draft.outreachTemplates = (draft.outreachTemplates ?? []).filter((item) => item.id !== id);
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not delete the template." };
+  }
+}
+
+export async function logOutreachSend(
+  actor: User,
+  input: { mode: string; templateId?: string; templateName?: string; subject: string; body: string; recipientCount: number },
+): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canOutreach, "You don't have permission to send outreach.");
+    if (isSupabaseMode()) {
+      await writeOutreachSend({
+        orgId: actor.orgId,
+        actorId: actor.id,
+        mode: input.mode,
+        templateId: input.templateId,
+        templateName: input.templateName,
+        subject: input.subject,
+        body: input.body,
+        recipientCount: input.recipientCount,
+      });
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not log that outreach." };
   }
 }
 

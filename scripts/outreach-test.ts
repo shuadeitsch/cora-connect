@@ -4,6 +4,9 @@ import {
   groupFillVars,
   MAILTO_SAFE_LENGTH,
   mailtoBccHref,
+  draftFromTemplate,
+  templatesOrDefault,
+  OUTREACH_TEMPLATES,
   normalizeUsPhone,
   outreachPeople,
   phonesForCopy,
@@ -142,4 +145,14 @@ if (sms !== "sms:+12075550100&body=Hi%20Sarah") fail(sms);
 const wa = whatsappHrefWithText("2075550100", "Hi Sarah");
 if (wa !== "https://wa.me/12075550100?text=Hi%20Sarah") fail(wa);
 
+const announcement = OUTREACH_TEMPLATES.find((item) => item.id === "visit-announcement")!;
+const draft = draftFromTemplate(announcement, "email", { firstName: "Sarah", state: "Maine" });
+if (!draft.subject.includes("Maine") || draft.subject.includes("{state}")) fail(`subject not filled: ${draft.subject}`);
+if (!draft.body.includes("Hi Sarah") || draft.body.includes("{first name}")) fail(`body not filled: ${draft.body}`);
+const reset = draftFromTemplate(announcement, "email", { firstName: "Sarah", state: "Maine" });
+if (reset.body !== draft.body) fail("reset should match a fresh fill");
+if (templatesOrDefault([]).length !== OUTREACH_TEMPLATES.length) fail("empty list falls back to built-in drafts");
+if (templatesOrDefault([{ ...announcement, name: "Custom" }])[0]?.name !== "Custom") fail("saved templates are used when present");
+
 console.log("outreach-test ok");
+

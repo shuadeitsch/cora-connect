@@ -260,14 +260,15 @@ export function Shell({
         <button
           type="button"
           onClick={() => setSearch(true)}
+          aria-label="Search CORA Connect"
           className="mx-3 hidden h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-border/80 bg-background/50 px-3 text-sm text-muted-foreground transition hover:bg-muted md:flex md:max-w-md"
         >
           <Search className="size-4" />
-          <span className="flex-1 text-left">Search contacts</span>
+          <span className="flex-1 text-left">Search CORA Connect</span>
           <kbd className="rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">⌘K</kbd>
         </button>
         <div className="ml-auto flex items-center">
-          <button type="button" aria-label="Search" className="inline-flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted md:hidden" onClick={() => setSearch(true)}>
+          <button type="button" aria-label="Search CORA Connect" className="inline-flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted md:hidden" onClick={() => setSearch(true)}>
             <Search className="size-[18px]" />
           </button>
           <ThemeToggle />

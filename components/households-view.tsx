@@ -665,6 +665,7 @@ export function HouseholdsView({
         mode={outreach ?? "email"}
         households={filtered.filter((row) => selected.includes(row.id))}
         role={live.viewer.role}
+        templates={live.outreachTemplates}
         twilioConnected={twilioConnected}
         onClose={() => setOutreach(null)}
       />

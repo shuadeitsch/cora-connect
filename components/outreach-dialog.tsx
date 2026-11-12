@@ -10,18 +10,22 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   detectSmsPlatform,
+  draftFromTemplate,
   emailsForCopy,
   fillPlaceholders,
   groupFillVars,
   MAILTO_SAFE_LENGTH,
   mailtoBccHref,
-  OUTREACH_TEMPLATES,
   outreachPeople,
   phonesForCopy,
   smsHrefWithBody,
+  templatesOrDefault,
   whatsappHrefWithText,
   type OutreachMode,
+  type OutreachTemplate,
 } from "@/lib/outreach";
+import { logOutreachSendAction } from "@/lib/actions";
+import { usePractice } from "@/components/practice-provider";
 import { TWILIO_SETUP_NOTE, TWILIO_SIGNUP_URL } from "@/lib/twilio";
 import type { HouseholdView, Role } from "@/lib/types";
 
@@ -34,6 +38,7 @@ export function OutreachDialog({
   mode,
   households,
   role,
+  templates,
   twilioConnected = false,
   onClose,
 }: {
@@ -41,29 +46,38 @@ export function OutreachDialog({
   mode: OutreachMode;
   households: HouseholdView[];
   role: Role;
+  templates?: OutreachTemplate[];
   twilioConnected?: boolean;
   onClose: () => void;
 }) {
   const toast = useToast();
-  const [templateId, setTemplateId] = useState(OUTREACH_TEMPLATES[0]!.id);
-  const [subject, setSubject] = useState(OUTREACH_TEMPLATES[0]!.subject);
-  const [body, setBody] = useState(OUTREACH_TEMPLATES[0]!.email);
+  const practice = usePractice();
+  const catalog = templatesOrDefault(templates);
+  const [templateId, setTemplateId] = useState(catalog[0]!.id);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
   const [activeMode, setActiveMode] = useState<OutreachMode>(mode);
-
-  useEffect(() => {
-    if (!open) return;
-    const next = OUTREACH_TEMPLATES[0]!;
-    setActiveMode(mode);
-    setTemplateId(next.id);
-    setSubject(next.subject);
-    setBody(mode === "text" ? next.sms : next.email);
-  }, [open, mode]);
 
   const people = useMemo(() => outreachPeople(households), [households]);
   const group = groupFillVars(people);
   const emailList = emailsForCopy(people);
   const phoneList = phonesForCopy(people);
-  const template = OUTREACH_TEMPLATES.find((item) => item.id === templateId) ?? OUTREACH_TEMPLATES[0]!;
+  const template = catalog.find((item) => item.id === templateId) ?? catalog[0]!;
+
+  function applyDraft(next: OutreachTemplate, nextMode = activeMode) {
+    const draft = draftFromTemplate(next, nextMode, group);
+    setTemplateId(next.id);
+    setSubject(draft.subject);
+    setBody(draft.body);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    setActiveMode(mode);
+    applyDraft(catalog[0]!, mode);
+    // Reset the draft when the dialog opens or the send mode changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mode]);
   const previewSource = activeMode === "text" ? body : body;
   const previewSubject = fillPlaceholders(subject, group);
   const previewBody = fillPlaceholders(previewSource, group);
@@ -76,15 +90,25 @@ export function OutreachDialog({
   const isAdmin = role === "admin";
 
   function applyTemplate(id: string, nextMode = activeMode) {
-    const next = OUTREACH_TEMPLATES.find((item) => item.id === id) ?? OUTREACH_TEMPLATES[0]!;
-    setTemplateId(next.id);
-    setSubject(next.subject);
-    setBody(nextMode === "text" ? next.sms : next.email);
+    const next = catalog.find((item) => item.id === id) ?? catalog[0]!;
+    applyDraft(next, nextMode);
   }
 
   function switchMode(next: OutreachMode) {
     setActiveMode(next);
     applyTemplate(templateId, next);
+  }
+
+  function logSend(nextMode: string, recipientCount: number) {
+    if (practice.active) return;
+    void logOutreachSendAction({
+      mode: nextMode,
+      templateId: template.id,
+      templateName: template.name,
+      subject: previewSubject,
+      body: previewBody,
+      recipientCount,
+    });
   }
 
   function resetOnOpen(next: boolean) {
@@ -121,19 +145,24 @@ export function OutreachDialog({
             <MessageSquare className="size-3.5" /> Text / WhatsApp
           </Button>
         </div>
-        <label className="grid gap-1 text-sm">
-          <span className="text-muted-foreground">Template</span>
-          <select
-            className="h-11 rounded-xl border border-input bg-card px-3 text-base sm:text-sm"
-            value={templateId}
-            onChange={(event) => applyTemplate(event.target.value)}
-            aria-label="Message template"
-          >
-            {OUTREACH_TEMPLATES.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </select>
-        </label>
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+          <label className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">Template</span>
+            <select
+              className="h-11 rounded-xl border border-input bg-card px-3 text-base sm:text-sm"
+              value={templateId}
+              onChange={(event) => applyTemplate(event.target.value)}
+              aria-label="Message template"
+            >
+              {catalog.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+          <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={() => applyTemplate(templateId)}>
+            Reset to template
+          </Button>
+        </div>
         {activeMode === "email" ? (
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">Subject</span>
@@ -141,7 +170,7 @@ export function OutreachDialog({
           </label>
         ) : null}
         <label className="grid gap-1 text-sm">
-          <span className="text-muted-foreground">Message — use {"{first name}"} and {"{state}"} if you want them filled in</span>
+          <span className="text-muted-foreground">Message — edit this one only. The saved template stays as it is.</span>
           <Textarea value={body} onChange={(event) => setBody(event.target.value)} aria-label="Message" className="min-h-32 text-base sm:text-sm" />
         </label>
         {first ? (
@@ -166,7 +195,7 @@ export function OutreachDialog({
             {!emailList.addresses.length ? <Notice>None of these contacts have an email address.</Notice> : null}
             {mailtoLong ? <Notice>This is too long for some email apps. Copy the draft and the addresses, then paste the addresses into BCC.</Notice> : null}
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={() => void copy([subject.trim(), body.trim()].filter(Boolean).join("\n\n"), "Draft copied")}>
+              <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={() => void copy([previewSubject.trim(), previewBody.trim()].filter(Boolean).join("\n\n"), "Draft copied")}>
                 Copy draft
               </Button>
               <Button
@@ -180,7 +209,7 @@ export function OutreachDialog({
               </Button>
               {emailList.addresses.length ? (
                 <Button type="button" className="min-h-11 rounded-full" asChild>
-                  <a href={mailto}>Open in email app</a>
+                  <a href={mailto} onClick={() => logSend("email", emailList.addresses.length)}>Open in email app</a>
                 </Button>
               ) : (
                 <Button type="button" className="min-h-11 rounded-full" disabled>Open in email app</Button>
@@ -233,12 +262,12 @@ export function OutreachDialog({
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button type="button" variant="outline" size="sm" className="h-10 rounded-full" asChild>
-                          <a href={smsHrefWithBody(phone, filled, platform)}>
+                          <a href={smsHrefWithBody(phone, filled, platform)} onClick={() => logSend("sms", 1)}>
                             <MessageSquare className="size-3.5" /> SMS
                           </a>
                         </Button>
                         <Button type="button" variant="outline" size="sm" className="h-10 rounded-full" asChild>
-                          <a href={whatsappHrefWithText(wa, filled)} target="_blank" rel="noreferrer">
+                          <a href={whatsappHrefWithText(wa, filled)} target="_blank" rel="noreferrer" onClick={() => logSend("whatsapp", 1)}>
                             <MessageCircle className="size-3.5" /> WhatsApp
                           </a>
                         </Button>

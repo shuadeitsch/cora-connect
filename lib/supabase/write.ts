@@ -8,6 +8,7 @@ import type {
   Household,
   Invite,
   Organization,
+  OutreachTemplate,
   Person,
   Project,
   Route,
@@ -686,3 +687,51 @@ export async function markAllRead(userId: string, notificationIds: string[]) {
     "Mark notifications",
   );
 }
+
+export async function writeOutreachTemplate(template: OutreachTemplate) {
+  const supabase = await createClient();
+  await done(
+    await supabase.from("outreach_templates").upsert({
+      id: template.id,
+      org_id: template.orgId,
+      name: template.name,
+      subject: template.subject,
+      email: template.email,
+      sms: template.sms,
+      sort_order: template.sortOrder,
+    }),
+    "Save template",
+  );
+}
+
+export async function removeOutreachTemplate(id: string) {
+  const supabase = await createClient();
+  await done(await supabase.from("outreach_templates").delete().eq("id", id), "Delete template");
+}
+
+export async function writeOutreachSend(row: {
+  orgId: string;
+  actorId: string;
+  mode: string;
+  templateId?: string | null;
+  templateName?: string;
+  subject: string;
+  body: string;
+  recipientCount: number;
+}) {
+  const supabase = await createClient();
+  await done(
+    await supabase.from("outreach_sends").insert({
+      org_id: row.orgId,
+      actor_id: row.actorId,
+      mode: row.mode,
+      template_id: row.templateId || null,
+      template_name: row.templateName ?? "",
+      subject: row.subject,
+      body: row.body,
+      recipient_count: row.recipientCount,
+    }),
+    "Log outreach",
+  );
+}
+

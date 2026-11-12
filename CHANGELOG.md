@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.58
+- When you pick an email or text template for a contact, the subject and message open already filled in (name, state, and so on) so you can change that one message without changing the saved template. **Reset to template** puts the filled draft back. Sending is still the existing Open in email app, copy, SMS, and WhatsApp flow, now using your customized text. Those sends are recorded in `outreach_sends` and `change_log`.
+- Admins can create, edit, and delete the templates themselves under Settings › Email templates. The four built-in drafts are saved for the organization so they can be changed. Shliachim can use the templates but not manage them. RLS limits reads to the organization and writes to admins. Beta and Tutorial still do not write to the database.
+- The top-right search box now says **Search CORA Connect**, including its label for screen readers.
+
+
+
 ## 1.8.57
 - Home puts **Visit activities** all the way at the top, above the other dashboard boxes. Each of the seven activities (Nice conversation, Tefillin, Shabbos candles, Menorah, Package, Challah, Mezuzah) is its own small stat box, using the CRM background and brand colors rather than a white panel. The row wraps on phones and sits in one line on wider Chromebooks. Counting and project/state filters are unchanged. The **Removed: not Jewish / not existent** box is unchanged.
 

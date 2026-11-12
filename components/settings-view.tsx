@@ -14,6 +14,7 @@ import { AvatarPicker } from "@/components/avatar-picker";
 import { ThemePicker } from "@/components/theme-picker";
 import { TeamView } from "@/components/team-view";
 import { TwilioSettingsCard } from "@/components/twilio-settings-card";
+import { EmailTemplatesCard } from "@/components/email-templates-card";
 import type { AppData, OrgInput } from "@/lib/types";
 
 function AccountSection({ data, recovery, twilioConnected = false }: { data: AppData; recovery: boolean; twilioConnected?: boolean }) {
@@ -44,7 +45,7 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
     );
   }
   // Shliach: My Team lives here (not in the sidebar). Admins keep /team.
-  const allowed = shliach ? ["house", "account", "team"] : ["house", "account"];
+  const allowed = shliach ? ["house", "account", "team"] : data.viewer.canManage ? ["house", "account", "templates"] : ["house", "account"];
   const tab = allowed.includes(initialTab) ? initialTab : "house";
   return (
     <div className="p-4 sm:p-6">
@@ -56,12 +57,18 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
         <TabsList className="mb-4 h-auto flex-wrap bg-card">
           <TabsTrigger value="house">Chabad House</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
+          {data.viewer.canManage ? <TabsTrigger value="templates">Email templates</TabsTrigger> : null}
           {shliach ? <TabsTrigger value="team">My Team</TabsTrigger> : null}
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
         <TabsContent value="account">
           <AccountSection data={data} recovery={recovery} twilioConnected={twilioConnected} />
         </TabsContent>
+        {data.viewer.canManage ? (
+          <TabsContent value="templates">
+            <EmailTemplatesCard templates={data.outreachTemplates} canManage={data.viewer.canManage} />
+          </TabsContent>
+        ) : null}
         {shliach ? (
           <TabsContent value="team">
             <TeamView data={data} startInvite={false} embedded />

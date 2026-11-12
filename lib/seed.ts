@@ -1,3 +1,4 @@
+import { OUTREACH_TEMPLATES } from "@/lib/outreach";
 import { DEMO_PASSWORD, DEMO_USERS } from "@/lib/demo-accounts";
 import { addDays, todayIso } from "@/lib/format";
 import { TOWNS, geocodeAddress, nearestNeighbor } from "@/lib/geo";
@@ -376,6 +377,11 @@ export function buildSeed(now = new Date()): Database {
     invites: [],
     projects,
     categories,
+    outreachTemplates: OUTREACH_TEMPLATES.map((item, index) => ({
+      ...item,
+      orgId: ORG_ID,
+      sortOrder: index + 1,
+    })),
     customFields: [
       { id: stableId(401), orgId: ORG_ID, name: "Hebrew name", fieldType: "text", options: [] },
       {

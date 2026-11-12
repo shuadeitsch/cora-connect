@@ -22,6 +22,7 @@ const PAGES = [
   { href: "/team", label: "My Team", hint: "Team, invites & approvals" },
   { href: "/settings", label: "Settings", hint: "House and account" },
   { href: "/settings?tab=account", label: "Account", hint: "Password" },
+  { href: "/settings?tab=templates", label: "Email templates", hint: "Outreach drafts" },
 ];
 
 export function CommandPalette({
@@ -39,12 +40,13 @@ export function CommandPalette({
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  void canManage;
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const pages = PAGES.filter((page) => !q || `${page.label} ${page.hint}`.toLowerCase().includes(q))
-      .map((page) => ({ ...page, kind: "Page" as const }));
+    const pages = PAGES.filter((page) => {
+      if (page.href.includes("tab=templates") && !canManage) return false;
+      return !q || `${page.label} ${page.hint}`.toLowerCase().includes(q);
+    }).map((page) => ({ ...page, kind: "Page" as const }));
     const homes = households
       .filter((household) => {
         const noteText = (household.notes ?? []).map((note) => `${note.label} ${note.notes}`).join(" ");
@@ -65,7 +67,7 @@ export function CommandPalette({
         };
       });
     return [...pages, ...homes].slice(0, 12);
-  }, [query, households]);
+  }, [query, households, canManage]);
 
   useEffect(() => {
     if (!open) return;
