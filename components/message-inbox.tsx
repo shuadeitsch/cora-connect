@@ -9,6 +9,7 @@ import { channelFamily, channelTypeLabel, withinWhatsAppWindow } from "@/lib/mes
 import type { AppData, MessageItem, MessageThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { usePractice } from "@/components/practice-provider";
+import { requestGmailSync, useGmailSyncOnOpen, useRefreshOnGmailSync } from "@/components/gmail-inbox-sync";
 
 export function MessageInbox({
   data,
@@ -31,6 +32,10 @@ export function MessageInbox({
   const [templateName, setTemplateName] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const [syncing, setSyncing] = useState(false);
+  const live = !data.viewer.preview && !data.viewer.sandbox;
+  useGmailSyncOnOpen(live);
+  useRefreshOnGmailSync();
   const active = threads.find((thread) => thread.id === activeId) ?? null;
   const houses = useMemo(() => new Map(data.households.map((house) => [house.id, house])), [data.households]);
 
@@ -50,7 +55,33 @@ export function MessageInbox({
 
   const needsWhatsAppTemplate = Boolean(active && channelFamily(active.channelType) === "whatsapp" && !withinWhatsAppWindow(active.lastInboundAt));
 
+  const admin = data.viewer.role === "admin" && !data.viewer.preview;
   return (
+    <div className="grid gap-3">
+      {admin && !compact ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 rounded-full"
+            disabled={syncing || !live}
+            onClick={() => {
+              setSyncing(true);
+              setError("");
+              void requestGmailSync({ force: true }).then((result) => {
+                setSyncing(false);
+                if (!result.ok) {
+                  setError(result.error || "Could not sync Gmail.");
+                  return;
+                }
+                if (result.ingested) router.refresh();
+              });
+            }}
+          >
+            {syncing ? "Syncing…" : "Sync now"}
+          </Button>
+        </div>
+      ) : null}
     <div className={cn("grid gap-3", compact ? "" : "lg:grid-cols-[16rem_minmax(0,1fr)]")}>
       <ul className="grid gap-1">
         {threads.length ? threads.map((thread) => {
@@ -131,6 +162,7 @@ export function MessageInbox({
           </Button>
         </div>
       ) : null}
+    </div>
     </div>
   );
 }

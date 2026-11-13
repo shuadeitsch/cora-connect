@@ -30,6 +30,7 @@ import { ImportContacts } from "@/components/import-contacts";
 import { OutreachDialog } from "@/components/outreach-dialog";
 import { MessageCampaignWizard } from "@/components/message-campaign-wizard";
 import { MessageInbox } from "@/components/message-inbox";
+import { useGmailSyncOnOpen } from "@/components/gmail-inbox-sync";
 import { PreplannerDialog } from "@/components/preplanner-dialog";
 import { Pager } from "@/components/pager";
 import { Notice, PageHeader } from "@/components/page-header";
@@ -1633,6 +1634,7 @@ function ContactDialog({
   const announce = useUndoToast();
   const [mergeInto, setMergeInto] = useState("");
   const [pending, start] = useTransition();
+  useGmailSyncOnOpen(Boolean(household) && !data.viewer.preview && !data.viewer.sandbox, household?.id);
   useEffect(() => {
     setMergeInto(household?.duplicateOf ?? "");
   }, [household]);

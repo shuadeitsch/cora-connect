@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { requestGmailSync } from "@/components/gmail-inbox-sync";
 import { Notice } from "@/components/page-header";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { disconnectMessagingChannelAction, saveMessagingChannelAction } from "@/lib/actions";
@@ -14,9 +16,11 @@ const STATES = FOCUS_STATES.filter((item) => item.code !== "Unsorted");
 
 export function MessagingChannelsCard({ data }: { data: AppData }) {
   const router = useRouter();
+  const toast = useToast();
   const setup = data.mailSetup;
   const channels = data.messagingChannels ?? [];
   const [pending, start] = useTransition();
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   const [label, setLabel] = useState("");
   const [address, setAddress] = useState("");
@@ -42,6 +46,37 @@ export function MessagingChannelsCard({ data }: { data: AppData }) {
         Start with one dedicated email (maine@chabadora.com) and one dedicated phone number. Admins can connect, disconnect, or swap them, set a default per state, and later add more for other shluchim.
       </p>
       {error ? <div className="mt-2"><Notice>{error}</Notice></div> : null}
+      {admin ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 rounded-full"
+            disabled={pending || syncing}
+            onClick={() => {
+              setSyncing(true);
+              void requestGmailSync({ force: true }).then((result) => {
+                setSyncing(false);
+                if (!result.ok) {
+                  setError(result.error || "Could not sync Gmail.");
+                  return;
+                }
+                if (result.ingested) {
+                  toast({ title: result.ingested === 1 ? "1 new reply synced." : `${result.ingested} new replies synced.`, tone: "ok" });
+                  router.refresh();
+                } else if (!result.accounts) {
+                  toast({ title: "No connected Gmail inboxes to sync yet." });
+                } else {
+                  toast({ title: "Gmail is up to date.", tone: "ok" });
+                }
+              });
+            }}
+          >
+            {syncing ? "Syncing…" : "Sync now"}
+          </Button>
+          <p className="text-xs text-muted-foreground">Pulls new Gmail replies for this organization. The app also syncs when Inbox, the Pre-planner, or a contact card opens, and about every two minutes while the app is open.</p>
+        </div>
+      ) : null}
       <ul className="mt-3 grid gap-2">
         {channels.length ? channels.map((channel) => (
           <li key={channel.id} className="rounded-2xl border bg-card px-3 py-2">
@@ -153,6 +188,14 @@ export function MessagingChannelsCard({ data }: { data: AppData }) {
             {pending ? "Saving…" : "Save channel"}
           </Button>
         </form>
+      ) : null}
+      {admin ? (
+        <details className="mt-4 rounded-2xl border bg-card px-3 py-2 text-sm">
+          <summary className="cursor-pointer font-medium text-foreground">Optional: Gmail push (not required)</summary>
+          <p className="mt-2 text-muted-foreground">
+            Replies already arrive through the in-app sync above and the daily backup cron. Google Pub/Sub push is optional, if you later want Gmail to wake the CRM the moment a message arrives. Saturday&apos;s checklist: create topic <code className="text-xs">cora-connect-gmail-push</code> (full name <code className="text-xs">projects/YOUR_GOOGLE_CLOUD_PROJECT_ID/topics/cora-connect-gmail-push</code>), grant Pub/Sub Publisher to <code className="text-xs">gmail-api-push@system.gserviceaccount.com</code>, and point a push subscription at <code className="text-xs">https://outreach-crm-brown.vercel.app/api/webhooks/gmail/push</code> (same path on a custom domain). Details are in <code className="text-xs">docs/gmail-pubsub.md</code>.
+          </p>
+        </details>
       ) : null}
     </section>
   );

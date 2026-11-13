@@ -34,6 +34,7 @@ import { Avatar } from "@/components/avatar";
 import { CommandPalette, type PaletteHousehold } from "@/components/command-palette";
 import { FeedbackButton } from "@/components/feedback-button";
 import { PreviewBanner, SandboxBanner } from "@/components/preview-banner";
+import { useGmailSyncPolling } from "@/components/gmail-inbox-sync";
 import { PracticeProvider } from "@/components/practice-provider";
 import { TutorialProvider } from "@/components/tutorial-tour";
 import { ReloadButton } from "@/components/reload-button";
@@ -283,6 +284,7 @@ export function Shell({
     if (fromDb) writeStoredNavOrder(fromDb);
   }, [viewer.sidebarOrder]);
   const persistOrder = !preview && !viewer.sandbox;
+  useGmailSyncPolling(persistOrder);
   function applyOrder(next: string[]) {
     const normalized = normalizeNavOrder(next);
     setOrder(normalized);

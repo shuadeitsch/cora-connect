@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.66
+- Gmail replies no longer wait for the daily cron. A signed-in user hitting **POST /api/gmail/sync** pulls new mail on that organization's connected Gmail channels through the history API (incremental, one sync at a time per inbox). The app calls it when Inbox, the Pre-planner, or a contact card opens, and about every two minutes while the app is open and visible (debounced). The daily Vercel cron stays as a backstop. Admins have a **Sync now** button on Settings and on Inbox.
+- Optional Google Pub/Sub push is documented for Saturday's checklist and is not required: topic `cora-connect-gmail-push`, publisher grant for `gmail-api-push@system.gserviceaccount.com`, and push subscription URL `https://outreach-crm-brown.vercel.app/api/webhooks/gmail/push`. See `docs/gmail-pubsub.md` and the note in Settings.
+
+
 ## 1.8.65
 - Two-way messaging is in the CRM, behind **Setup needed** until the credentials for that channel are in the environment. Admins connect, disconnect, or swap channels in Settings (Gmail, domain email through Resend, Twilio text, and Twilio WhatsApp). A channel can be org-wide or assigned to a shliach, and can be the default for one or more states. Start with one dedicated email (maine@chabadora.com) and one dedicated phone number; more can be added later.
 - **Message this state** (on Home and Contacts), or **Message selected**, opens a campaign: pick one or more channels, per-channel templates and placeholders, a per-person preview, and a confirm step. **Skip people already contacted (this project)** is on by default and lists who was skipped and why (no address, opted out, or already reached in this project, including earlier `outreach_sends` and Pre-planner entries). Each person gets their own message. Beta, Tutorial, and practice mode never send.

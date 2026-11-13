@@ -11,6 +11,7 @@ import { useUndoToast } from "@/components/undo-toast";
 import { deletePreplannerEntryAction } from "@/lib/actions";
 import { preplannerSortKey, preplannerWhen, reachedHowLabel } from "@/lib/preplanner";
 import { MessageInbox } from "@/components/message-inbox";
+import { useGmailSyncOnOpen } from "@/components/gmail-inbox-sync";
 import type { AppData, HouseholdView, PreplannerEntry, PreplannerStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ export function PreplannerView({ data }: { data: AppData }) {
   const [confirming, setConfirming] = useState<PreplannerEntry | null>(null);
   const [pending, start] = useTransition();
   const canChange = data.viewer.canEdit || data.viewer.canLogVisit;
+  useGmailSyncOnOpen(!data.viewer.preview && !data.viewer.sandbox);
   const byId = useMemo(() => new Map(data.households.map((household) => [household.id, household])), [data.households]);
   const entries = data.preplannerEntries ?? [];
   const reached = entries.filter((entry) => entry.stage !== "confirmed");
