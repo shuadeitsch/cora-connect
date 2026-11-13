@@ -28,6 +28,8 @@ import { AddressLink } from "@/components/address-link";
 import { Avatar } from "@/components/avatar";
 import { ImportContacts } from "@/components/import-contacts";
 import { OutreachDialog } from "@/components/outreach-dialog";
+import { MessageCampaignWizard } from "@/components/message-campaign-wizard";
+import { MessageInbox } from "@/components/message-inbox";
 import { PreplannerDialog } from "@/components/preplanner-dialog";
 import { Pager } from "@/components/pager";
 import { Notice, PageHeader } from "@/components/page-header";
@@ -128,6 +130,8 @@ export function HouseholdsView({
   const [selected, setSelected] = useState<string[]>([]);
   const [preplanFor, setPreplanFor] = useState<HouseholdView[] | null>(null);
   const [outreach, setOutreach] = useState<"email" | "text" | null>(null);
+  const [campaignOpen, setCampaignOpen] = useState(false);
+  const [campaignAudience, setCampaignAudience] = useState<"state" | "selected">("state");
   const [routeFromPicked, setRouteFromPicked] = useState(false);
   const [editing, setEditing] = useState<HouseholdView | null>(null);
   const [creating, setCreating] = useState(openNew);
@@ -443,6 +447,24 @@ export function HouseholdsView({
             type="button"
             variant="outline"
             className="h-10 rounded-full"
+            onClick={() => { setCampaignAudience("state"); setCampaignOpen(true); }}
+          >
+            <Mail className="size-3.5" /> Message this state
+          </Button>
+          {selected.length ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-full"
+              onClick={() => { setCampaignAudience("selected"); setCampaignOpen(true); }}
+            >
+              <Mail className="size-3.5" /> Message selected ({selected.length})
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-full"
             disabled={!filtered.some((row) => selected.includes(row.id))}
             onClick={() => setOutreach("email")}
           >
@@ -692,6 +714,14 @@ export function HouseholdsView({
         onClose={() => setPreplanFor(null)}
       />
       <CreateRouteDialog data={live} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
+      <MessageCampaignWizard
+        open={campaignOpen}
+        households={campaignAudience === "selected" ? filtered.filter((row) => selected.includes(row.id)) : filtered}
+        data={live}
+        projectId={initialProject || undefined}
+        state={filters.state}
+        onClose={() => setCampaignOpen(false)}
+      />
       <OutreachDialog
         open={Boolean(outreach) && live.viewer.canOutreach}
         mode={outreach ?? "email"}
@@ -1645,6 +1675,12 @@ function ContactDialog({
               <div className="mt-3">
                 <NotePreview notes={notesFor(household, canHistory)} />
               </div>
+              {(data.messageThreads ?? []).some((thread) => thread.householdId === household.id) ? (
+                <div className="mt-4">
+                  <p className="mb-2 text-sm font-medium text-foreground">Messages</p>
+                  <MessageInbox data={data} householdId={household.id} compact />
+                </div>
+              ) : null}
               {canContact ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {household.people.flatMap((person) => {

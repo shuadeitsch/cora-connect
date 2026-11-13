@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { useUndoToast } from "@/components/undo-toast";
 import { deletePreplannerEntryAction } from "@/lib/actions";
 import { preplannerSortKey, preplannerWhen, reachedHowLabel } from "@/lib/preplanner";
+import { MessageInbox } from "@/components/message-inbox";
 import type { AppData, HouseholdView, PreplannerEntry, PreplannerStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function PreplannerView({ data }: { data: AppData }) {
   const announce = useUndoToast();
   const practice = usePractice();
-  const [tab, setTab] = useState<PreplannerStage>("reached_out");
+  const [tab, setTab] = useState<PreplannerStage | "inbox">("reached_out");
   const [editing, setEditing] = useState<PreplannerEntry | null>(null);
   const [confirming, setConfirming] = useState<PreplannerEntry | null>(null);
   const [pending, start] = useTransition();
@@ -48,8 +49,16 @@ export function PreplannerView({ data }: { data: AppData }) {
         <button type="button" role="tab" aria-selected={tab === "confirmed"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "confirmed" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("confirmed")}>
           Confirmed visits ({confirmed.length})
         </button>
+        <button type="button" role="tab" aria-selected={tab === "inbox"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "inbox" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("inbox")}>
+          Inbox{(data.unreadMessageCount ?? 0) ? ` (${data.unreadMessageCount})` : ""}
+        </button>
       </div>
-      {!shown.length ? (
+      {tab === "inbox" ? (
+        <div className="panel rounded-3xl p-4">
+          <MessageInbox data={data} />
+        </div>
+      ) : !shown.length ? (
+
         <p className="panel rounded-3xl px-4 py-10 text-center text-sm text-muted-foreground">
           {tab === "confirmed"
             ? "No confirmed visits yet. Open a Reached-out entry and choose Confirm visit when a date and time are set."
@@ -72,6 +81,7 @@ export function PreplannerView({ data }: { data: AppData }) {
                     ) : null}
                     <p className="text-sm text-muted-foreground">
                       Reached by {reachedHowLabel(entry.reachedHow)}
+                      {entry.repliedAt ? <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200">Replied</span> : null}
                       {entry.followUpHow ? ` · Follow up by ${reachedHowLabel(entry.followUpHow)}` : ""}
                     </p>
                     {entry.stage === "confirmed" && entry.requestedDate ? (

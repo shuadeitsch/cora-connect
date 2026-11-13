@@ -127,6 +127,8 @@ export interface Person {
   whatsapp: string;
   sortOrder: number;
   emailOptOut?: boolean;
+  smsOptOut?: boolean;
+  whatsappOptOut?: boolean;
 }
 
 export interface Household {
@@ -275,6 +277,7 @@ export interface PreplannerEntry {
   scheduledDayId: string | null;
   createdBy: string | null;
   createdAt: string;
+  repliedAt?: string | null;
 }
 
 export interface GmailAccount {
@@ -284,6 +287,7 @@ export interface GmailAccount {
   email: string;
   connectedAt: string;
   lastUsedAt: string | null;
+  canRead?: boolean;
 }
 
 export interface DomainSender {
@@ -297,6 +301,61 @@ export interface DomainSender {
 export interface MailSetup {
   gmail: boolean;
   resend: boolean;
+  sms?: boolean;
+  whatsapp?: boolean;
+}
+
+export type MessagingChannelType = "email_gmail" | "email_resend" | "sms_twilio" | "whatsapp_twilio";
+
+export interface MessagingChannel {
+  id: string;
+  orgId: string;
+  type: MessagingChannelType;
+  ownerUserId: string | null;
+  label: string;
+  address: string;
+  defaultStates: string[];
+  gmailAccountId: string | null;
+  domainSenderId: string | null;
+  status: "active" | "disconnected";
+}
+
+export interface MessageThread {
+  id: string;
+  orgId: string;
+  householdId: string;
+  personId: string | null;
+  channelId: string | null;
+  channelType: string;
+  contactAddress: string;
+  projectId: string | null;
+  lastAt: string;
+  lastPreview: string;
+  lastDirection: "in" | "out";
+  unreadCount: number;
+  lastInboundAt: string | null;
+}
+
+export interface MessageItem {
+  id: string;
+  threadId: string;
+  householdId: string;
+  personId: string | null;
+  channelType: string;
+  direction: "in" | "out";
+  body: string;
+  subject: string | null;
+  status: string;
+  createdAt: string;
+  sentBy: string | null;
+  templateName?: string | null;
+}
+
+export interface ContactedFact {
+  householdId: string;
+  family: "email" | "sms" | "whatsapp";
+  projectId: string | null;
+  at?: string | null;
 }
 
 export interface OutreachTextSettings {
@@ -321,6 +380,9 @@ export interface Database {
   preplannerEntries?: PreplannerEntry[];
   gmailAccounts?: GmailAccount[];
   domainSenders?: DomainSender[];
+  messagingChannels?: MessagingChannel[];
+  messageThreads?: MessageThread[];
+  contactedFacts?: ContactedFact[];
   households: Household[];
   people: Person[];
   visits: Visit[];
@@ -371,6 +433,7 @@ export interface Viewer {
   preview?: { role: "shliach" | "bochur"; state: string | null } | null;
   /** Tutorial practice sandbox is on. Writes are blocked; UI shows example data. */
   sandbox?: boolean;
+  unreadMessageCount?: number;
   tutorialStep?: number;
   tutorialDone?: boolean;
   chavrusa?: "A" | "B" | null;
@@ -577,6 +640,10 @@ export interface AppData {
   preplannerEntries: PreplannerEntry[];
   gmailAccounts: GmailAccount[];
   domainSenders: DomainSender[];
+  messagingChannels: MessagingChannel[];
+  messageThreads: MessageThread[];
+  contactedFacts: ContactedFact[];
+  unreadMessageCount: number;
   mailSetup: MailSetup;
   households: HouseholdView[];
   visits: VisitView[];

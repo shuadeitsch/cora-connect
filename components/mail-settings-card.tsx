@@ -72,7 +72,7 @@ export function MailSettingsCard({
           <div className="grid gap-1">
             <Button type="button" className="min-h-11 w-fit rounded-full" disabled>Connect Gmail</Button>
             {canManage ? (
-              <Notice>Setup needed: add a Google Cloud OAuth client with the gmail.send scope, then set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the Vercel project (production, preview, and development). Redirect URI: https://outreach-crm-brown.vercel.app/api/gmail/callback (and the same path on any custom domain).</Notice>
+              <Notice>Setup needed: add a Google Cloud OAuth client with gmail.send, gmail.readonly, and gmail.modify, then set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the Vercel project (production, preview, and development). Redirect URI: https://outreach-crm-brown.vercel.app/api/gmail/callback (and the same path on any custom domain). Already-connected send-only accounts must Connect again to read replies.</Notice>
             ) : (
               <p className="text-sm text-muted-foreground">Gmail sending is not set up yet. An admin can add the Google client in Vercel.</p>
             )}

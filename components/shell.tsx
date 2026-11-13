@@ -102,6 +102,7 @@ function NavLinks({
   bochur = false,
   shliach = false,
   admin = false,
+  unread = 0,
 }: {
   items: NavItem[];
   onReorder?: (next: NavItem[]) => void;
@@ -110,6 +111,7 @@ function NavLinks({
   bochur?: boolean;
   shliach?: boolean;
   admin?: boolean;
+  unread?: number;
 }) {
   const pathname = usePathname();
   const visible = visibleItems(items, canManage, bochur, shliach, admin);
@@ -138,6 +140,9 @@ function NavLinks({
                 <Icon className="size-4" />
               </span>
               <span className="min-w-0 flex-1 truncate">{label}</span>
+              {item.href === "/pre-planner" && unread ? (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">{unread}</span>
+              ) : null}
             </Link>
             {onReorder ? <NavHandle listeners={listeners} /> : null}
           </div>
@@ -391,6 +396,7 @@ export function Shell({
             bochur={bochur}
             shliach={shliach}
             admin={showAdminChrome}
+            unread={viewer.unreadMessageCount ?? 0}
           />
           <MoreGroup
             items={moreItems}
@@ -481,6 +487,9 @@ export function Shell({
                       <Icon className="size-4" />
                     </span>
                     <span className="min-w-0 flex-1 truncate">{label}</span>
+                    {item.href === "/pre-planner" && (viewer.unreadMessageCount ?? 0) ? (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">{viewer.unreadMessageCount}</span>
+                    ) : null}
                   </Link>
                   <NavHandle listeners={listeners} />
                 </div>

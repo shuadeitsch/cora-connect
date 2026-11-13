@@ -629,6 +629,10 @@ export function VisitActivitiesBoard({
       <div className="grid grid-cols-2 gap-2 sm:max-w-md">
         <StatTile label="Reached out" count={plannerCounts.reachedOut} surface="canvas" href="/pre-planner" />
         <StatTile label="Confirmed visits" count={plannerCounts.confirmed} surface="canvas" href="/pre-planner" />
+        <StatTile label="Emailed" count={new Set((data.contactedFacts ?? []).filter((fact) => fact.family === "email" && (!projectId || projectId === "ALL" || fact.projectId === projectId)).map((fact) => fact.householdId)).size} surface="canvas" href="/pre-planner" />
+        <StatTile label="Texted" count={new Set((data.contactedFacts ?? []).filter((fact) => fact.family === "sms" && (!projectId || projectId === "ALL" || fact.projectId === projectId)).map((fact) => fact.householdId)).size} surface="canvas" href="/pre-planner" />
+        <StatTile label="WhatsApped" count={new Set((data.contactedFacts ?? []).filter((fact) => fact.family === "whatsapp" && (!projectId || projectId === "ALL" || fact.projectId === projectId)).map((fact) => fact.householdId)).size} surface="canvas" href="/pre-planner" />
+        <StatTile label="Replied" count={(data.preplannerEntries ?? []).filter((entry) => entry.repliedAt && (!projectId || projectId === "ALL" || entry.projectId === projectId)).length} surface="canvas" href="/pre-planner" />
       </div>
     </section>
   );

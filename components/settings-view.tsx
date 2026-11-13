@@ -14,6 +14,7 @@ import { AvatarPicker } from "@/components/avatar-picker";
 import { ThemePicker } from "@/components/theme-picker";
 import { TeamView } from "@/components/team-view";
 import { TwilioSettingsCard } from "@/components/twilio-settings-card";
+import { MessagingChannelsCard } from "@/components/messaging-channels-card";
 import { EmailTemplatesCard } from "@/components/email-templates-card";
 import { SenderAddressesCard } from "@/components/sender-addresses-card";
 import { MailSettingsCard } from "@/components/mail-settings-card";
@@ -27,6 +28,7 @@ function AccountSection({ data, recovery, twilioConnected = false }: { data: App
       <ThemePicker saved={data.viewer.theme} backgroundUrl={data.viewer.backgroundUrl ?? null} themeMatchPhoto={Boolean(data.viewer.themeMatchPhoto)} themeColors={data.viewer.themeColors ?? null} />
       {data.viewer.role === "shliach" ? <ShliachPrefsForm data={data} /> : null}
       {data.viewer.role === "admin" || data.viewer.role === "shliach" ? <TwilioSettingsCard connected={twilioConnected} /> : null}
+      {data.viewer.canManage || data.viewer.canOutreach ? <MessagingChannelsCard data={data} /> : null}
       {data.viewer.canOutreach ? <SenderAddressesCard senders={data.outreachSenders} loginEmail={data.viewer.email} textSettings={data.outreachText} /> : null}
       {data.viewer.canOutreach ? (
         <MailSettingsCard

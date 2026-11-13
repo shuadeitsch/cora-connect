@@ -40,6 +40,8 @@ import {
   deleteDomainSender,
   disconnectGmailAccount,
   sendOutreachEmail,
+  // messaging imported separately
+
   savePreplannerEntry,
   confirmPreplannerVisit,
   deletePreplannerEntry,
@@ -60,6 +62,13 @@ import { assertNotPreview } from "@/lib/preview";
 import { getAppData, getCurrentUser } from "@/lib/session";
 import { geocodeMany, geocodeText } from "@/lib/geocode";
 import { nearestNeighbor } from "@/lib/geo";
+import {
+  disconnectMessagingChannel,
+  loadThreadMessages,
+  markThreadRead,
+  saveMessagingChannel,
+  sendCampaignMessage,
+} from "@/lib/messaging-repo";
 import type {
   ActionResult,
   ApprovalDecision,
@@ -577,3 +586,40 @@ export async function sendOutreachEmailAction(input: {
   return refresh(await sendOutreachEmail(user, input));
 }
 
+export async function saveMessagingChannelAction(input: Parameters<typeof saveMessagingChannel>[1]) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await saveMessagingChannel(user, input));
+}
+
+export async function disconnectMessagingChannelAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await disconnectMessagingChannel(user, id));
+}
+
+export async function sendCampaignMessageAction(input: Parameters<typeof sendCampaignMessage>[1]) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await sendCampaignMessage(user, input));
+}
+
+export async function loadThreadMessagesAction(threadId: string) {
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return loadThreadMessages(user, threadId);
+}
+
+export async function markThreadReadAction(threadId: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await markThreadRead(user, threadId));
+}

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.65
+- Two-way messaging is in the CRM, behind **Setup needed** until the credentials for that channel are in the environment. Admins connect, disconnect, or swap channels in Settings (Gmail, domain email through Resend, Twilio text, and Twilio WhatsApp). A channel can be org-wide or assigned to a shliach, and can be the default for one or more states. Start with one dedicated email (maine@chabadora.com) and one dedicated phone number; more can be added later.
+- **Message this state** (on Home and Contacts), or **Message selected**, opens a campaign: pick one or more channels, per-channel templates and placeholders, a per-person preview, and a confirm step. **Skip people already contacted (this project)** is on by default and lists who was skipped and why (no address, opted out, or already reached in this project, including earlier `outreach_sends` and Pre-planner entries). Each person gets their own message. Beta, Tutorial, and practice mode never send.
+- Replies arrive in an **Inbox** tab on the Pre-planner and on the contact card. Inbound SMS and WhatsApp come in through signature-checked Twilio webhooks; Gmail is synced on a five-minute cron (and a push endpoint). A reply is matched to the contact by email or phone, attached to a thread, added to that contact's Pre-planner Reached-out notes (or a new entry), and marked **Replied**. You can read the thread and answer on the same channel. Unread counts show on the Pre-planner sidebar item and Inbox tab. Home adds Emailed, Texted, WhatsApped, and Replied counts.
+- Email unsubscribe is unchanged. SMS honors STOP and UNSTOP; WhatsApp honors opt-out. Business-initiated WhatsApp outside the 24-hour window asks for a Meta-approved template name or Content SID and variables. Sends are logged; inbound ingest is idempotent on the provider message id.
+
+
 ## 1.8.64
 - A Pre-planner reach-out can now be marked with more than one channel (Email, Text, WhatsApp, Phone call, In person, Other). Existing single values are kept as a one-item list.
 - The Pre-planner sidebar item sits directly above Routes.

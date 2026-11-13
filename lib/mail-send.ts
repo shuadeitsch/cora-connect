@@ -17,7 +17,7 @@ export function gmailAuthUrl(input: { clientId: string; redirectUri: string; sta
     client_id: input.clientId,
     redirect_uri: input.redirectUri,
     response_type: "code",
-    scope: "https://www.googleapis.com/auth/gmail.send",
+    scope: "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify",
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "false",
@@ -55,7 +55,7 @@ export async function gmailAddressFromAccessToken(accessToken: string): Promise<
   return json.emailAddress?.trim().toLowerCase() || null;
 }
 
-async function gmailAccessToken(refreshToken: string): Promise<string> {
+export async function gmailAccessToken(refreshToken: string): Promise<string> {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) throw new Error("Gmail is not set up yet.");

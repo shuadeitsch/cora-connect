@@ -22,6 +22,9 @@ import type {
   PreplannerStage,
   GmailAccount,
   DomainSender,
+  MessagingChannel,
+  MessageThread,
+  ContactedFact,
   TextFromMode,
   Person,
   Project,
@@ -35,6 +38,7 @@ import type {
 import { createClient } from "@/lib/supabase/server";
 import { parseExtraAddresses } from "@/lib/extra-addresses";
 import { parseNotesLog, parseReachedHow, parseReachedHows, parseStage } from "@/lib/preplanner";
+import { channelFamily } from "@/lib/messaging";
 
 type Row = Record<string, unknown>;
 
@@ -129,7 +133,11 @@ export async function loadSupabase(actor: User): Promise<Database> {
   const textLoad = await optionalTable("outreach_text_settings");
   const preplannerLoad = await optionalTable("preplanner_entries");
   const domainSenderLoad = await optionalTable("outreach_domain_senders");
-  const gmailRes = await supabase.from("outreach_gmail_accounts").select("id, org_id, user_id, email, connected_at, last_used_at");
+  const channelLoad = await optionalTable("outreach_channels");
+  const threadLoad = await optionalTable("message_threads");
+  const messageLoad = await optionalTable("message_messages");
+  const sendLoad = await optionalTable("outreach_sends");
+  const gmailRes = await supabase.from("outreach_gmail_accounts").select("id, org_id, user_id, email, connected_at, last_used_at, can_read");
   if (gmailRes.error && !/does not exist|schema cache|could not find the table/i.test(gmailRes.error.message)) throw new Error(`outreach_gmail_accounts: ${gmailRes.error.message}`);
   const gmailLoad = { rows: (gmailRes.error ? [] : ((gmailRes.data ?? []) as Row[])), ready: !gmailRes.error };
   const pairLoad = await supabase.from("not_duplicate_pairs").select("a_id, b_id");
@@ -291,6 +299,8 @@ export async function loadSupabase(actor: User): Promise<Database> {
     whatsapp: text(row, "whatsapp"),
     sortOrder: Number(row.sort_order ?? 0),
     emailOptOut: Boolean(row.email_opt_out),
+    smsOptOut: Boolean(row.sms_opt_out),
+    whatsappOptOut: Boolean(row.whatsapp_opt_out),
   }));
 
   const visits: Visit[] = visitRows.filter(alive).map((row) => ({
@@ -438,6 +448,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
         scheduledDayId: nullableText(row, "scheduled_day_id"),
         createdBy: nullableText(row, "created_by"),
         createdAt: text(row, "created_at"),
+        repliedAt: nullableText(row, "replied_at"),
       })) satisfies PreplannerEntry[],
     gmailAccounts: gmailLoad.rows.map((row) => ({
       id: text(row, "id"),
@@ -446,6 +457,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
       email: text(row, "email"),
       connectedAt: text(row, "connected_at"),
       lastUsedAt: nullableText(row, "last_used_at"),
+      canRead: Boolean(row.can_read),
     })) satisfies GmailAccount[],
     domainSenders: domainSenderLoad.rows.map((row) => ({
       id: text(row, "id"),
@@ -454,6 +466,58 @@ export async function loadSupabase(actor: User): Promise<Database> {
       fromName: text(row, "from_name"),
       sortOrder: Number(row.sort_order ?? 0),
     })) satisfies DomainSender[],
+    messagingChannels: channelLoad.rows
+      .filter((row) => text(row, "status") !== "disconnected")
+      .map((row) => ({
+        id: text(row, "id"),
+        orgId: text(row, "org_id"),
+        type: text(row, "type") as MessagingChannel["type"],
+        ownerUserId: nullableText(row, "owner_user_id"),
+        label: text(row, "label"),
+        address: text(row, "address"),
+        defaultStates: Array.isArray(row.default_states) ? (row.default_states as string[]) : [],
+        gmailAccountId: nullableText(row, "gmail_account_id"),
+        domainSenderId: nullableText(row, "domain_sender_id"),
+        status: text(row, "status") === "disconnected" ? "disconnected" : "active",
+      })) satisfies MessagingChannel[],
+    messageThreads: threadLoad.rows.map((row) => ({
+      id: text(row, "id"),
+      orgId: text(row, "org_id"),
+      householdId: text(row, "household_id"),
+      personId: nullableText(row, "person_id"),
+      channelId: nullableText(row, "channel_id"),
+      channelType: text(row, "channel_type"),
+      contactAddress: text(row, "contact_address"),
+      projectId: nullableText(row, "project_id"),
+      lastAt: text(row, "last_at"),
+      lastPreview: text(row, "last_preview"),
+      lastDirection: text(row, "last_direction") === "in" ? "in" : "out",
+      unreadCount: Number(row.unread_count ?? 0) || 0,
+      lastInboundAt: nullableText(row, "last_inbound_at"),
+    })) satisfies MessageThread[],
+    contactedFacts: (() => {
+      const facts: ContactedFact[] = [];
+      for (const row of sendLoad.rows) {
+        const method = text(row, "method") || text(row, "mode");
+        const family = channelFamily(method.includes("whatsapp") ? "whatsapp" : method.includes("sms") || method.includes("text") ? "sms_twilio" : method.includes("email") || method.includes("gmail") || method.includes("resend") ? "email_resend" : method);
+        facts.push({
+          householdId: text(row, "household_id"),
+          family,
+          projectId: nullableText(row, "project_id"),
+          at: nullableText(row, "created_at") ?? nullableText(row, "sent_at"),
+        });
+      }
+      for (const row of messageLoad.rows) {
+        if (text(row, "direction") !== "out") continue;
+        facts.push({
+          householdId: text(row, "household_id"),
+          family: channelFamily(text(row, "channel_type")),
+          projectId: nullableText(row, "project_id"),
+          at: nullableText(row, "created_at"),
+        });
+      }
+      return facts;
+    })(),
     outreachText: (() => {
       const row = textLoad.rows.find((item) => text(item, "user_id") === actor.id);
       if (!row) return null;

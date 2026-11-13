@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { MessageCampaignWizard } from "@/components/message-campaign-wizard";
+import { Button } from "@/components/ui/button";
+import { Mail } from "lucide-react";
 import { Sparkles, UserPlus, Users } from "lucide-react";
 import { Greeting } from "@/components/greeting";
 import { DashboardReports, VisitActivitiesBoard } from "@/components/dashboard-reports";
@@ -49,6 +52,7 @@ export function DashboardHome({ data }: { data: AppData }) {
       : defaultProjectId(data.projects, data.households, lockedProjectId);
   const [projectId, setProjectId] = useState(initialProject);
   const [state, setState] = useState("ALL");
+  const [campaignOpen, setCampaignOpen] = useState(false);
   const activeProjectId = lockedProjectId && data.projects.some((p) => p.id === lockedProjectId) ? lockedProjectId : projectId || initialProject;
 
   const filteredHouseholds = useMemo(() => {
@@ -193,6 +197,11 @@ export function DashboardHome({ data }: { data: AppData }) {
             </select>
           </label>
         )}
+        {viewer.canOutreach ? (
+          <Button type="button" variant="outline" className="h-9 rounded-full" onClick={() => setCampaignOpen(true)}>
+            <Mail className="size-3.5" /> Message this state
+          </Button>
+        ) : null}
         {admin ? (
           <label className="text-xs text-muted-foreground">
             State
@@ -213,6 +222,14 @@ export function DashboardHome({ data }: { data: AppData }) {
       </div>
 
       <VisitActivitiesBoard data={data} projectId={safeProjectId} state={filters.state} />
+      <MessageCampaignWizard
+        open={campaignOpen}
+        households={filteredHouseholds}
+        data={data}
+        projectId={safeProjectId !== "ALL" ? safeProjectId : undefined}
+        state={filters.state}
+        onClose={() => setCampaignOpen(false)}
+      />
 
       {bochur && bochurStats ? (
         <section aria-label="Your stats">
