@@ -51,6 +51,11 @@ import {
   writePreplannerEntry,
   removePreplannerEntry,
   moveHouseholdPreplanner,
+  writeDomainSender,
+  removeDomainSender,
+  gmailAccountSecrets,
+  deleteGmailAccountRow,
+  touchGmailAccount,
   markHouseholdsDeleted,
   moveHouseholdVisits,
   markShliachHidden,
@@ -61,6 +66,7 @@ import {
   householdExists,
 } from "@/lib/supabase/write";
 import { keepLostMergeValues } from "@/lib/merge-keep";
+import { appendNote, parseReachedHow, parseStage } from "@/lib/preplanner";
 import { parseExtraAddresses } from "@/lib/extra-addresses";
 import type {
   ActionResult,
@@ -81,6 +87,7 @@ import type {
   OutreachTemplate,
   OutreachTextSettings,
   Person,
+  DomainSender,
   PreplannerEntry,
   PreplannerReachedHow,
   TextFromMode,
@@ -194,8 +201,11 @@ function householdFromInput(db: Database, actor: User, input: HouseholdInput, ex
   for (const field of db.customFields) {
     customFields[field.id] = (input.customFields[field.id] ?? "").trim();
   }
+  const existingPeople = db.people.filter((person) => person.householdId === id);
+  const personId = input.people.find((person) => person.id)?.id || existingPeople[0]?.id || newId();
+  const prior = existingPeople.find((person) => person.id === personId) ?? existingPeople[0];
   const people = [{
-    id: input.people.find((person) => person.id)?.id || newId(),
+    id: personId,
     householdId: id,
     name,
     gender: null,
@@ -205,6 +215,7 @@ function householdFromInput(db: Database, actor: User, input: HouseholdInput, ex
     email,
     whatsapp: phone,
     sortOrder: 0,
+    emailOptOut: prior?.emailOptOut ?? false,
   }];
   return {
     household: {
@@ -1370,31 +1381,68 @@ export async function dismissDuplicate(actor: User, id: string, otherId?: string
 
 export async function savePreplannerEntry(
   actor: User,
-  input: { id?: string; householdId: string; requestedDate: string; requestedTime: string; reachedHow: string; notes: string },
+  input: {
+    id?: string;
+    householdId: string;
+    reachedDate: string;
+    reachedTime: string;
+    reachedHow: string;
+    followUpHow?: string;
+    requestedDate?: string;
+    requestedTime?: string;
+    notes?: string;
+    projectId?: string | null;
+    stage?: string;
+  },
 ): Promise<ActionResult<{ id: string }>> {
   try {
     assert(perms(actor).canEdit || perms(actor).canLogVisit, "You don't have permission to add to the Pre-planner.");
-    const date = input.requestedDate.trim();
-    const time = input.requestedTime.trim();
-    assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "Pick the requested date.");
-    const timeMatch = time.match(/^(\d{1,2}):(\d{2})/);
-    if (!timeMatch) throw new Error("Pick the requested time.");
-    const requestedTime = `${String(Number(timeMatch[1])).padStart(2, "0")}:${timeMatch[2]}`;
-    const reachedHow: PreplannerReachedHow = ["email", "text", "whatsapp", "phone", "in_person", "other"].includes(input.reachedHow)
-      ? (input.reachedHow as PreplannerReachedHow)
-      : "other";
+    const reachedDate = input.reachedDate.trim();
+    const reachedTimeRaw = input.reachedTime.trim();
+    assert(/^\d{4}-\d{2}-\d{2}$/.test(reachedDate), "Pick when you reached out (the date).");
+    const reachedMatch = reachedTimeRaw.match(/^(\d{1,2}):(\d{2})/);
+    if (!reachedMatch) throw new Error("Pick when you reached out (the time).");
+    const reachedTime = `${String(Number(reachedMatch[1])).padStart(2, "0")}:${reachedMatch[2]}`;
+    const reachedHow = parseReachedHow(input.reachedHow);
+    const followUpHow = parseReachedHow(input.followUpHow || input.reachedHow);
+    const requestedDate = (input.requestedDate ?? "").trim();
+    const requestedRaw = (input.requestedTime ?? "").trim();
+    let requestedTime = "";
+    if (requestedRaw) {
+      const requestedMatch = requestedRaw.match(/^(\d{1,2}):(\d{2})/);
+      if (!requestedMatch) throw new Error("Pick the visit time.");
+      requestedTime = `${String(Number(requestedMatch[1])).padStart(2, "0")}:${requestedMatch[2]}`;
+    }
+    if (requestedDate && !/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) throw new Error("Pick the visit date.");
     const db = await loadDatabase();
     const household = db.households.find((item) => item.id === input.householdId);
     assert(household, "That contact is no longer here.");
     const existing = input.id ? (db.preplannerEntries ?? []).find((item) => item.id === input.id) : undefined;
+    const stage = parseStage(input.stage ?? existing?.stage);
+    if (stage === "confirmed") {
+      assert(requestedDate && requestedTime, "A confirmed visit needs a date and time.");
+    }
+    const projectId = (input.projectId !== undefined ? input.projectId : existing?.projectId) || null;
+    const noteText = (input.notes ?? "").trim();
+    let notesLog = existing?.notesLog ?? [];
+    if (noteText && !existing) notesLog = appendNote([], noteText, actor.name);
+    else if (noteText && existing && noteText !== existing.notes && !existing.notesLog.some((item) => item.text === noteText)) {
+      notesLog = appendNote(existing.notesLog, noteText, actor.name);
+    } else if (existing) notesLog = existing.notesLog;
     const entry: PreplannerEntry = {
       id: existing?.id ?? newId(),
       orgId: actor.orgId,
       householdId: input.householdId,
-      requestedDate: date,
-      requestedTime,
+      stage,
+      reachedDate,
+      reachedTime,
       reachedHow,
-      notes: input.notes.trim(),
+      followUpHow,
+      requestedDate: requestedDate || existing?.requestedDate || "",
+      requestedTime: requestedTime || existing?.requestedTime || "",
+      notes: noteText || existing?.notes || notesLog.map((item) => item.text).join("\n\n"),
+      notesLog,
+      projectId,
       scheduledAt: existing?.scheduledAt ?? null,
       scheduledDayId: existing?.scheduledDayId ?? null,
       createdBy: existing?.createdBy ?? actor.id,
@@ -1424,6 +1472,42 @@ export async function deletePreplannerEntry(actor: User, id: string): Promise<Ac
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not remove that entry." };
+  }
+}
+
+export async function confirmPreplannerVisit(
+  actor: User,
+  input: { id: string; requestedDate: string; requestedTime: string; notes?: string },
+): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canEdit || perms(actor).canLogVisit, "You don't have permission to change the Pre-planner.");
+    const date = input.requestedDate.trim();
+    const timeMatch = input.requestedTime.trim().match(/^(\d{1,2}):(\d{2})/);
+    assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "Pick the visit date.");
+    if (!timeMatch) throw new Error("Pick the visit time.");
+    const requestedTime = `${String(Number(timeMatch[1])).padStart(2, "0")}:${timeMatch[2]}`;
+    const db = await loadDatabase();
+    const existing = (db.preplannerEntries ?? []).find((item) => item.id === input.id);
+    assert(existing, "That Pre-planner entry is no longer here.");
+    const notesLog = input.notes?.trim() ? appendNote(existing.notesLog ?? [], input.notes.trim(), actor.name) : (existing.notesLog ?? []);
+    const entry: PreplannerEntry = {
+      ...existing,
+      stage: "confirmed",
+      requestedDate: date,
+      requestedTime,
+      notes: notesLog.map((item) => item.text).join("\n\n") || existing.notes,
+      notesLog,
+    };
+    if (isSupabaseMode()) await writePreplannerEntry(entry);
+    else applyDemo((draft) => {
+      const list = draft.preplannerEntries ?? [];
+      const index = list.findIndex((item) => item.id === input.id);
+      if (index >= 0) list[index] = entry;
+      draft.preplannerEntries = list;
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not confirm that visit." };
   }
 }
 
@@ -1595,6 +1679,145 @@ export type OutreachTemplateInput = {
   sms: string;
 };
 
+
+export async function saveDomainSender(actor: User, input: { id?: string; email: string; fromName: string }): Promise<ActionResult<{ id: string }>> {
+  try {
+    assert(actor.role === "admin" && perms(actor).canManage, "Only an admin can change domain senders.");
+    const email = input.email.trim().toLowerCase();
+    assert(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), "Enter a valid From address.");
+    const db = await loadDatabase();
+    const existing = input.id ? (db.domainSenders ?? []).find((item) => item.id === input.id) : (db.domainSenders ?? []).find((item) => item.email.toLowerCase() === email);
+    const sender: DomainSender = {
+      id: existing?.id ?? newId(),
+      orgId: actor.orgId,
+      email,
+      fromName: input.fromName.trim(),
+      sortOrder: existing?.sortOrder ?? ((db.domainSenders ?? []).reduce((max, item) => Math.max(max, item.sortOrder), 0) + 1),
+    };
+    if (isSupabaseMode()) await writeDomainSender(sender);
+    else applyDemo((draft) => {
+      const list = draft.domainSenders ?? [];
+      const index = list.findIndex((item) => item.id === sender.id);
+      if (index >= 0) list[index] = sender;
+      else list.push(sender);
+      draft.domainSenders = list;
+    });
+    return { ok: true, data: { id: sender.id } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not save that sender." };
+  }
+}
+
+export async function deleteDomainSender(actor: User, id: string): Promise<ActionResult> {
+  try {
+    assert(actor.role === "admin" && perms(actor).canManage, "Only an admin can change domain senders.");
+    if (isSupabaseMode()) await removeDomainSender(id);
+    else applyDemo((draft) => {
+      draft.domainSenders = (draft.domainSenders ?? []).filter((item) => item.id !== id);
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not remove that sender." };
+  }
+}
+
+export async function disconnectGmailAccount(actor: User, id: string): Promise<ActionResult> {
+  try {
+    if (isSupabaseMode()) await deleteGmailAccountRow(id);
+    else applyDemo((draft) => {
+      draft.gmailAccounts = (draft.gmailAccounts ?? []).filter((item) => item.id !== id || item.userId !== actor.id);
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not disconnect that Google account." };
+  }
+}
+
+export async function sendOutreachEmail(
+  actor: User,
+  input: {
+    method: "gmail" | "resend";
+    fromAddress: string;
+    fromName?: string;
+    gmailAccountId?: string;
+    to: string;
+    subject: string;
+    body: string;
+    householdId?: string;
+    personId?: string;
+    templateId?: string;
+    templateName?: string;
+  },
+): Promise<ActionResult> {
+  const fromAddress = input.fromAddress.trim();
+  const to = input.to.trim();
+  const subject = input.subject.trim();
+  const log = async (status: string, error?: string, body = input.body) => {
+    await logOutreachSend(actor, {
+      mode: "email",
+      templateId: input.templateId,
+      templateName: input.templateName,
+      subject,
+      body,
+      recipientCount: 1,
+      fromAddress,
+      method: input.method,
+      toAddress: to,
+      status,
+      error,
+      householdId: input.householdId,
+      personId: input.personId,
+    });
+  };
+  try {
+    assert(perms(actor).canOutreach || perms(actor).canEdit, "You don't have permission to send email from the CRM.");
+    assert(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to), "That recipient address is not valid.");
+    assert(subject, "Give the email a subject.");
+    const db = await loadDatabase();
+    if (input.personId) {
+      const person = db.people.find((item) => item.id === input.personId);
+      if (person?.emailOptOut) {
+        await log("skipped", "Opted out");
+        return { ok: false, error: "This person has opted out of email." };
+      }
+    }
+    if (!isSupabaseMode()) {
+      await log("failed", "Email sending needs the live CRM.");
+      return { ok: false, error: "Email sending needs the live CRM." };
+    }
+    let body = input.body;
+    if (input.method === "resend") {
+      const { unsubscribeUrlFor, sendViaResend, withUnsubscribeFooter } = await import("@/lib/mail-send");
+      if (input.personId) {
+        const url = await unsubscribeUrlFor(input.personId, to);
+        body = withUnsubscribeFooter(body, url);
+      }
+      const sender = (db.domainSenders ?? []).find((item) => item.email.toLowerCase() === fromAddress.toLowerCase());
+      await sendViaResend({
+        fromName: input.fromName?.trim() || sender?.fromName || "",
+        fromEmail: sender?.email || fromAddress,
+        to,
+        subject,
+        body,
+      });
+    } else {
+      const { sendViaGmail } = await import("@/lib/mail-send");
+      assert(input.gmailAccountId, "Pick a connected Gmail account.");
+      const secrets = await gmailAccountSecrets(input.gmailAccountId);
+      assert(secrets, "That Gmail account is no longer connected.");
+      const from = secrets.email || fromAddress;
+      await sendViaGmail({ cipher: secrets.cipher, iv: secrets.iv, from, to, subject, body });
+      try { await touchGmailAccount(input.gmailAccountId); } catch { /* still sent */ }
+    }
+    await log("sent", undefined, body);
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not send that email.";
+    try { await log("failed", message); } catch { /* ignore log failure */ }
+    return { ok: false, error: message };
+  }
+}
+
 export async function saveOutreachTemplate(actor: User, input: OutreachTemplateInput): Promise<ActionResult<{ id: string }>> {
   try {
     assert(perms(actor).canManage, "Only an admin can change email templates.");
@@ -1704,7 +1927,7 @@ export async function saveOutreachTextSettings(actor: User, input: { textFrom: T
 
 export async function logOutreachSend(
   actor: User,
-  input: { mode: string; templateId?: string; templateName?: string; subject: string; body: string; recipientCount: number; fromAddress?: string },
+  input: { mode: string; templateId?: string; templateName?: string; subject: string; body: string; recipientCount: number; fromAddress?: string; method?: string; toAddress?: string; status?: string; error?: string; householdId?: string; personId?: string },
 ): Promise<ActionResult> {
   try {
     assert(perms(actor).canOutreach, "You don't have permission to send outreach.");
@@ -1719,6 +1942,12 @@ export async function logOutreachSend(
         body: input.body,
         recipientCount: input.recipientCount,
         fromAddress: input.fromAddress,
+        method: input.method,
+        toAddress: input.toAddress,
+        status: input.status,
+        error: input.error,
+        householdId: input.householdId,
+        personId: input.personId,
       });
       const from = input.fromAddress?.trim().toLowerCase();
       if (from) {

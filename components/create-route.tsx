@@ -7,7 +7,7 @@ import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ActiveFilterChips, ContactFilterControls, ContactStateTabs, cityKey, useContactFilters } from "@/components/contact-filters";
+import { ContactFilterControls, ContactStateTabs, cityKey, useContactFilters } from "@/components/contact-filters";
 import { buildRouteAction, geocodeStartAction } from "@/lib/actions";
 import { cityCentersAction } from "@/lib/city-actions";
 import { byDistance, haversineMiles, nearestChain, type Point } from "@/lib/city-order";
@@ -370,9 +370,7 @@ export function PickContactsDialog({ data, open, onClose }: { data: AppData; ope
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <ContactStateTabs ctl={ctl} />
               <ContactFilterControls ctl={ctl} />
-              <ActiveFilterChips ctl={ctl} />
               <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search contacts" aria-label="Search contacts" className="h-10 w-44 rounded-full" />
               <RouteProjectSelect data={data} />
             </div>

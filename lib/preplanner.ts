@@ -41,3 +41,75 @@ export function preplannerWhen(date: string, time: string): string {
 export function preplannerSortKey(date: string, time: string): string {
   return `${date}T${normalizeRequestedTime(time) ?? "99:99"}`;
 }
+
+export type PreplannerStage = "reached_out" | "confirmed";
+
+export type PreplannerNote = { at: string; text: string; by?: string | null };
+
+export function parseStage(value: string | null | undefined): PreplannerStage {
+  return value === "confirmed" ? "confirmed" : "reached_out";
+}
+
+export function parseNotesLog(value: unknown, fallback = ""): PreplannerNote[] {
+  if (Array.isArray(value)) {
+    const out: PreplannerNote[] = [];
+    for (const item of value) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as { at?: unknown; text?: unknown; by?: unknown };
+      const text = typeof row.text === "string" ? row.text.trim() : "";
+      if (!text) continue;
+      out.push({
+        at: typeof row.at === "string" && row.at ? row.at : new Date().toISOString(),
+        text,
+        by: typeof row.by === "string" ? row.by : null,
+      });
+    }
+    return out;
+  }
+  if (fallback.trim()) return [{ at: new Date().toISOString(), text: fallback.trim(), by: null }];
+  return [];
+}
+
+export function appendNote(log: PreplannerNote[], text: string, by?: string | null): PreplannerNote[] {
+  const trimmed = text.trim();
+  if (!trimmed) return log;
+  return [...log, { at: new Date().toISOString(), text: trimmed, by: by ?? null }];
+}
+
+export function notesLogText(log: PreplannerNote[]): string {
+  return log.map((item) => item.text).join("\n\n");
+}
+
+export function chanukahProjectId(projects: { id: string; name: string }[]): string | null {
+  return projects.find((project) => project.name.trim() === "Chanukah 5787")?.id ?? null;
+}
+
+export function defaultPreplannerProjectId(projects: { id: string; name: string }[]): string {
+  return chanukahProjectId(projects) ?? projects[0]?.id ?? "";
+}
+
+export function preplannerCounts(
+  entries: { stage?: string; projectId?: string | null; householdId: string }[],
+  households: { id: string; state: string }[],
+  filters: { projectId?: string; state?: string },
+): { reachedOut: number; confirmed: number } {
+  const byId = new Map(households.map((household) => [household.id, household]));
+  const projectId = filters.projectId && filters.projectId !== "ALL" ? filters.projectId : "";
+  const state = (filters.state && filters.state !== "ALL" ? filters.state : "").toUpperCase();
+  const stateAliases: Record<string, string> = { MAINE: "ME", "NEW HAMPSHIRE": "NH", WISCONSIN: "WI", ME: "ME", NH: "NH", WI: "WI" };
+  const wanted = state ? (stateAliases[state] ?? state) : "";
+  let reachedOut = 0;
+  let confirmed = 0;
+  for (const entry of entries) {
+    if (projectId && entry.projectId !== projectId) continue;
+    const household = byId.get(entry.householdId);
+    if (wanted) {
+      const raw = (household?.state || "").toUpperCase();
+      const code = stateAliases[raw] ?? raw;
+      if (code !== wanted && raw !== wanted) continue;
+    }
+    if (parseStage(entry.stage) === "confirmed") confirmed += 1;
+    else reachedOut += 1;
+  }
+  return { reachedOut, confirmed };
+}

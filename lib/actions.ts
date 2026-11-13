@@ -36,7 +36,12 @@ import {
   saveOutreachSender,
   deleteOutreachSender,
   saveOutreachTextSettings,
+  saveDomainSender,
+  deleteDomainSender,
+  disconnectGmailAccount,
+  sendOutreachEmail,
   savePreplannerEntry,
+  confirmPreplannerVisit,
   deletePreplannerEntry,
   markPreplannerScheduled,
   setAccountApproval,
@@ -478,10 +483,15 @@ export async function saveOutreachTextSettingsAction(input: { textFrom: "sms" | 
 export async function savePreplannerEntryAction(input: {
   id?: string;
   householdId: string;
-  requestedDate: string;
-  requestedTime: string;
+  reachedDate: string;
+  reachedTime: string;
   reachedHow: string;
-  notes: string;
+  followUpHow?: string;
+  requestedDate?: string;
+  requestedTime?: string;
+  notes?: string;
+  projectId?: string | null;
+  stage?: string;
 }) {
   const writable = await requireWritable();
   if (!writable.ok) return writable;
@@ -504,5 +514,57 @@ export async function markPreplannerScheduledAction(id: string, dayId: string) {
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await markPreplannerScheduled(user, id, dayId));
+}
+
+export async function confirmPreplannerVisitAction(input: { id: string; requestedDate: string; requestedTime: string; notes?: string }) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await confirmPreplannerVisit(user, input));
+}
+
+export async function saveDomainSenderAction(input: { id?: string; email: string; fromName: string }) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await saveDomainSender(user, input));
+}
+
+export async function deleteDomainSenderAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await deleteDomainSender(user, id));
+}
+
+export async function disconnectGmailAccountAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await disconnectGmailAccount(user, id));
+}
+
+export async function sendOutreachEmailAction(input: {
+  method: "gmail" | "resend";
+  fromAddress: string;
+  fromName?: string;
+  gmailAccountId?: string;
+  to: string;
+  subject: string;
+  body: string;
+  householdId?: string;
+  personId?: string;
+  templateId?: string;
+  templateName?: string;
+}) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await sendOutreachEmail(user, input));
 }
 

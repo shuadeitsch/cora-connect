@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ListFilter } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -77,8 +78,21 @@ export function filtersActive(filters: ContactFilters): boolean {
   );
 }
 
-export function activeFilterChips(filters: ContactFilters, isAdmin: boolean): { key: string; label: string }[] {
+
+export function stateFilterActive(filters: ContactFilters, tabs: { id: string }[]): boolean {
+  return tabs.length > 1 && Boolean(filters.state);
+}
+
+export function activeFilterCount(filters: ContactFilters, isAdmin: boolean, tabs: { id: string }[]): number {
+  return activeFilterChips(filters, isAdmin).length + (stateFilterActive(filters, tabs) ? 1 : 0);
+}
+
+export function activeFilterChips(filters: ContactFilters, isAdmin: boolean, tabs: { id: string; label: string }[] = []): { key: string; label: string }[] {
   const chips: { key: string; label: string }[] = [];
+  if (stateFilterActive(filters, tabs)) {
+    const tab = tabs.find((item) => item.id === filters.state);
+    chips.push({ key: "state", label: tab?.label || filters.state });
+  }
   if (filters.hasEmail) chips.push({ key: "hasEmail", label: "Has email" });
   if (filters.hasPhone) chips.push({ key: "hasPhone", label: "Has phone" });
   if (filters.visitCompleted) chips.push({ key: "visitCompleted", label: "Completed" });
@@ -102,6 +116,7 @@ export function clearActiveFilter(filters: ContactFilters, key: string): Contact
   if (key === "duplicates") return withDerivedFilters({ ...filters, duplicates: false });
   if (key === "shliachDeleted") return withDerivedFilters({ ...filters, shliachDeleted: false });
   if (key === "cities") return withDerivedFilters({ ...filters, cities: [] });
+  if (key === "state") return withDerivedFilters({ ...filters, state: "", cities: [] });
   if (key.startsWith("season:")) {
     const season = key.slice(7);
     return withDerivedFilters({ ...filters, seasons: filters.seasons.filter((item) => item !== season) });
@@ -273,51 +288,199 @@ function FilterToggle({ on, label, onClick }: { on: boolean; label: string; onCl
   );
 }
 
-/** Independent, combinable filters, plus Cities when a state is picked. */
-export function ContactFilterControls({ ctl, onChange }: { ctl: ContactFilterState; onChange?: () => void }) {
-  const { filters, setFilters, seasonChoices, cityChoices } = ctl;
+
+function usePhoneLayout() {
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const apply = () => setPhone(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
+  return phone;
+}
+
+function FilterCheck({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl px-1.5 py-1 text-sm text-foreground hover:bg-muted/80">
+      <Checkbox checked={checked} onCheckedChange={(value) => onChange(Boolean(value))} aria-label={label} />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function FilterPanelBody({ ctl, onChange, onDone }: { ctl: ContactFilterState; onChange?: () => void; onDone: () => void }) {
+  const { filters, setFilters, seasonChoices, cityChoices, tabs } = ctl;
   function set(patch: Partial<ContactFilters>) {
     setFilters(withDerivedFilters({ ...filters, ...patch }));
     onChange?.();
   }
+  const count = activeFilterCount(filters, ctl.isAdmin, tabs);
   return (
-    <>
-      <FilterToggle on={filters.hasEmail} label="Has email" onClick={() => set({ hasEmail: !filters.hasEmail })} />
-      <FilterToggle on={filters.hasPhone} label="Has phone" onClick={() => set({ hasPhone: !filters.hasPhone })} />
-      <FilterToggle on={filters.visitCompleted} label="Completed" onClick={() => set({ visitCompleted: !filters.visitCompleted })} />
-      <FilterToggle on={filters.visitDeferred} label="Deferred" onClick={() => set({ visitDeferred: !filters.visitDeferred })} />
-      <FilterToggle on={filters.visitNotVisited} label="Not visited" onClick={() => set({ visitNotVisited: !filters.visitNotVisited })} />
-      <SeasonFilter
-        choices={seasonChoices}
-        picked={filters.seasons}
-        onChange={(seasons) => set({ seasons })}
-      />
-      <FilterToggle on={filters.tagsOn} label="Tags" onClick={() => set({ tagsOn: !filters.tagsOn, tag: filters.tagsOn ? "" : filters.tag })} />
-      {filters.tagsOn ? (
-        <select
-          aria-label="Which tag"
-          className={pill}
-          value={filters.tag}
-          onChange={(event) => set({ tag: event.target.value })}
+    <div className="flex max-h-[min(70vh,36rem)] flex-col">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
+        {tabs.length > 1 ? (
+          <fieldset className="grid gap-0.5">
+            <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">State</legend>
+            <FilterCheck checked={filters.state === ""} label="All states" onChange={(on) => { if (on) set({ state: "", cities: [] }); }} />
+            {tabs.filter((tab) => tab.id).map((tab) => (
+              <FilterCheck
+                key={tab.id}
+                checked={filters.state === tab.id}
+                label={tab.label}
+                onChange={(on) => set({ state: on ? tab.id : "", cities: [] })}
+              />
+            ))}
+          </fieldset>
+        ) : null}
+        <fieldset className="grid gap-0.5">
+          <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Visit status</legend>
+          <FilterCheck checked={filters.visitCompleted} label="Completed" onChange={(on) => set({ visitCompleted: on })} />
+          <FilterCheck checked={filters.visitDeferred} label="Deferred" onChange={(on) => set({ visitDeferred: on })} />
+          <FilterCheck checked={filters.visitNotVisited} label="Not visited" onChange={(on) => set({ visitNotVisited: on })} />
+        </fieldset>
+        <fieldset className="grid gap-0.5">
+          <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Contact info</legend>
+          <FilterCheck checked={filters.hasEmail} label="Has email" onChange={(on) => set({ hasEmail: on })} />
+          <FilterCheck checked={filters.hasPhone} label="Has phone" onChange={(on) => set({ hasPhone: on })} />
+        </fieldset>
+        <fieldset className="grid gap-0.5">
+          <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Project / season</legend>
+          {seasonChoices.map((season) => (
+            <FilterCheck
+              key={season}
+              checked={filters.seasons.includes(season)}
+              label={season}
+              onChange={(on) => set({ seasons: on ? [...filters.seasons, season] : filters.seasons.filter((item) => item !== season) })}
+            />
+          ))}
+        </fieldset>
+        <fieldset className="grid gap-0.5">
+          <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Tags</legend>
+          <FilterCheck checked={filters.tagsOn} label="Tagged contacts" onChange={(on) => set({ tagsOn: on, tag: on ? filters.tag : "" })} />
+          {filters.tagsOn ? (
+            <>
+              <FilterCheck checked={!filters.tag} label="Any tag" onChange={(on) => { if (on) set({ tag: "" }); }} />
+              {CONTACT_TAGS.map((tag) => (
+                <FilterCheck key={tag} checked={filters.tag === tag} label={tag} onChange={(on) => set({ tag: on ? tag : "" })} />
+              ))}
+            </>
+          ) : null}
+        </fieldset>
+        <fieldset className="grid gap-0.5">
+          <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Other</legend>
+          <FilterCheck checked={filters.duplicates} label="Possible duplicates" onChange={(on) => set({ duplicates: on })} />
+          {ctl.isAdmin ? (
+            <FilterCheck checked={filters.shliachDeleted} label="Deleted by shliach" onChange={(on) => set({ shliachDeleted: on })} />
+          ) : null}
+        </fieldset>
+        {filters.state && cityChoices.length ? (
+          <fieldset className="grid gap-0.5">
+            <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Cities</legend>
+            {cityChoices.map((city) => (
+              <FilterCheck
+                key={city.key}
+                checked={filters.cities.includes(city.key)}
+                label={`${city.label} (${city.count})`}
+                onChange={(on) => set({ cities: on ? [...filters.cities, city.key] : filters.cities.filter((item) => item !== city.key) })}
+              />
+            ))}
+          </fieldset>
+        ) : null}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
+        <button type="button" className={cn(pill, "min-h-11")} onClick={onDone}>Done</button>
+        <button
+          type="button"
+          className={cn(pill, "min-h-11")}
+          disabled={!count}
+          onClick={() => { ctl.clearFilters(); onChange?.(); }}
         >
-          <option value="">Any tag</option>
-          {CONTACT_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-        </select>
-      ) : null}
-      <FilterToggle on={filters.duplicates} label="Possible duplicates" onClick={() => set({ duplicates: !filters.duplicates })} />
-      {ctl.isAdmin ? (
-        <FilterToggle on={filters.shliachDeleted} label="Deleted by shliach" onClick={() => set({ shliachDeleted: !filters.shliachDeleted })} />
-      ) : null}
-      {filters.state ? (
-        <CityFilter
-          choices={cityChoices}
-          picked={filters.cities}
-          onChange={(cities) => set({ cities })}
-        />
-      ) : null}
-    </>
+          Clear all
+        </button>
+      </div>
+    </div>
   );
 }
+
+/** One Filters control. Checkboxes stay open while ticking; closes on outside tap, Done, or Esc. Phones use a bottom sheet. */
+export function ContactFilterControls({ ctl, onChange }: { ctl: ContactFilterState; onChange?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const phone = usePhoneLayout();
+  const count = activeFilterCount(ctl.filters, ctl.isAdmin, ctl.tabs);
+  const trigger = (
+    <button
+      type="button"
+      className={cn(pill, count > 0 && "border-primary bg-primary/10")}
+      aria-label={count ? `Filters, ${count} active` : "Filters"}
+      aria-expanded={open}
+      aria-haspopup="dialog"
+      onClick={() => setOpen(true)}
+    >
+      <ListFilter className="size-3.5" />
+      Filters
+      {count ? (
+        <span className="ml-0.5 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+          {count}
+        </span>
+      ) : null}
+    </button>
+  );
+  if (phone) {
+    return (
+      <>
+        {trigger}
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent side="bottom" className="max-h-[88vh] rounded-t-3xl p-4" aria-describedby={undefined}>
+            <SheetHeader className="mb-2 text-left">
+              <SheetTitle className="font-heading text-foreground">Filters</SheetTitle>
+            </SheetHeader>
+            <FilterPanelBody ctl={ctl} onChange={onChange} onDone={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(pill, count > 0 && "border-primary bg-primary/10")}
+          aria-label={count ? `Filters, ${count} active` : "Filters"}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+        >
+          <ListFilter className="size-3.5" />
+          Filters
+          {count ? (
+            <span className="ml-0.5 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+              {count}
+            </span>
+          ) : null}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[min(22rem,calc(100vw-1.5rem))] p-3"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <p className="mb-2 font-heading text-sm font-semibold text-foreground">Filters</p>
+        <FilterPanelBody ctl={ctl} onChange={onChange} onDone={() => setOpen(false)} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 export function ActiveFilterChips({ ctl, onChange }: { ctl: ContactFilterState; onChange?: () => void }) {
   const chips = activeFilterChips(ctl.filters, ctl.isAdmin);

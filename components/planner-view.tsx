@@ -294,7 +294,7 @@ function RequestedVisitsStrip({
   const practice = usePractice();
   const toast = useToast();
   const entries = (data.preplannerEntries ?? [])
-    .filter((entry) => entry.requestedDate === day.date && !entry.scheduledAt)
+    .filter((entry) => entry.stage === "confirmed" && entry.requestedDate === day.date && !entry.scheduledAt)
     .slice()
     .sort((a, b) => (a.requestedTime || "").localeCompare(b.requestedTime || "") || a.createdAt.localeCompare(b.createdAt));
   if (!entries.length) return null;

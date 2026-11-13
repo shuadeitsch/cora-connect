@@ -10,7 +10,7 @@ import { useIsPhone } from "@/lib/use-phone";
 import { Input } from "@/components/ui/input";
 import type { MapPin } from "@/components/map-canvas";
 import { useMapPoints } from "@/components/map-points";
-import { ActiveFilterChips, ContactFilterControls, ContactStateTabs, filterPill, filtersActive, useContactFilters } from "@/components/contact-filters";
+import { ContactFilterControls, filterPill, filtersActive, useContactFilters } from "@/components/contact-filters";
 import { cn } from "@/lib/utils";
 import { RouteLegend, useRouteColoring } from "@/components/route-colors";
 import type { AppData, HouseholdView } from "@/lib/types";
@@ -74,9 +74,7 @@ export function MapView({ data }: { data: AppData }) {
   const filtersUnset = !filtersActive(filterCtl.filters) && !query;
   const filterBar = (
     <>
-      <ContactStateTabs ctl={filterCtl} />
       <ContactFilterControls ctl={filterCtl} />
-      <ActiveFilterChips ctl={filterCtl} />
       <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search contacts" aria-label="Search contacts" className={cn("h-10 w-44 rounded-full bg-card", phone && "h-11 w-full text-base")} />
       <button
         type="button"

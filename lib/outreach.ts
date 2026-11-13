@@ -60,8 +60,38 @@ export type OutreachPerson = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function fillPlaceholders(template: string, vars: { firstName: string; state: string }): string {
-  return template.replace(/\{first name\}/gi, vars.firstName).replace(/\{state\}/gi, vars.state);
+export type PlaceholderVars = {
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  state?: string;
+  city?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  zip?: string;
+};
+
+export function lastNameFrom(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return "";
+  return parts.slice(1).join(" ");
+}
+
+export function fillPlaceholders(template: string, vars: PlaceholderVars): string {
+  const first = vars.firstName ?? "";
+  const last = vars.lastName ?? "";
+  const full = (vars.fullName ?? [first, last].filter(Boolean).join(" ")) || first;
+  return template
+    .replace(/\{first name\}/gi, first)
+    .replace(/\{last name\}/gi, last)
+    .replace(/\{full name\}/gi, full)
+    .replace(/\{state\}/gi, vars.state ?? "")
+    .replace(/\{city\}/gi, vars.city ?? "")
+    .replace(/\{address\}/gi, vars.address ?? "")
+    .replace(/\{email\}/gi, vars.email ?? "")
+    .replace(/\{phone\}/gi, vars.phone ?? "")
+    .replace(/\{zip\}/gi, vars.zip ?? "");
 }
 
 /** Prefill a draft from a saved template, with {first name} and {state} already filled in. */
@@ -272,3 +302,85 @@ export const GOOGLE_VOICE_MESSAGES_URL = "https://voice.google.com/u/0/messages"
 export function googleVoiceCopy(number: string, message: string): string {
   return [number.trim(), message.trim()].filter(Boolean).join("\n\n");
 }
+
+export const ORG_SUGGESTED_SENDERS = [
+  { email: "info@chabadora.com", name: "Chabad of the Rural Areas" },
+  { email: "maine@chabadora.com", name: "Chabad of Maine" },
+] as const;
+
+export type EmailRecipientDraft = {
+  key: string;
+  householdId: string;
+  personId: string;
+  name: string;
+  email: string;
+  subject: string;
+  body: string;
+  skipped?: "no-email" | "opted-out";
+};
+
+export function personPlaceholderVars(
+  person: { name: string; email?: string; phone?: string; phone2?: string; phone3?: string },
+  household: { name: string; state: string; city?: string; address?: string; zip?: string },
+): PlaceholderVars {
+  const source = person.name.trim() || household.name;
+  const first = firstWord(source);
+  const last = lastNameFrom(source);
+  return {
+    firstName: first,
+    lastName: last,
+    fullName: [first, last].filter(Boolean).join(" ") || source,
+    state: contactStateLabel(household as HouseholdView),
+    city: (household.city ?? "").trim(),
+    address: (household.address ?? "").trim(),
+    email: (person.email ?? "").trim(),
+    phone: (person.phone || person.phone2 || person.phone3 || "").trim(),
+    zip: (household.zip ?? "").trim(),
+  };
+}
+
+/** People to email from the selected contacts: one message per person with an address, skipping opted-out and missing email. */
+export function emailRecipientsFor(
+  households: HouseholdView[],
+  template: { subject: string; email: string },
+): { ready: EmailRecipientDraft[]; skippedNoEmail: number; skippedOptedOut: number } {
+  const ready: EmailRecipientDraft[] = [];
+  const seen = new Set<string>();
+  let skippedNoEmail = 0;
+  let skippedOptedOut = 0;
+  for (const household of households) {
+    const people = household.people.length ? household.people : [{ id: household.id, name: household.name, email: "", phone: "", phone2: "", phone3: "", emailOptOut: false } as Person];
+    const withEmail = people.filter((person) => person.email.trim());
+    if (!withEmail.length) {
+      skippedNoEmail += 1;
+      continue;
+    }
+    let anyReady = false;
+    for (const person of withEmail) {
+      if (person.emailOptOut) {
+        skippedOptedOut += 1;
+        continue;
+      }
+      const email = person.email.trim();
+      const key = email.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const vars = personPlaceholderVars(person, household);
+      ready.push({
+        key: `${household.id}:${person.id}`,
+        householdId: household.id,
+        personId: person.id,
+        name: person.name.trim() || household.name,
+        email,
+        subject: fillPlaceholders(template.subject, vars),
+        body: fillPlaceholders(template.email, vars),
+      });
+      anyReady = true;
+    }
+    if (!anyReady && withEmail.every((person) => person.emailOptOut)) {
+      // already counted per person
+    }
+  }
+  return { ready, skippedNoEmail, skippedOptedOut };
+}
+

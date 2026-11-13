@@ -25,14 +25,16 @@ import {
   phonesForCopy,
   smsHrefWithBody,
   templatesOrDefault,
+  ORG_SUGGESTED_SENDERS,
   whatsappHrefWithText,
   type OutreachMode,
   type OutreachTemplate,
 } from "@/lib/outreach";
+import { CrmEmailWizard } from "@/components/crm-email-wizard";
 import { logOutreachSendAction, saveOutreachSenderAction, saveOutreachTextSettingsAction } from "@/lib/actions";
 import { usePractice } from "@/components/practice-provider";
 import { TWILIO_SETUP_NOTE, TWILIO_SIGNUP_URL } from "@/lib/twilio";
-import type { HouseholdView, OutreachSender, OutreachTextSettings, Role, TextFromMode } from "@/lib/types";
+import type { DomainSender, GmailAccount, HouseholdView, MailSetup, OutreachSender, OutreachTextSettings, Role, TextFromMode } from "@/lib/types";
 
 async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
@@ -48,6 +50,9 @@ export function OutreachDialog({
   loginEmail = "",
   textSettings = null,
   twilioConnected = false,
+  gmailAccounts = [],
+  domainSenders = [],
+  mailSetup = { gmail: false, resend: false },
   onClose,
 }: {
   open: boolean;
@@ -59,6 +64,9 @@ export function OutreachDialog({
   loginEmail?: string;
   textSettings?: OutreachTextSettings | null;
   twilioConnected?: boolean;
+  gmailAccounts?: GmailAccount[];
+  domainSenders?: DomainSender[];
+  mailSetup?: MailSetup;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -75,6 +83,7 @@ export function OutreachDialog({
   const [newFromGoogle, setNewFromGoogle] = useState(false);
   const [textFrom, setTextFrom] = useState<TextFromMode>(textSettings?.textFrom ?? "sms");
   const [voiceNumber, setVoiceNumber] = useState(textSettings?.googleVoiceNumber ?? "");
+  const [crmOpen, setCrmOpen] = useState(false);
 
   const people = useMemo(() => outreachPeople(households), [households]);
   const group = groupFillVars(people);
@@ -217,7 +226,8 @@ export function OutreachDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={resetOnOpen}>
+    <>
+      <Dialog open={open} onOpenChange={resetOnOpen}>
       <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-heading text-foreground">
@@ -305,6 +315,9 @@ export function OutreachDialog({
                 {savedSenders.map((item) => (
                   <option key={item.id} value={item.email}>{item.email}{isGoogleSender(item.email, item.isGoogle) ? " (Gmail)" : ""}</option>
                 ))}
+                {ORG_SUGGESTED_SENDERS.filter((item) => item.email.toLowerCase() !== loginEmail.toLowerCase() && !savedSenders.some((saved) => saved.email.toLowerCase() === item.email.toLowerCase())).map((item) => (
+                  <option key={item.email} value={item.email}>{item.name} ({item.email})</option>
+                ))}
                 <option value="__add__">Add an address…</option>
               </select>
             </label>
@@ -357,7 +370,10 @@ export function OutreachDialog({
             {fromEmail && !openMail.google ? (
               <p className="text-xs text-muted-foreground">Your mail app will choose the sender; switch to {fromEmail} there.</p>
             ) : null}
-            {isAdmin ? <p className="text-xs text-muted-foreground">Send from CRM coming soon.</p> : null}
+            <Button type="button" className="min-h-11 rounded-full" variant="outline" onClick={() => setCrmOpen(true)}>
+              Send from CRM
+            </Button>
+
           </div>
         ) : (
           <div className="grid gap-3">
@@ -456,5 +472,16 @@ export function OutreachDialog({
         <p className="sr-only">Template in use: {template.name}</p>
       </DialogContent>
     </Dialog>
+    <CrmEmailWizard
+      open={crmOpen}
+      households={households}
+      templates={templates}
+      gmailAccounts={gmailAccounts}
+      domainSenders={domainSenders}
+      mailSetup={mailSetup}
+      isAdmin={role === "admin"}
+      onClose={() => setCrmOpen(false)}
+    />
+    </>
   );
 }

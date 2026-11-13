@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BookOpen,
+  CalendarCheck,
+  CalendarClock,
   Download,
   MapPin,
   Sigma,
@@ -17,6 +19,7 @@ import { countRemovedTagged, isTaggedContact } from "@/lib/contact-tags";
 import { downloadCsvFile } from "@/lib/download-csv";
 import { formatMedium } from "@/lib/format";
 import { activityCountsFor, visitCoverage } from "@/lib/visit-activities";
+import { preplannerCounts } from "@/lib/preplanner";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ActivityIcon } from "@/components/activity-icon";
@@ -49,6 +52,8 @@ const TILE_ICON: Record<string, typeof Users> = {
   "New contacts found": UserPlus,
   "Removed: not Jewish / not existent": UserMinus,
   Total: Sigma,
+  "Reached out": CalendarClock,
+  "Confirmed visits": CalendarCheck,
 };
 
 
@@ -532,6 +537,11 @@ export function VisitActivitiesBoard({
   const allProjects = !projectId || projectId === "ALL";
   const projectName = allProjects ? undefined : data.projects.find((p) => p.id === projectId)?.name;
 
+  const plannerCounts = useMemo(
+    () => preplannerCounts(data.preplannerEntries ?? [], data.households, { projectId, state }),
+    [data.households, data.preplannerEntries, projectId, state],
+  );
+
   const rows = useMemo(() => {
     const visits = data.households.flatMap((h) =>
       h.contactVisits.map((v) => ({
@@ -614,6 +624,11 @@ export function VisitActivitiesBoard({
             surface="canvas"
           />
         ))}
+      </div>
+      <h2 className="mt-4 mb-2 font-heading text-lg font-semibold text-foreground sm:text-xl">Pre-planner</h2>
+      <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+        <StatTile label="Reached out" count={plannerCounts.reachedOut} surface="canvas" href="/pre-planner" />
+        <StatTile label="Confirmed visits" count={plannerCounts.confirmed} surface="canvas" href="/pre-planner" />
       </div>
     </section>
   );

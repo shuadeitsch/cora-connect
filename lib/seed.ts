@@ -206,6 +206,7 @@ export function buildSeed(now = new Date()): Database {
         email: hideEmail ? "" : `${slug(member.name)}.${i}@example.com`,
         whatsapp: hidePhone || i % 4 === 0 ? "" : phone,
         sortOrder: index,
+        emailOptOut: false,
       });
     });
   }
@@ -380,6 +381,8 @@ export function buildSeed(now = new Date()): Database {
     outreachSenders: [],
     outreachText: null,
     preplannerEntries: [],
+    gmailAccounts: [],
+    domainSenders: [],
     outreachTemplates: OUTREACH_TEMPLATES.map((item, index) => ({
       ...item,
       orgId: ORG_ID,

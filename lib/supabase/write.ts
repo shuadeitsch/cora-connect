@@ -12,6 +12,7 @@ import type {
   OutreachTextSettings,
   OutreachTemplate,
   PreplannerEntry,
+  DomainSender,
   Person,
   Project,
   Route,
@@ -116,6 +117,7 @@ export async function writeHousehold(
           email: person.email,
           whatsapp: person.phone || person.whatsapp,
           sort_order: person.sortOrder,
+          email_opt_out: Boolean(person.emailOptOut),
         })),
       ),
       "Save people",
@@ -722,6 +724,12 @@ export async function writeOutreachSend(row: {
   body: string;
   recipientCount: number;
   fromAddress?: string | null;
+  method?: string | null;
+  toAddress?: string | null;
+  status?: string | null;
+  error?: string | null;
+  householdId?: string | null;
+  personId?: string | null;
 }) {
   const supabase = await createClient();
   await done(
@@ -735,6 +743,12 @@ export async function writeOutreachSend(row: {
       body: row.body,
       recipient_count: row.recipientCount,
       from_address: row.fromAddress || null,
+      method: row.method || null,
+      to_address: row.toAddress || null,
+      status: row.status || null,
+      error: row.error || null,
+      household_id: row.householdId || null,
+      person_id: row.personId || null,
     }),
     "Log outreach",
   );
@@ -785,10 +799,16 @@ export async function writePreplannerEntry(entry: PreplannerEntry) {
       id: entry.id,
       org_id: entry.orgId,
       household_id: entry.householdId,
-      requested_date: entry.requestedDate,
-      requested_time: entry.requestedTime,
+      stage: entry.stage,
+      reached_date: entry.reachedDate || null,
+      reached_time: entry.reachedTime || null,
       reached_how: entry.reachedHow,
+      follow_up_how: entry.followUpHow,
+      requested_date: entry.requestedDate || null,
+      requested_time: entry.requestedTime || null,
       notes: entry.notes,
+      notes_log: entry.notesLog,
+      project_id: entry.projectId,
       scheduled_at: entry.scheduledAt,
       scheduled_day_id: entry.scheduledDayId,
       created_by: entry.createdBy,
@@ -814,4 +834,59 @@ export async function moveHouseholdPreplanner(sourceId: string, targetId: string
   const updated = await supabase.from("preplanner_entries").update({ household_id: targetId }).eq("household_id", sourceId).select("id");
   if (updated.error) throw new Error(`Move Pre-planner: ${updated.error.message}`);
   return updated.data?.length ?? 0;
+}
+
+
+export async function writeDomainSender(sender: DomainSender) {
+  const supabase = await createClient();
+  await done(
+    await supabase.from("outreach_domain_senders").upsert({
+      id: sender.id,
+      org_id: sender.orgId,
+      email: sender.email,
+      from_name: sender.fromName,
+      sort_order: sender.sortOrder,
+    }),
+    "Save domain sender",
+  );
+}
+
+export async function removeDomainSender(id: string) {
+  const supabase = await createClient();
+  await done(await supabase.from("outreach_domain_senders").delete().eq("id", id), "Remove domain sender");
+}
+
+export async function saveGmailAccountToken(email: string, cipher: string, iv: string): Promise<string> {
+  const supabase = await createClient();
+  const rpc = await supabase.rpc("save_gmail_account", { account_email: email, cipher, iv });
+  if (rpc.error) throw new Error(rpc.error.message);
+  return String(rpc.data ?? "");
+}
+
+export async function gmailAccountSecrets(accountId: string): Promise<{ email: string; cipher: string; iv: string } | null> {
+  const supabase = await createClient();
+  const rpc = await supabase.rpc("gmail_account_secrets", { account_id: accountId });
+  if (rpc.error) throw new Error(rpc.error.message);
+  const row = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+  if (!row) return null;
+  return { email: String(row.email ?? ""), cipher: String(row.refresh_token_cipher ?? ""), iv: String(row.refresh_token_iv ?? "") };
+}
+
+export async function deleteGmailAccountRow(accountId: string) {
+  const supabase = await createClient();
+  const rpc = await supabase.rpc("delete_gmail_account", { account_id: accountId });
+  if (rpc.error) throw new Error(rpc.error.message);
+}
+
+export async function touchGmailAccount(accountId: string) {
+  const supabase = await createClient();
+  const rpc = await supabase.rpc("touch_gmail_account", { account_id: accountId });
+  if (rpc.error) throw new Error(rpc.error.message);
+}
+
+export async function setPersonEmailOptOut(personId: string, optedOut: boolean) {
+  const supabase = await createClient();
+  const rpc = await supabase.rpc("set_person_email_opt_out", { target_id: personId, opted_out: optedOut });
+  if (rpc.error) throw new Error(rpc.error.message);
+  return Boolean(rpc.data);
 }

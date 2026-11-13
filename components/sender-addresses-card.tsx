@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useUndoToast } from "@/components/undo-toast";
 import { deleteOutreachSenderAction, saveOutreachSenderAction, saveOutreachTextSettingsAction } from "@/lib/actions";
-import { isGoogleSender, isValidSenderEmail, normalizeSenderEmail } from "@/lib/outreach";
+import { isGoogleSender, isValidSenderEmail, normalizeSenderEmail, ORG_SUGGESTED_SENDERS } from "@/lib/outreach";
 import type { OutreachSender, OutreachTextSettings, TextFromMode } from "@/lib/types";
 
 export function SenderAddressesCard({ senders, loginEmail, textSettings }: { senders: OutreachSender[]; loginEmail?: string; textSettings?: OutreachTextSettings | null }) {
@@ -108,6 +108,31 @@ export function SenderAddressesCard({ senders, loginEmail, textSettings }: { sen
           </li>
         ))}
         {!senders.length ? <li className="text-sm text-muted-foreground">No saved addresses yet.{loginEmail ? ` You can add ${loginEmail}.` : ""}</li> : null}
+      </ul>
+
+      <ul className="grid gap-2">
+        {ORG_SUGGESTED_SENDERS.filter((item) => !senders.some((saved) => saved.email.toLowerCase() === item.email.toLowerCase()) && item.email.toLowerCase() !== (loginEmail ?? "").toLowerCase()).map((item) => (
+          <li key={item.email} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate font-medium text-foreground">{item.email}</p>
+              <p className="text-xs text-muted-foreground">{item.name} — add this to your Send-from list for Open in email</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 rounded-full"
+              disabled={pending}
+              onClick={() => start(async () => {
+                if (practice.active) { announce({ ok: true }, "Address saved"); return; }
+                const result = await saveOutreachSenderAction({ email: item.email, isGoogle: isGoogleSender(item.email, false) });
+                if (!result.ok) { setError(result.error); return; }
+                announce(result, "Address saved");
+              })}
+            >
+              Add
+            </Button>
+          </li>
+        ))}
       </ul>
       <form
         className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end"

@@ -1,3 +1,4 @@
+import { mailSetupStatus } from "@/lib/mail-status";
 import { activityCountsFor } from "@/lib/visit-activities";
 import { findLiveDuplicates } from "@/lib/duplicate-reason";
 import { isListedProject, listedProjects, parseHouseholdReaction, projectLabel } from "@/lib/constants";
@@ -478,7 +479,10 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
     preplannerEntries: (db.preplannerEntries ?? [])
       .filter((entry) => visibleIds.has(entry.householdId))
       .slice()
-      .sort((a, b) => `${a.requestedDate}T${a.requestedTime}`.localeCompare(`${b.requestedDate}T${b.requestedTime}`) || a.createdAt.localeCompare(b.createdAt)),
+      .sort((a, b) => `${a.reachedDate || a.requestedDate}T${a.reachedTime || a.requestedTime}`.localeCompare(`${b.reachedDate || b.requestedDate}T${b.reachedTime || b.requestedTime}`) || a.createdAt.localeCompare(b.createdAt)),
+    gmailAccounts: (db.gmailAccounts ?? []).filter((item) => item.userId === user.id),
+    domainSenders: (db.domainSenders ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder || a.email.localeCompare(b.email)),
+    mailSetup: mailSetupStatus(),
     households,
     visits,
     routes,

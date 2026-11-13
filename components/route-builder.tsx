@@ -19,9 +19,7 @@ import { Input } from "@/components/ui/input";
 import type { MapPin } from "@/components/map-canvas";
 import {
   ContactFilterControls,
-  ContactStateTabs,
   filterPill,
-  ActiveFilterChips,
   filtersActive,
   useContactFilters,
 } from "@/components/contact-filters";
@@ -394,9 +392,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
                   className="h-11 rounded-full bg-card text-base"
                 />
                 <div className="flex flex-wrap items-center gap-2 [&_select]:h-11 [&_[role=tab]]:h-11 [&>button]:h-11">
-                  <ContactStateTabs ctl={ctl} />
                   <ContactFilterControls ctl={ctl} />
-                  <ActiveFilterChips ctl={ctl} />
                   <RouteProjectSelect data={data} />
                   <button
                     type="button"
@@ -488,9 +484,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
           >
             <ArrowLeft className="size-4" />
           </Link>
-          <ContactStateTabs ctl={ctl} />
           <ContactFilterControls ctl={ctl} />
-          <ActiveFilterChips ctl={ctl} />
                   <RouteProjectSelect data={data} />
           <Input
             value={query}

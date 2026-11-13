@@ -66,7 +66,7 @@ import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitRea
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { blankExtraAddress, formatExtraAddress, parseExtraAddresses } from "@/lib/extra-addresses";
 import { CONTACT_TAGS, officialTags } from "@/lib/contact-tags";
-import { ActiveFilterChips, ContactFilterControls, ContactStateTabs, filtersActive, useContactFilters } from "@/components/contact-filters";
+import { ContactFilterControls, filtersActive, useContactFilters } from "@/components/contact-filters";
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
 import { compareHasEmail, compareHasPhone } from "@/lib/contact-match";
 import { compareVisitStatusGroup, visitStatusChip, visitStatusLabel } from "@/lib/visit-status";
@@ -381,7 +381,6 @@ export function HouseholdsView({
           </button>
         </div>
       ) : null}
-      <ContactStateTabs ctl={filterCtl} className="mb-3" onChange={() => setPage(1)} />
       <div className="mb-3 flex flex-wrap items-center gap-2" data-tour="contacts-remove">
         <ContactFilterControls ctl={filterCtl} onChange={() => setPage(1)} />
         <select
@@ -424,7 +423,6 @@ export function HouseholdsView({
           </button>
         ) : null}
       </div>
-      <ActiveFilterChips ctl={filterCtl} onChange={() => setPage(1)} />
       {live.viewer.canOutreach ? (
         <div className="sticky top-0 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-2xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur">
           <p className="text-sm font-medium text-foreground">
@@ -689,6 +687,8 @@ export function HouseholdsView({
       <PreplannerDialog
         open={Boolean(preplanFor?.length)}
         households={preplanFor ?? []}
+        data={live}
+        mode="reached"
         onClose={() => setPreplanFor(null)}
       />
       <CreateRouteDialog data={live} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
@@ -702,6 +702,9 @@ export function HouseholdsView({
         loginEmail={live.viewer.email}
         textSettings={live.outreachText}
         twilioConnected={twilioConnected}
+        gmailAccounts={live.gmailAccounts ?? []}
+        domainSenders={live.domainSenders ?? []}
+        mailSetup={live.mailSetup ?? { gmail: false, resend: false }}
         onClose={() => setOutreach(null)}
       />
       <Dialog open={Boolean(pendingDelete?.length)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>

@@ -18,6 +18,10 @@ import type {
   OutreachTemplate,
   PreplannerEntry,
   PreplannerReachedHow,
+  PreplannerNote,
+  PreplannerStage,
+  GmailAccount,
+  DomainSender,
   TextFromMode,
   Person,
   Project,
@@ -30,6 +34,7 @@ import type {
 } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { parseExtraAddresses } from "@/lib/extra-addresses";
+import { parseNotesLog, parseReachedHow, parseStage } from "@/lib/preplanner";
 
 type Row = Record<string, unknown>;
 
@@ -123,6 +128,10 @@ export async function loadSupabase(actor: User): Promise<Database> {
   const senderLoad = await optionalTable("outreach_sender_addresses");
   const textLoad = await optionalTable("outreach_text_settings");
   const preplannerLoad = await optionalTable("preplanner_entries");
+  const domainSenderLoad = await optionalTable("outreach_domain_senders");
+  const gmailRes = await supabase.from("outreach_gmail_accounts").select("id, org_id, user_id, email, connected_at, last_used_at");
+  if (gmailRes.error && !/does not exist|schema cache|could not find the table/i.test(gmailRes.error.message)) throw new Error(`outreach_gmail_accounts: ${gmailRes.error.message}`);
+  const gmailLoad = { rows: (gmailRes.error ? [] : ((gmailRes.data ?? []) as Row[])), ready: !gmailRes.error };
   const pairLoad = await supabase.from("not_duplicate_pairs").select("a_id, b_id");
   const notDuplicatePairs = pairLoad.error ? [] : ((pairLoad.data ?? []) as { a_id: string; b_id: string }[]).map((row) => `${row.a_id}|${row.b_id}`);
   const [profiles, projects, categories, fields, householdRows, peopleRows, categoryLinks, visitRows, routeRows, stopRows, assignmentRows, notifications, reads] =
@@ -267,6 +276,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     email: text(row, "email"),
     whatsapp: text(row, "whatsapp"),
     sortOrder: Number(row.sort_order ?? 0),
+    emailOptOut: Boolean(row.email_opt_out),
   }));
 
   const visits: Visit[] = visitRows.filter(alive).map((row) => ({
@@ -399,15 +409,36 @@ export async function loadSupabase(actor: User): Promise<Database> {
         id: text(row, "id"),
         orgId: text(row, "org_id"),
         householdId: text(row, "household_id"),
+        stage: parseStage(text(row, "stage")),
+        reachedDate: text(row, "reached_date").slice(0, 10) || text(row, "requested_date").slice(0, 10),
+        reachedTime: text(row, "reached_time").slice(0, 5) || text(row, "requested_time").slice(0, 5),
+        reachedHow: parseReachedHow(text(row, "reached_how")),
+        followUpHow: parseReachedHow(text(row, "follow_up_how") || text(row, "reached_how")),
         requestedDate: text(row, "requested_date").slice(0, 10),
         requestedTime: text(row, "requested_time").slice(0, 5),
-        reachedHow: (["email", "text", "whatsapp", "phone", "in_person", "other"].includes(text(row, "reached_how")) ? text(row, "reached_how") : "other") as PreplannerReachedHow,
         notes: text(row, "notes"),
+        notesLog: parseNotesLog(row.notes_log, text(row, "notes")),
+        projectId: nullableText(row, "project_id"),
         scheduledAt: nullableText(row, "scheduled_at"),
         scheduledDayId: nullableText(row, "scheduled_day_id"),
         createdBy: nullableText(row, "created_by"),
         createdAt: text(row, "created_at"),
       })) satisfies PreplannerEntry[],
+    gmailAccounts: gmailLoad.rows.map((row) => ({
+      id: text(row, "id"),
+      orgId: text(row, "org_id"),
+      userId: text(row, "user_id"),
+      email: text(row, "email"),
+      connectedAt: text(row, "connected_at"),
+      lastUsedAt: nullableText(row, "last_used_at"),
+    })) satisfies GmailAccount[],
+    domainSenders: domainSenderLoad.rows.map((row) => ({
+      id: text(row, "id"),
+      orgId: text(row, "org_id"),
+      email: text(row, "email"),
+      fromName: text(row, "from_name"),
+      sortOrder: Number(row.sort_order ?? 0),
+    })) satisfies DomainSender[],
     outreachText: (() => {
       const row = textLoad.rows.find((item) => text(item, "user_id") === actor.id);
       if (!row) return null;

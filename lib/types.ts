@@ -122,6 +122,7 @@ export interface Person {
   email: string;
   whatsapp: string;
   sortOrder: number;
+  emailOptOut?: boolean;
 }
 
 export interface Household {
@@ -244,18 +245,54 @@ export type TextFromMode = "sms" | "google_voice";
 
 export type PreplannerReachedHow = "email" | "text" | "whatsapp" | "phone" | "in_person" | "other";
 
+export type PreplannerStage = "reached_out" | "confirmed";
+
+export interface PreplannerNote {
+  at: string;
+  text: string;
+  by?: string | null;
+}
+
 export interface PreplannerEntry {
   id: string;
   orgId: string;
   householdId: string;
+  stage: PreplannerStage;
+  reachedDate: string;
+  reachedTime: string;
+  reachedHow: PreplannerReachedHow;
+  followUpHow: PreplannerReachedHow;
   requestedDate: string;
   requestedTime: string;
-  reachedHow: PreplannerReachedHow;
   notes: string;
+  notesLog: PreplannerNote[];
+  projectId: string | null;
   scheduledAt: string | null;
   scheduledDayId: string | null;
   createdBy: string | null;
   createdAt: string;
+}
+
+export interface GmailAccount {
+  id: string;
+  orgId: string;
+  userId: string;
+  email: string;
+  connectedAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface DomainSender {
+  id: string;
+  orgId: string;
+  email: string;
+  fromName: string;
+  sortOrder: number;
+}
+
+export interface MailSetup {
+  gmail: boolean;
+  resend: boolean;
 }
 
 export interface OutreachTextSettings {
@@ -278,6 +315,8 @@ export interface Database {
   outreachSenders?: OutreachSender[];
   outreachText?: OutreachTextSettings | null;
   preplannerEntries?: PreplannerEntry[];
+  gmailAccounts?: GmailAccount[];
+  domainSenders?: DomainSender[];
   households: Household[];
   people: Person[];
   visits: Visit[];
@@ -530,6 +569,9 @@ export interface AppData {
   outreachSenders: OutreachSender[];
   outreachText: OutreachTextSettings | null;
   preplannerEntries: PreplannerEntry[];
+  gmailAccounts: GmailAccount[];
+  domainSenders: DomainSender[];
+  mailSetup: MailSetup;
   households: HouseholdView[];
   visits: VisitView[];
   routes: RouteView[];
