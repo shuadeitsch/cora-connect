@@ -17,8 +17,8 @@ export function requestGmailSync(opts?: { force?: boolean }): Promise<GmailSyncR
   if (!force && inflight) return inflight;
   if (!force && Date.now() - lastStarted < DEBOUNCE_MS) return Promise.resolve(lastResult);
   lastStarted = Date.now();
-  let run!: Promise<GmailSyncResult>;
-  run = (async () => {
+  const slot: { current: Promise<GmailSyncResult> | null } = { current: null };
+  slot.current = (async () => {
     try {
       const res = await fetch(`/api/gmail/sync${force ? "?force=1" : ""}`, { method: "POST", credentials: "same-origin" });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; ingested?: number; accounts?: number; error?: string };
@@ -36,11 +36,11 @@ export function requestGmailSync(opts?: { force?: boolean }): Promise<GmailSyncR
     } catch {
       return { ok: false, ingested: 0, accounts: 0, error: "Could not sync Gmail." };
     } finally {
-      if (inflight === run) inflight = null;
+      if (inflight === slot.current) inflight = null;
     }
   })();
-  inflight = run;
-  return run;
+  inflight = slot.current;
+  return slot.current;
 }
 
 /** While the signed-in app is open and visible, pull Gmail history about every two minutes. */
