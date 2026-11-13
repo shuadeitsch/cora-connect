@@ -57,6 +57,7 @@ export interface User {
   backgroundUrl?: string | null;
   themeMatchPhoto?: boolean;
   themeColors?: Record<string, unknown> | null;
+  sidebarOrder?: string[] | null;
   shareNewWithBochurim?: boolean;
   bochurimEditPlanner?: boolean;
   /** Default for new planner days: whether bochurim can see them. */
@@ -263,7 +264,7 @@ export interface PreplannerEntry {
   stage: PreplannerStage;
   reachedDate: string;
   reachedTime: string;
-  reachedHow: PreplannerReachedHow;
+  reachedHow: PreplannerReachedHow[];
   followUpHow: PreplannerReachedHow;
   requestedDate: string;
   requestedTime: string;
@@ -361,6 +362,7 @@ export interface Viewer {
   backgroundUrl: string | null;
   themeMatchPhoto: boolean;
   themeColors: Record<string, unknown> | null;
+  sidebarOrder?: string[] | null;
   shareNewWithBochurim: boolean;
   bochurimEditPlanner: boolean;
   bochurimSeePlannerDefault: boolean;

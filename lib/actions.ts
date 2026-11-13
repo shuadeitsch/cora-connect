@@ -494,7 +494,7 @@ export async function savePreplannerEntryAction(input: {
   householdId: string;
   reachedDate: string;
   reachedTime: string;
-  reachedHow: string;
+  reachedHow: string | string[];
   followUpHow?: string;
   requestedDate?: string;
   requestedTime?: string;

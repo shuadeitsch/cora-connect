@@ -70,7 +70,7 @@ import {
   householdExists,
 } from "@/lib/supabase/write";
 import { keepLostMergeValues } from "@/lib/merge-keep";
-import { appendNote, parseReachedHow, parseStage } from "@/lib/preplanner";
+import { appendNote, parseReachedHow, parseReachedHows, parseStage } from "@/lib/preplanner";
 import { parseExtraAddresses } from "@/lib/extra-addresses";
 import type {
   ActionResult,
@@ -1438,7 +1438,7 @@ export async function savePreplannerEntry(
     householdId: string;
     reachedDate: string;
     reachedTime: string;
-    reachedHow: string;
+    reachedHow: string | string[];
     followUpHow?: string;
     requestedDate?: string;
     requestedTime?: string;
@@ -1455,8 +1455,9 @@ export async function savePreplannerEntry(
     const reachedMatch = reachedTimeRaw.match(/^(\d{1,2}):(\d{2})/);
     if (!reachedMatch) throw new Error("Pick when you reached out (the time).");
     const reachedTime = `${String(Number(reachedMatch[1])).padStart(2, "0")}:${reachedMatch[2]}`;
-    const reachedHow = parseReachedHow(input.reachedHow);
-    const followUpHow = parseReachedHow(input.followUpHow || input.reachedHow);
+    const reachedHow = parseReachedHows(input.reachedHow);
+    if (!reachedHow.length) throw new Error("Pick how you reached them.");
+    const followUpHow = parseReachedHow(input.followUpHow || reachedHow[0] || "phone");
     const requestedDate = (input.requestedDate ?? "").trim();
     const requestedRaw = (input.requestedTime ?? "").trim();
     let requestedTime = "";

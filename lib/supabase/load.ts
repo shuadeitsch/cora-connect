@@ -34,7 +34,7 @@ import type {
 } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { parseExtraAddresses } from "@/lib/extra-addresses";
-import { parseNotesLog, parseReachedHow, parseStage } from "@/lib/preplanner";
+import { parseNotesLog, parseReachedHow, parseReachedHows, parseStage } from "@/lib/preplanner";
 
 type Row = Record<string, unknown>;
 
@@ -240,6 +240,9 @@ export async function loadSupabase(actor: User): Promise<Database> {
     finalApprovedAt: nullableText(profile, "final_approved_at"),
     territory: territoryByUser.get(text(profile, "id")) ?? [],
     hasSignedIn: !pendingLoginIds.has(text(profile, "id")),
+    sidebarOrder: Array.isArray(profile.sidebar_order)
+      ? (profile.sidebar_order as unknown[]).filter((item): item is string => typeof item === "string")
+      : null,
   }));
 
   const households: Household[] = householdRows.filter(alive).map((row) => ({
@@ -424,7 +427,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
         stage: parseStage(text(row, "stage")),
         reachedDate: text(row, "reached_date").slice(0, 10) || text(row, "requested_date").slice(0, 10),
         reachedTime: text(row, "reached_time").slice(0, 5) || text(row, "requested_time").slice(0, 5),
-        reachedHow: parseReachedHow(text(row, "reached_how")),
+        reachedHow: parseReachedHows(row.reached_hows ?? text(row, "reached_how")),
         followUpHow: parseReachedHow(text(row, "follow_up_how") || text(row, "reached_how")),
         requestedDate: text(row, "requested_date").slice(0, 10),
         requestedTime: text(row, "requested_time").slice(0, 5),

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.64
+- A Pre-planner reach-out can now be marked with more than one channel (Email, Text, WhatsApp, Phone call, In person, Other). Existing single values are kept as a one-item list.
+- The Pre-planner sidebar item sits directly above Routes.
+- Each person can drag the sidebar buttons (and the pages in the phone menu) into their own order. On a phone, long-press a page and drag; on a Chromebook, drag the handle. The order is saved on the account and on this device. **Reset order** puts the list back to the default (Pre-planner above Routes).
+
+
 ## 1.8.63
 - When an admin changes the email of someone who has not accepted the invite or signed in yet, the login email is updated to match and the invite is resent to the new address only (never the old one). A toast says **Invite resent to** that address.
 - Pending and invited people have a **Resend invite** action on the team and users screens. Sending uses the app's sign-in email (a magic link). Each send is stamped on the invite or profile so it appears in `change_log`.

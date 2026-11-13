@@ -3,6 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { SortableNav, NavHandle } from "@/components/sortable-nav";
+import { saveSidebarOrderAction } from "@/lib/nav-actions";
+import {
+  DEFAULT_NAV_HREFS,
+  MORE_NAV_HREFS,
+  normalizeNavOrder,
+  orderNavItems,
+  readStoredNavOrder,
+  sameNavOrder,
+  writeStoredNavOrder,
+} from "@/lib/nav-order";
 import {
   BookOpen,
   CalendarClock,
@@ -45,9 +56,9 @@ type NavItem = { href: string; label: string; short?: string; icon: typeof House
 const PRIMARY: NavItem[] = [
   { href: "/dashboard", label: "Home", short: "Home", icon: LayoutGrid },
   { href: "/households", label: "Contacts", icon: House },
+  { href: "/pre-planner", label: "Pre-planner", icon: CalendarClock },
   { href: "/saved-routes", label: "Routes", icon: Route },
   { href: "/planner", label: "Daily planner", short: "Planner", icon: CalendarDays },
-  { href: "/pre-planner", label: "Pre-planner", icon: CalendarClock },
 ];
 
 const SIDEBAR_EXTRA: NavItem[] = [
@@ -79,8 +90,13 @@ function visibleItems(items: NavItem[], canManage: boolean, bochur: boolean, shl
   });
 }
 
+function mergeNavOrder(visibleNext: string[], previous: string[]) {
+  return normalizeNavOrder([...visibleNext, ...previous.filter((href) => !visibleNext.includes(href))]);
+}
+
 function NavLinks({
   items,
+  onReorder,
   onNavigate,
   canManage,
   bochur = false,
@@ -88,6 +104,7 @@ function NavLinks({
   admin = false,
 }: {
   items: NavItem[];
+  onReorder?: (next: NavItem[]) => void;
   onNavigate?: () => void;
   canManage: boolean;
   bochur?: boolean;
@@ -97,49 +114,61 @@ function NavLinks({
   const pathname = usePathname();
   const visible = visibleItems(items, canManage, bochur, shliach, admin);
   return (
-    <nav className="flex flex-col gap-1 px-3">
-      {visible.map((item) => {
+    <SortableNav
+      items={visible}
+      onReorder={(next) => onReorder?.(next)}
+      className="flex flex-col gap-1 px-3"
+      render={(item, { listeners }) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         const Icon = item.icon;
         const label = bochur && item.href === "/planner" ? "Daily schedule" : item.label;
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
+          <div
             className={cn(
-              "flex min-h-11 items-center gap-3 rounded-2xl px-2.5 text-sm font-medium transition active:scale-[0.99]",
+              "flex min-h-11 items-center gap-0.5 rounded-2xl pr-0.5 transition active:scale-[0.99]",
               active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
-            <span className={cn("flex size-8 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
-              <Icon className="size-4" />
-            </span>
-            {label}
-          </Link>
+            <Link
+              href={item.href}
+              onClick={onNavigate}
+              className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-2.5 text-sm font-medium"
+            >
+              <span className={cn("flex size-8 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
+                <Icon className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1 truncate">{label}</span>
+            </Link>
+            {onReorder ? <NavHandle listeners={listeners} /> : null}
+          </div>
         );
-      })}
-    </nav>
+      }}
+    />
   );
 }
 
 function MoreGroup({
   items,
+  onReorder,
   canManage,
   bochur,
   shliach = false,
   admin = false,
+  onReset,
+  canReset = false,
 }: {
   items: NavItem[];
+  onReorder?: (next: NavItem[]) => void;
   canManage: boolean;
   bochur: boolean;
   shliach?: boolean;
   admin?: boolean;
+  onReset?: () => void;
+  canReset?: boolean;
 }) {
   const pathname = usePathname();
   const visible = visibleItems(items, canManage, bochur, shliach, admin);
   const [open, setOpen] = useState(() => visible.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)));
-  if (!visible.length) return null;
   return (
     <div className="mt-auto border-t border-border/60 px-3 pt-2">
       <button
@@ -151,28 +180,42 @@ function MoreGroup({
         More
         <ChevronDown className={cn("size-4 transition", open && "rotate-180")} />
       </button>
-      {open ? (
-        <nav className="mt-1 flex flex-col gap-1 pb-1">
-          {visible.map((item) => {
+      {open && visible.length ? (
+        <SortableNav
+          items={visible}
+          onReorder={(next) => onReorder?.(next)}
+          className="mt-1 flex flex-col gap-1 pb-1"
+          render={(item, { listeners }) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
+              <div
                 className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-2xl px-2.5 text-sm font-medium transition",
+                  "flex min-h-11 items-center gap-0.5 rounded-2xl pr-0.5 transition",
                   active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <span className={cn("flex size-8 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
-                  <Icon className="size-4" />
-                </span>
-                {bochur && item.href === "/planner" ? "Daily schedule" : item.label}
-              </Link>
+                <Link href={item.href} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-2.5 text-sm font-medium">
+                  <span className={cn("flex size-8 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
+                    <Icon className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{bochur && item.href === "/planner" ? "Daily schedule" : item.label}</span>
+                </Link>
+                {onReorder ? <NavHandle listeners={listeners} /> : null}
+              </div>
             );
-          })}
-        </nav>
+          }}
+        />
+      ) : null}
+      {onReset ? (
+        <button
+          type="button"
+          className="mt-1 mb-1 flex min-h-10 w-full items-center rounded-2xl px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+          disabled={!canReset}
+          onClick={onReset}
+        >
+          Reset order
+        </button>
       ) : null}
     </div>
   );
@@ -193,6 +236,7 @@ export function Shell({
   const viewingState = useViewingState();
   const [search, setSearch] = useState(false);
   const [mobileMore, setMobileMore] = useState(false);
+  const [order, setOrder] = useState<string[]>(() => normalizeNavOrder(viewer.sidebarOrder));
   const mapPage = pathname.startsWith("/map") || pathname === "/saved-routes/new";
   const preview = viewer.preview ?? null;
   // A theme saved on the account follows the person to a new device.
@@ -226,11 +270,35 @@ export function Shell({
   // Real admins (not in preview) manage; preview uses the role's canManage (false).
   const canManage = viewer.canManage && !preview;
   const showAdminChrome = viewer.role === "admin" && !preview;
-  const navItems = [...PRIMARY, ...SIDEBAR_EXTRA];
-  const fullSidebar = [...PRIMARY, ...SIDEBAR_EXTRA, ...MORE_ITEMS];
-  const primary = visibleItems(PRIMARY, canManage || showAdminChrome, bochur, shliach, showAdminChrome).filter((item) => PHONE_BAR_HREFS.has(item.href));
+  useEffect(() => {
+    const stored = readStoredNavOrder();
+    const fromDb = viewer.sidebarOrder?.length ? normalizeNavOrder(viewer.sidebarOrder) : null;
+    const next = fromDb ?? stored ?? normalizeNavOrder(undefined);
+    setOrder(next);
+    if (fromDb) writeStoredNavOrder(fromDb);
+  }, [viewer.sidebarOrder]);
+  const persistOrder = !preview && !viewer.sandbox;
+  function applyOrder(next: string[]) {
+    const normalized = normalizeNavOrder(next);
+    setOrder(normalized);
+    writeStoredNavOrder(normalized);
+    if (persistOrder) void saveSidebarOrderAction(normalized);
+  }
+  function resetOrder() {
+    const defaults = [...DEFAULT_NAV_HREFS];
+    setOrder(defaults);
+    writeStoredNavOrder(null);
+    if (persistOrder) void saveSidebarOrderAction(null);
+  }
+  const catalog = [...PRIMARY, ...SIDEBAR_EXTRA, ...MORE_ITEMS];
+  const orderedAll = orderNavItems(catalog, order);
+  const navItems = orderedAll.filter((item) => !MORE_NAV_HREFS.has(item.href));
+  const moreItems = orderedAll.filter((item) => MORE_NAV_HREFS.has(item.href));
+  const fullSidebar = orderedAll;
+  const primary = visibleItems(navItems, canManage || showAdminChrome, bochur, shliach, showAdminChrome).filter((item) => PHONE_BAR_HREFS.has(item.href));
   const moreForPhone = visibleItems(MORE_ITEMS, showAdminChrome || canManage, bochur, shliach, showAdminChrome);
   const mobileMenuItems = visibleItems(fullSidebar, showAdminChrome || canManage, bochur, shliach, showAdminChrome);
+  const canReset = !sameNavOrder(normalizeNavOrder(order), [...DEFAULT_NAV_HREFS]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -316,8 +384,24 @@ export function Shell({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/cora-connect-logo.png" alt="Cora Connect" className="block h-auto w-full object-contain dark:brightness-0 dark:invert" />
           </Link>
-          <NavLinks items={navItems} canManage={canManage || showAdminChrome} bochur={bochur} shliach={shliach} admin={showAdminChrome} />
-          <MoreGroup items={MORE_ITEMS} canManage={showAdminChrome || canManage} bochur={bochur} shliach={shliach} admin={showAdminChrome} />
+          <NavLinks
+            items={navItems}
+            onReorder={(next) => applyOrder(mergeNavOrder(next.map((item) => item.href), order))}
+            canManage={canManage || showAdminChrome}
+            bochur={bochur}
+            shliach={shliach}
+            admin={showAdminChrome}
+          />
+          <MoreGroup
+            items={moreItems}
+            onReorder={(next) => applyOrder(mergeNavOrder(next.map((item) => item.href), order))}
+            canManage={showAdminChrome || canManage}
+            bochur={bochur}
+            shliach={shliach}
+            admin={showAdminChrome}
+            onReset={resetOrder}
+            canReset={canReset}
+          />
           <Link href="/settings?tab=account" className="mx-3 mt-2 flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-muted">
             <Avatar name={viewer.name} src={viewer.avatarUrl} className="size-9" />
             <span className="min-w-0">
@@ -373,29 +457,45 @@ export function Shell({
           <SheetHeader className="pb-2 text-left">
             <SheetTitle className="font-heading text-lg">Menu</SheetTitle>
           </SheetHeader>
-          <nav className="flex flex-col gap-1 overflow-y-auto">
-            {mobileMenuItems.map((item) => {
+          <SortableNav
+            items={mobileMenuItems}
+            onReorder={(next) => applyOrder(mergeNavOrder(next.map((item) => item.href), order))}
+            className="flex flex-col gap-1 overflow-y-auto"
+            render={(item, { listeners }) => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
               const label = bochur && item.href === "/planner" ? "Daily schedule" : item.label;
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMore(false)}
+                <div
                   className={cn(
-                    "flex min-h-12 items-center gap-3 rounded-2xl px-2.5 text-sm font-medium",
+                    "flex min-h-12 items-center gap-0.5 rounded-2xl pr-0.5",
                     active ? "bg-accent text-foreground" : "text-foreground hover:bg-muted",
                   )}
                 >
-                  <span className={cn("flex size-9 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-                    <Icon className="size-4" />
-                  </span>
-                  {label}
-                </Link>
+                  <Link
+                    href={item.href}
+                    onClick={() => setMobileMore(false)}
+                    className="flex min-h-12 min-w-0 flex-1 items-center gap-3 px-2.5 text-sm font-medium"
+                  >
+                    <span className={cn("flex size-9 items-center justify-center rounded-xl", active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                  </Link>
+                  <NavHandle listeners={listeners} />
+                </div>
               );
-            })}
-          </nav>
+            }}
+          />
+          <button
+            type="button"
+            className="mt-2 flex min-h-11 w-full items-center justify-center rounded-2xl text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+            disabled={!canReset}
+            onClick={resetOrder}
+          >
+            Reset order
+          </button>
+          <p className="px-2 pt-1 pb-2 text-center text-[11px] text-muted-foreground">Long-press a page, or drag the handle, to change the order.</p>
         </SheetContent>
       </Sheet>
       <CommandPalette open={search} onOpenChange={setSearch} households={households} canManage={viewer.canManage && !preview} />

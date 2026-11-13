@@ -48,6 +48,9 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
     backgroundUrl: profile.background_url ?? null,
     themeMatchPhoto: Boolean(profile.theme_match_photo),
     themeColors: (profile.theme_colors as Record<string, unknown> | null) ?? null,
+    sidebarOrder: Array.isArray(profile.sidebar_order)
+      ? (profile.sidebar_order as unknown[]).filter((item): item is string => typeof item === "string")
+      : null,
     shareNewWithBochurim: Boolean(profile.share_new_with_bochurim),
     bochurimEditPlanner: Boolean(profile.bochurim_edit_planner),
     bochurimSeePlannerDefault: profile.bochurim_see_planner_default !== false,

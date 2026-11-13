@@ -1,4 +1,4 @@
-import { normalizeRequestedTime, parseReachedHow, parseStage, preplannerCounts, preplannerSortKey, preplannerWhen, reachedHowLabel } from "../lib/preplanner";
+import { normalizeRequestedTime, parseReachedHow, parseReachedHows, parseStage, preplannerCounts, preplannerSortKey, preplannerWhen, reachedHowLabel } from "../lib/preplanner";
 
 function assert(ok: unknown, message: string) {
   if (!ok) throw new Error(message);
@@ -10,6 +10,9 @@ assert(normalizeRequestedTime("24:00") === null, "rejects an invalid hour");
 assert(normalizeRequestedTime("") === null, "requires a time");
 assert(parseReachedHow("whatsapp") === "whatsapp", "keeps a known channel");
 assert(parseReachedHow("pigeon") === "other", "unknown channels become Other");
+assert(JSON.stringify(parseReachedHows("email")) === JSON.stringify(["email"]), "wraps a single stored value");
+assert(JSON.stringify(parseReachedHows(["email", "text", "email"])) === JSON.stringify(["email", "text"]), "keeps unique channels in order");
+assert(reachedHowLabel(["email", "whatsapp"]) === "Email, WhatsApp", "labels several channels");
 assert(reachedHowLabel("in_person") === "In person", "labels In person");
 assert(preplannerWhen("2026-11-16", "09:05").includes("9:05"), `time in label, got ${preplannerWhen("2026-11-16", "09:05")}`);
 assert(preplannerSortKey("2026-11-16", "9:05") < preplannerSortKey("2026-11-16", "10:00"), "sorts by time on the same day");

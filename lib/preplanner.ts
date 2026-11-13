@@ -13,8 +13,28 @@ export function parseReachedHow(value: string): PreplannerReachedHow {
   return PREPLANNER_REACHED.some((item) => item.id === value) ? (value as PreplannerReachedHow) : "other";
 }
 
-export function reachedHowLabel(value: string): string {
-  return PREPLANNER_REACHED.find((item) => item.id === value)?.label ?? "Other";
+export function parseReachedHows(value: unknown): PreplannerReachedHow[] {
+  const raw: unknown[] = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[,|]+/)
+      : [];
+  const out: PreplannerReachedHow[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== "string" || !item.trim()) continue;
+    const id = parseReachedHow(item.trim());
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+export function reachedHowLabel(value: string | string[] | null | undefined): string {
+  const ids = parseReachedHows(Array.isArray(value) ? value : value ? [value] : []);
+  if (!ids.length) return "";
+  return ids.map((id) => PREPLANNER_REACHED.find((item) => item.id === id)?.label ?? "Other").join(", ");
 }
 
 export function normalizeRequestedTime(value: string): string | null {

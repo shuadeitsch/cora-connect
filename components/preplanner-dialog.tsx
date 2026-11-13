@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUndoToast } from "@/components/undo-toast";
 import { confirmPreplannerVisitAction, savePreplannerEntryAction } from "@/lib/actions";
-import { defaultPreplannerProjectId, PREPLANNER_REACHED } from "@/lib/preplanner";
+import { defaultPreplannerProjectId, parseReachedHows, PREPLANNER_REACHED } from "@/lib/preplanner";
 import type { AppData, HouseholdView, PreplannerEntry } from "@/lib/types";
 
 export function PreplannerDialog({
@@ -32,7 +32,7 @@ export function PreplannerDialog({
   const projects = data?.projects ?? [];
   const [reachedDate, setReachedDate] = useState("");
   const [reachedTime, setReachedTime] = useState("");
-  const [reachedHow, setReachedHow] = useState("phone");
+  const [reachedHow, setReachedHow] = useState<string[]>(["phone"]);
   const [followUpHow, setFollowUpHow] = useState("phone");
   const [requestedDate, setRequestedDate] = useState("");
   const [requestedTime, setRequestedTime] = useState("");
@@ -46,8 +46,8 @@ export function PreplannerDialog({
     if (!open) return;
     setReachedDate(initial?.reachedDate ?? new Date().toISOString().slice(0, 10));
     setReachedTime((initial?.reachedTime ?? "").slice(0, 5));
-    setReachedHow(initial?.reachedHow ?? "phone");
-    setFollowUpHow(initial?.followUpHow ?? initial?.reachedHow ?? "phone");
+    setReachedHow(parseReachedHows(initial?.reachedHow).length ? parseReachedHows(initial?.reachedHow) : ["phone"]);
+    setFollowUpHow(initial?.followUpHow ?? parseReachedHows(initial?.reachedHow)[0] ?? "phone");
     setRequestedDate(initial?.requestedDate ?? "");
     setRequestedTime((initial?.requestedTime ?? "").slice(0, 5));
     setNotes("");
@@ -93,6 +93,10 @@ export function PreplannerDialog({
             event.preventDefault();
             if (!confirming && (!reachedDate || !reachedTime)) {
               setError("Pick when you reached out, including the time.");
+              return;
+            }
+            if ((!confirming || mode === "edit") && !reachedHow.length) {
+              setError("Pick how you reached them.");
               return;
             }
             if (confirming && (!requestedDate || !requestedTime)) {
@@ -170,12 +174,38 @@ export function PreplannerDialog({
                   <Input type="time" required={!confirming} className="h-11" value={reachedTime} onChange={(event) => setReachedTime(event.target.value)} />
                 </label>
               </div>
-              <label className="grid gap-1 text-sm">
-                <span className="text-muted-foreground">How they were reached</span>
-                <select className="h-11 rounded-xl border border-input bg-card px-3 text-base sm:text-sm" value={reachedHow} onChange={(event) => setReachedHow(event.target.value)} aria-label="How they were reached">
-                  {PREPLANNER_REACHED.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                </select>
-              </label>
+              <fieldset className="grid gap-2">
+                <legend className="text-sm text-muted-foreground">How they were reached</legend>
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="How they were reached">
+                  {PREPLANNER_REACHED.map((item) => {
+                    const checked = reachedHow.includes(item.id);
+                    return (
+                      <label
+                        key={item.id}
+                        className={`inline-flex min-h-11 cursor-pointer items-center rounded-full px-3 text-sm font-medium ring-1 transition ${
+                          checked
+                            ? "bg-primary text-primary-foreground ring-primary"
+                            : "bg-card text-foreground ring-input hover:bg-muted"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={checked}
+                          onChange={() => {
+                            setReachedHow((current) =>
+                              current.includes(item.id)
+                                ? current.filter((id) => id !== item.id)
+                                : [...current, item.id],
+                            );
+                          }}
+                        />
+                        {item.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
               <label className="grid gap-1 text-sm">
                 <span className="text-muted-foreground">Follow up by</span>
                 <select className="h-11 rounded-xl border border-input bg-card px-3 text-base sm:text-sm" value={followUpHow} onChange={(event) => setFollowUpHow(event.target.value)} aria-label="Follow-up channel">

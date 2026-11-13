@@ -451,6 +451,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       backgroundUrl: user.backgroundUrl ?? null,
       themeMatchPhoto: Boolean(user.themeMatchPhoto),
       themeColors: user.themeColors ?? null,
+      sidebarOrder: user.sidebarOrder ?? null,
       shareNewWithBochurim: Boolean(user.shareNewWithBochurim),
       bochurimEditPlanner:
         user.role === "bochur"
