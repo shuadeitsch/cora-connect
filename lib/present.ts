@@ -398,6 +398,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
           projectId: member.projectId ?? null,
           kind: "member" as const,
           chavrusa: member.chavrusa === "A" || member.chavrusa === "B" ? member.chavrusa : null,
+          hasSignedIn: member.status === "invited" ? false : member.hasSignedIn !== false,
         }));
 
   if (perms.canManage) {
@@ -422,6 +423,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         projectId: null,
         kind: "invite",
         chavrusa: null,
+        hasSignedIn: false,
       });
     }
   }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.63
+- When an admin changes the email of someone who has not accepted the invite or signed in yet, the login email is updated to match and the invite is resent to the new address only (never the old one). A toast says **Invite resent to** that address.
+- Pending and invited people have a **Resend invite** action on the team and users screens. Sending uses the app's sign-in email (a magic link). Each send is stamped on the invite or profile so it appears in `change_log`.
+
+
 ## 1.8.62
 - You can send personalized email from the CRM. Pick contacts (the current selection or filter), choose a template, and each person gets their own email with their name and the other placeholders filled in ({first name}, {last name}, {full name}, {state}, {city}, and so on). Preview steps through the list and lets you edit one recipient's copy. Contacts without an email, and people who have opted out, are skipped and counted. A confirm screen shows the count, then Send. Each message is a separate email (no shared To or CC). Progress and per-recipient results are shown. Sends are throttled. Each send is logged in `outreach_sends` (method, from, to, status, error) and `change_log`. Beta and Tutorial never send or write.
 - **Gmail:** each user can connect one or more of their own Google accounts (gmail.send only) and pick which connected account sends, so the mail comes from that address and lands in its Sent folder. Refresh tokens are stored encrypted on the server, are private to that user, and are never sent to the client. There is a Disconnect option. If the Google OAuth client is not in the environment yet, Connect Gmail is disabled with a Setup needed note for admins.

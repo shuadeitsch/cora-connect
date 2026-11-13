@@ -608,7 +608,7 @@ export async function replaceTerritories(userId: string, rows: { state: string; 
   );
 }
 
-export async function writeProfile(user: User) {
+export async function writeProfile(user: User, opts?: { email?: boolean }) {
   const supabase = await createClient();
   await done(
     await supabase
@@ -621,6 +621,7 @@ export async function writeProfile(user: User) {
         can_view_history: user.canViewHistory,
         can_view_contact: user.canViewContact,
         can_edit: user.canEdit,
+        ...(opts?.email ? { email: user.email.trim().toLowerCase() } : {}),
       })
       .eq("id", user.id)
       .select("id"),
@@ -666,11 +667,40 @@ export async function writeInvite(invite: Invite) {
         territory_areas: [...new Set(invite.territory.map((row) => row.area.trim()).filter(Boolean))],
         accepted_at: invite.acceptedAt,
         created_at: invite.createdAt,
+        ...(invite.lastInvitedAt ? { last_invited_at: invite.lastInvitedAt } : {}),
       })
       .select("id")
       .single(),
     "Save invite",
   );
+}
+
+
+export async function stampInviteSent(opts: { email?: string; inviteId?: string }) {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  let query = supabase.from("invites").update({ last_invited_at: now }).select("id");
+  if (opts.inviteId) query = query.eq("id", opts.inviteId);
+  else if (opts.email) query = query.ilike("email", opts.email.trim().toLowerCase());
+  else return;
+  await done(await query, "Record invite sent");
+}
+
+export async function stampProfileInvited(userId: string) {
+  const supabase = await createClient();
+  await done(
+    await supabase.from("profiles").update({ last_invited_at: new Date().toISOString() }).eq("id", userId).select("id"),
+    "Record invite sent",
+  );
+}
+
+export async function updatePendingLoginEmail(userId: string, email: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_update_pending_login_email", {
+    target_id: userId,
+    new_email: email.trim().toLowerCase(),
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function removeInvite(id: string) {

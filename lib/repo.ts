@@ -13,6 +13,7 @@ import { hashPassword } from "@/lib/password";
 import { loadDatabase } from "@/lib/session";
 import { loadDemo, persistDemo, resetDemo } from "@/lib/store";
 import { isSupabaseMode } from "@/lib/supabase/server";
+import { sendInviteEmail } from "@/lib/auth";
 import {
   setBochurAdminApproval,
   markAllRead,
@@ -34,6 +35,9 @@ import {
   writeField,
   writeHousehold,
   writeInvite,
+  stampInviteSent,
+  stampProfileInvited,
+  updatePendingLoginEmail,
   replaceTerritories,
   setProfileAccess,
   writeOrganization,
@@ -827,10 +831,15 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
     const canEdit = fullAccess ? true : input.canEdit;
 
     if (existingUser) {
+      const emailChanged = existingUser.email.toLowerCase() !== email;
+      const pendingLogin = existingUser.hasSignedIn === false || existingUser.status === "invited";
+      if (emailChanged && !pendingLogin) {
+        throw new Error("That person has already signed in. The login email was not changed.");
+      }
       const next: User = {
         ...existingUser,
         name,
-        email,
+        email: emailChanged && pendingLogin ? email : existingUser.email,
         role: input.role,
         expiresAt,
         canViewHistory,
@@ -840,12 +849,16 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
         territory: input.role === "shliach" ? territory : input.role === "admin" ? [] : existingUser.territory,
       };
       if (isSupabaseMode()) {
-        await writeProfile(next);
+        await writeProfile(next, { email: emailChanged && pendingLogin });
+        if (emailChanged && pendingLogin) await updatePendingLoginEmail(next.id, email);
         if (input.role === "shliach" || input.role === "admin") await replaceTerritories(next.id, territory);
       } else applyDemo((draft) => {
         const index = draft.users.findIndex((user) => user.id === next.id);
         if (index >= 0) draft.users[index] = next;
       });
+      if (emailChanged && pendingLogin) {
+        return deliverInvite({ email, profileId: next.id, resent: true });
+      }
       return { ok: true };
     }
 
@@ -871,10 +884,12 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
         if (index >= 0) draft.invites[index] = invite;
         else draft.invites.push(invite);
       });
-      return {
-        ok: true,
-        warning: "Invite saved. When they create an account with this email, they are approved automatically with the role you chose.",
-      };
+      const isNew = !existingInvite;
+      const emailChanged = Boolean(existingInvite && existingInvite.email.toLowerCase() !== email);
+      if (isNew || emailChanged) {
+        return deliverInvite({ email, inviteId: invite.id, resent: emailChanged });
+      }
+      return { ok: true };
     }
 
     const user: User = {
@@ -921,6 +936,43 @@ export async function deleteMember(actor: User, id: string, kind: "member" | "in
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not remove that person." };
+  }
+}
+
+async function deliverInvite(opts: { email: string; inviteId?: string; profileId?: string; resent?: boolean }): Promise<ActionResult> {
+  const email = opts.email.trim().toLowerCase();
+  if (isSupabaseMode()) {
+    if (opts.inviteId || !opts.profileId) await stampInviteSent({ email, inviteId: opts.inviteId });
+    if (opts.profileId) await stampProfileInvited(opts.profileId);
+    const sent = await sendInviteEmail(email);
+    if (!sent.ok) {
+      return {
+        ok: true,
+        warning: opts.resent
+          ? `The email was updated, but the invite could not be sent to ${email}: ${sent.error}`
+          : `The invite was saved, but the email could not be sent to ${email}: ${sent.error}`,
+      };
+    }
+  }
+  return { ok: true, warning: opts.resent ? `Invite resent to ${email}` : `Invite sent to ${email}` };
+}
+
+export async function resendMemberInvite(actor: User, id: string, kind: "member" | "invite"): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canManage, "Only an admin can resend an invite.");
+    const db = await loadDatabase();
+    if (kind === "invite") {
+      const invite = db.invites.find((item) => item.id === id && !item.acceptedAt);
+      assert(invite, "That invite is no longer open.");
+      return deliverInvite({ email: invite.email, inviteId: invite.id, resent: true });
+    }
+    const target = db.users.find((user) => user.id === id);
+    assert(target, "That account is not on this team.");
+    const pendingLogin = target.hasSignedIn === false || target.status === "invited";
+    assert(pendingLogin, "That person has already signed in.");
+    return deliverInvite({ email: target.email, profileId: target.id, resent: true });
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not resend the invite." };
   }
 }
 

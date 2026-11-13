@@ -156,6 +156,16 @@ export async function loadSupabase(actor: User): Promise<Database> {
     inviteRows = await rows("invites");
   }
 
+  const pendingLoginIds = new Set<string>();
+  if (actor.role === "admin") {
+    const pendingRes = await supabase.rpc("pending_login_user_ids");
+    if (!pendingRes.error) {
+      for (const id of pendingRes.data ?? []) {
+        if (typeof id === "string") pendingLoginIds.add(id);
+      }
+    }
+  }
+
   let territoryRows: Row[] = [];
   const territoryRes = await supabase.from("territories").select("user_id, state, area");
   if (!territoryRes.error) territoryRows = (territoryRes.data ?? []) as unknown as Row[];
@@ -229,6 +239,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     adminApprovedAt: nullableText(profile, "admin_approved_at"),
     finalApprovedAt: nullableText(profile, "final_approved_at"),
     territory: territoryByUser.get(text(profile, "id")) ?? [],
+    hasSignedIn: !pendingLoginIds.has(text(profile, "id")),
   }));
 
   const households: Household[] = householdRows.filter(alive).map((row) => ({
@@ -368,6 +379,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
       territory,
       acceptedAt: nullableText(row, "accepted_at"),
       createdAt: text(row, "created_at"),
+      lastInvitedAt: nullableText(row, "last_invited_at"),
     };
   });
 

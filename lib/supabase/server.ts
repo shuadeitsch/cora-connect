@@ -10,6 +10,23 @@ export function isSupabaseMode(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && supabasePublicKey());
 }
 
+/** Anon client that never writes cookies, so sending an invite OTP cannot touch the admin session. */
+export function createEphemeralClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = supabasePublicKey();
+  if (!url || !key) {
+    throw new Error("Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+  }
+  return createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return [];
+      },
+      setAll() {},
+    },
+  });
+}
+
 export async function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = supabasePublicKey();

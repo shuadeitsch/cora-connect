@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useToast } from "@/components/toast";
 import { useRouter } from "next/navigation";
 import { Notice, PageHeader } from "@/components/page-header";
 import { StatusPill, expiryText, memberStates } from "@/components/people-overview";
@@ -8,8 +9,9 @@ import { ScrollRegion } from "@/components/scroll-region";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { setAccountApprovalAction } from "@/lib/actions";
+import { resendMemberInviteAction, setAccountApprovalAction } from "@/lib/actions";
 import { FOCUS_STATES, OWNER_EMAIL, ROLE_LABEL, sameState } from "@/lib/constants";
+import { canResendInvite } from "@/lib/invite-status";
 import type { AppData, ApprovalDecision, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +30,7 @@ export function UsersView({ data, embedded = false }: { data: AppData; embedded?
   const [filter, setFilter] = useState<"pending" | "all">(() => (data.members.some((member) => member.kind === "member" && member.status === "pending") ? "pending" : "all"));
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState("");
+  const toast = useToast();
   const [, start] = useTransition();
   const accounts = useMemo(
     () => data.members.filter((member) => member.kind === "member"),
@@ -37,6 +40,23 @@ export function UsersView({ data, embedded = false }: { data: AppData; embedded?
   const rows = filter === "pending" ? accounts.filter((member) => member.status === "pending") : accounts;
 
   const shluchim = accounts.filter((member) => member.role === "shliach" && member.status === "approved");
+
+  function resendInvite(member: TeamMember) {
+    setError("");
+    setPendingId(member.id);
+    start(async () => {
+      const result = await resendMemberInviteAction(member.id, member.kind);
+      setPendingId("");
+      if (!result.ok) {
+        setError(result.error);
+        toast({ title: result.error, tone: "error" });
+        return;
+      }
+      const message = result.warning || `Invite resent to ${member.email}`;
+      toast({ title: message, tone: "ok" });
+      router.refresh();
+    });
+  }
 
   function decide(id: string, decision: ApprovalDecision, territory?: { states: string[]; areas: string[] }, leaderId?: string) {
     setError("");
@@ -114,7 +134,10 @@ export function UsersView({ data, embedded = false }: { data: AppData; embedded?
                       {locked ? <span className="text-xs text-muted-foreground">Always Cora Connect admin</span> : member.status === "pending" && member.role === "bochur" && member.adminApprovedAt ? (
                         <div className="grid justify-end gap-2 text-right text-xs text-muted-foreground">
                           <span>Waiting for {accounts.find((item) => item.id === member.leaderId)?.name ?? "his shliach"} to approve in My Team</span>
-                          <div className="flex justify-end">
+                          <div className="flex justify-end gap-1.5">
+                            {canResendInvite(member) ? (
+                              <Button type="button" variant="outline" className="h-8 rounded-full px-3" disabled={busy} onClick={() => resendInvite(member)}>Resend invite</Button>
+                            ) : null}
                             <Button type="button" variant="outline" className="h-8 rounded-full px-3" disabled={busy} onClick={() => decide(member.id, "reject")}>Reject</Button>
                           </div>
                         </div>
@@ -127,12 +150,18 @@ export function UsersView({ data, embedded = false }: { data: AppData; embedded?
                             submitLabel={(role) => role === "admin" ? "Approve as Cora Connect admin" : role === "bochur" ? "Approve as Bochur" : "Approve as Shliach"}
                             onApply={(role, territory, leaderId) => decide(member.id, role, territory, leaderId)}
                           />
-                          <div className="flex justify-end">
+                          <div className="flex justify-end gap-1.5">
+                            {canResendInvite(member) ? (
+                              <Button type="button" variant="outline" className="h-8 rounded-full px-3" disabled={busy} onClick={() => resendInvite(member)}>Resend invite</Button>
+                            ) : null}
                             <Button type="button" variant="outline" className="h-8 rounded-full px-3" disabled={busy} onClick={() => decide(member.id, "reject")}>Reject</Button>
                           </div>
                         </div>
                       ) : (
                         <div className="flex flex-wrap justify-end gap-1.5">
+                          {canResendInvite(member) ? (
+                            <Button type="button" variant="outline" className="h-8 rounded-full px-3" disabled={busy} onClick={() => resendInvite(member)}>Resend invite</Button>
+                          ) : null}
                           <ChangeRole member={member} busy={busy} shluchim={shluchim} onApply={(role, territory, leaderId) => decide(member.id, role, territory, leaderId)} />
                           {member.status === "approved" ? (
                             <Button type="button" variant="outline" className="h-8 rounded-full px-3" disabled={busy} onClick={() => decide(member.id, "disable")}>Disable</Button>

@@ -2,6 +2,7 @@
 
 import { Avatar } from "@/components/avatar";
 import { useMemo, useState, useTransition } from "react";
+import { useToast } from "@/components/toast";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Search } from "lucide-react";
 import { Notice, PageHeader } from "@/components/page-header";
@@ -15,10 +16,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { deleteMemberAction, saveMemberAction } from "@/lib/actions";
+import { deleteMemberAction, resendMemberInviteAction, saveMemberAction } from "@/lib/actions";
 import { ACCOUNT_STATUS_LABEL, FOCUS_STATES, ROLE_LABEL, sameState } from "@/lib/constants";
 import { formatMedium } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { canResendInvite } from "@/lib/invite-status";
 import type { AppData, MemberInput, Role, TeamMember } from "@/lib/types";
 
 const field = "h-10 w-full rounded-lg border border-input bg-card px-3 text-sm";
@@ -85,6 +87,7 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [pending, start] = useTransition();
+  const toast = useToast();
   // Admins appear only in the User management / Cora admins box below (not twice).
   const rows = useMemo(
     () => data.members.filter((member) => member.role !== "admin" && `${member.name} ${member.email}`.toLowerCase().includes(query.trim().toLowerCase())),
@@ -112,7 +115,10 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
         setError(result.error);
         return;
       }
-      if (result.warning) setInfo(result.warning);
+      if (result.warning) {
+        setInfo(result.warning);
+        toast({ title: result.warning, tone: "ok" });
+      }
       setOpen(false);
       setForm(blankMember());
       router.refresh();
@@ -126,6 +132,22 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
       const result = await deleteMemberAction(member.id, member.kind);
       if (!result.ok) setError(result.error);
       else router.refresh();
+    });
+  }
+
+  function resend(member: TeamMember) {
+    setError("");
+    start(async () => {
+      const result = await resendMemberInviteAction(member.id, member.kind);
+      if (!result.ok) {
+        setError(result.error);
+        toast({ title: result.error, tone: "error" });
+        return;
+      }
+      const message = result.warning || `Invite resent to ${member.email}`;
+      setInfo(message);
+      toast({ title: message, tone: "ok" });
+      router.refresh();
     });
   }
 
@@ -247,6 +269,9 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => edit(member)}>Edit access</DropdownMenuItem>
+                            {canResendInvite(member) ? (
+                              <DropdownMenuItem disabled={pending} onClick={() => resend(member)}>Resend invite</DropdownMenuItem>
+                            ) : null}
                             {member.id !== data.viewer.id ? <DropdownMenuItem onClick={() => remove(member)}>Remove</DropdownMenuItem> : null}
                           </DropdownMenuContent>
                         </DropdownMenu>

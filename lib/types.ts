@@ -71,6 +71,8 @@ export interface User {
   tutorialDone?: boolean;
   /** Bochur: Chavrusa A or B. Null means unassigned / shared planner only. */
   chavrusa?: "A" | "B" | null;
+  /** False when this login exists but they have never signed in. Invites are always false. */
+  hasSignedIn?: boolean;
 }
 
 export interface Invite {
@@ -87,6 +89,7 @@ export interface Invite {
   territory: Territory[];
   acceptedAt: string | null;
   createdAt: string;
+  lastInvitedAt?: string | null;
 }
 
 export interface Project {
@@ -390,6 +393,7 @@ export interface TeamMember {
   projectId: string | null;
   kind: "member" | "invite";
   chavrusa?: "A" | "B" | null;
+  hasSignedIn?: boolean;
 }
 
 export interface HouseholdView {

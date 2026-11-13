@@ -1,7 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createEphemeralClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/session";
 import { googleAuthEnabled, requestOrigin } from "@/lib/site";
 import type { ActionResult } from "@/lib/types";
@@ -159,6 +159,26 @@ export async function sendMagicLink(email: string): Promise<ActionResult> {
     return { ok: false, error: error.message };
   }
   return { ok: true, warning: "Check your email for a sign-in link. It expires shortly." };
+}
+
+/** Send a sign-in / invite email to a team address. Does not print or return the link. */
+export async function sendInviteEmail(email: string): Promise<ActionResult> {
+  const normalized = email.trim().toLowerCase();
+  if (!/.+@.+\..+/.test(normalized)) return { ok: false, error: "Enter a valid email." };
+  const gate = await ensureAllowed(normalized);
+  if (!gate.ok) return gate;
+
+  const supabase = createEphemeralClient();
+  const origin = await requestOrigin();
+  const { error } = await supabase.auth.signInWithOtp({
+    email: normalized,
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: `${origin}/auth/callback`,
+    },
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }
 
 export async function changePassword(current: string, next: string, confirm: string): Promise<ActionResult> {

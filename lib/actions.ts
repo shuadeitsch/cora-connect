@@ -48,6 +48,7 @@ import {
   saveCustomField,
   saveHousehold,
   saveMember,
+  resendMemberInvite,
   saveOrganization,
   saveProject,
   saveRoute,
@@ -307,6 +308,14 @@ export async function deleteMemberAction(id: string, kind: "member" | "invite") 
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deleteMember(user, id, kind));
+}
+
+export async function resendMemberInviteAction(id: string, kind: "member" | "invite") {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await resendMemberInvite(user, id, kind));
 }
 
 export async function saveOrganizationAction(input: OrgInput) {
