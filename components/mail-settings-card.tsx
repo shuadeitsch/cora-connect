@@ -15,8 +15,10 @@ const MAIL_STATUS: Record<string, string> = {
   denied: "Google access was not granted. Click Connect Gmail and try again, and choose the mailbox you want to send from (for example maine@chabadora.com).",
   invalid: "That connect link was not valid or expired. Click Connect Gmail and try again from this site.",
   error: "Gmail could not be connected. Click Connect Gmail and try again. If it still fails, in the Google account under Third-party access, remove the Cora Connect app, then connect again.",
+  badclient: "Google rejected the OAuth client secret. An admin needs to paste the current client ID and secret from Google Cloud (APIs & Services › Credentials) into GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on Vercel, then click Connect Gmail again.",
   preview: "Preview cannot connect Gmail.",
   setup: "Gmail is not set up yet. An admin needs to add the Google client on Vercel.",
+  unsaved: "Connect finished, but no Gmail account was saved. Click Connect Gmail and try again.",
 };
 
 export function MailSettingsCard({
@@ -50,7 +52,10 @@ export function MailSettingsCard({
 
       <div className="grid gap-2">
         <h3 className="text-sm font-medium text-foreground">Gmail accounts</h3>
-        {mailStatus && MAIL_STATUS[mailStatus] ? <Notice>{MAIL_STATUS[mailStatus]}</Notice> : null}
+        {(() => {
+          const status = mailStatus === "connected" && !gmailAccounts.length ? "unsaved" : mailStatus;
+          return status && MAIL_STATUS[status] ? <Notice>{MAIL_STATUS[status]}</Notice> : null;
+        })()}
         <ul className="grid gap-2">
           {gmailAccounts.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-3 py-2">

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.68
+- Settings no longer treats a Gmail messaging channel or a domain From address as a connected Gmail inbox. If Connect Gmail did not save an account, the success notice is not shown. An unlinked Gmail channel says it still needs to be attached. If Google rejects the OAuth client secret, Settings tells an admin to update `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on Vercel.
+
+
 ## 1.8.67
 - Connect Gmail now stays on the public site URL so the return from Google and the connect cookie use the same host, and it no longer pre-selects the person's CRM login email, so an admin can choose maine@chabadora.com (or another mailbox) in Google's account picker. If connect fails, Settings › Account shows why (denied, expired link, or an error) instead of failing silently. The Google return path is no longer sent to the login page, which had dropped the connection before it could be saved.
 

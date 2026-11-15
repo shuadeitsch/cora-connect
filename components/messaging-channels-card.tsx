@@ -82,6 +82,9 @@ export function MessagingChannelsCard({ data }: { data: AppData }) {
           <li key={channel.id} className="rounded-2xl border bg-card px-3 py-2">
             <p className="font-medium text-foreground">{channel.label}</p>
             <p className="text-xs text-muted-foreground">{channelTypeLabel(channel.type)} · {channel.address}{channel.defaultStates.length ? ` · Default for ${channel.defaultStates.join(", ")}` : ""}{channel.ownerUserId ? " · Assigned to a shliach" : " · Organization"}</p>
+            {channel.type === "email_gmail" && !channel.gmailAccountId ? (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">Not linked to a connected Gmail account yet. Connect Gmail under Send from CRM, then Edit / swap this channel and pick that account.</p>
+            ) : null}
             {admin ? (
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button type="button" variant="outline" className="h-9 rounded-full" disabled={pending} onClick={() => start(async () => {

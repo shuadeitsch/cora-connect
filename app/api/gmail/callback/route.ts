@@ -51,7 +51,11 @@ export async function GET(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Gmail connect failed:", message);
-    settings.searchParams.set("mail", "error");
+    const lower = message.toLowerCase();
+    const reason = lower.includes("invalid_client") || lower.includes("client secret is invalid") || lower.includes("invalid client")
+      ? "badclient"
+      : "error";
+    settings.searchParams.set("mail", reason);
   }
   return clearCookie(NextResponse.redirect(settings));
 }
