@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { assertNotPreview } from "@/lib/preview";
 import { getCurrentUser } from "@/lib/session";
 import { requestOrigin } from "@/lib/site";
@@ -7,10 +8,17 @@ import { gmailAuthUrl, gmailRedirectUri } from "@/lib/mail-send";
 import { randomBytes } from "crypto";
 
 export async function GET() {
-  const gate = await assertNotPreview();
-  if (!gate.ok) return NextResponse.redirect(new URL("/settings?tab=account&mail=preview", await requestOrigin().then((o) => o)));
-  const user = await getCurrentUser();
   const origin = await requestOrigin();
+  const headerList = await headers();
+  const host = (headerList.get("x-forwarded-host") ?? headerList.get("host"))?.split(",")[0]?.trim();
+  const canonicalHost = new URL(origin).host;
+  // Set the OAuth cookie on the same host Google will return to (redirect_uri).
+  if (host && host !== canonicalHost) {
+    return NextResponse.redirect(new URL("/api/gmail/connect", origin));
+  }
+  const gate = await assertNotPreview();
+  if (!gate.ok) return NextResponse.redirect(new URL("/settings?tab=account&mail=preview", origin));
+  const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", origin));
   if (!mailSetupStatus().gmail) return NextResponse.redirect(new URL("/settings?tab=account&mail=setup", origin));
   const state = randomBytes(24).toString("base64url");
@@ -18,7 +26,6 @@ export async function GET() {
     clientId: process.env.GOOGLE_CLIENT_ID!.trim(),
     redirectUri: gmailRedirectUri(origin),
     state,
-    loginHint: user.email,
   });
   const res = NextResponse.redirect(url);
   res.cookies.set("cora_gmail_oauth", state, {

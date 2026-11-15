@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { assertNotPreview } from "@/lib/preview";
 import { getCurrentUser } from "@/lib/session";
 import { requestOrigin } from "@/lib/site";
@@ -6,29 +7,39 @@ import { exchangeGmailCode, gmailAddressFromAccessToken, gmailRedirectUri } from
 import { encryptSecret } from "@/lib/mail-crypto";
 import { saveGmailAccountToken } from "@/lib/supabase/write";
 
+function fail(settings: URL, reason: string, log?: string) {
+  if (log) console.error("Gmail connect:", log);
+  settings.searchParams.set("mail", reason);
+  return settings;
+}
+
 export async function GET(request: Request) {
   const origin = await requestOrigin();
   const settings = new URL("/settings?tab=account", origin);
+  const clearCookie = (res: NextResponse) => {
+    res.cookies.set("cora_gmail_oauth", "", { httpOnly: true, path: "/api/gmail", maxAge: 0 });
+    return res;
+  };
   const gate = await assertNotPreview();
   if (!gate.ok) {
-    settings.searchParams.set("mail", "preview");
-    return NextResponse.redirect(settings);
+    return clearCookie(NextResponse.redirect(fail(settings, "preview")));
   }
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", origin));
+  if (!user) {
+    console.error("Gmail connect: signed-out callback; account was not saved.");
+    return clearCookie(NextResponse.redirect(new URL("/login", origin)));
+  }
   const url = new URL(request.url);
   const error = url.searchParams.get("error");
   if (error) {
-    settings.searchParams.set("mail", "denied");
-    return NextResponse.redirect(settings);
+    return clearCookie(NextResponse.redirect(fail(settings, "denied", `Google returned ${error}`)));
   }
   const code = url.searchParams.get("code") ?? "";
   const state = url.searchParams.get("state") ?? "";
-  const cookie = request.headers.get("cookie") ?? "";
-  const expected = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("cora_gmail_oauth="))?.slice("cora_gmail_oauth=".length) ?? "";
+  const expected = (await cookies()).get("cora_gmail_oauth")?.value ?? "";
   if (!code || !state || !expected || state !== expected) {
-    settings.searchParams.set("mail", "invalid");
-    return NextResponse.redirect(settings);
+    const detail = !code ? "missing code" : "state mismatch or missing cookie";
+    return clearCookie(NextResponse.redirect(fail(settings, "invalid", detail)));
   }
   try {
     const tokens = await exchangeGmailCode(code, gmailRedirectUri(origin));
@@ -37,10 +48,10 @@ export async function GET(request: Request) {
     const stored = encryptSecret(tokens.refreshToken);
     await saveGmailAccountToken(email, stored.cipher, stored.iv);
     settings.searchParams.set("mail", "connected");
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Gmail connect failed:", message);
     settings.searchParams.set("mail", "error");
   }
-  const res = NextResponse.redirect(settings);
-  res.cookies.set("cora_gmail_oauth", "", { httpOnly: true, path: "/api/gmail", maxAge: 0 });
-  return res;
+  return clearCookie(NextResponse.redirect(settings));
 }

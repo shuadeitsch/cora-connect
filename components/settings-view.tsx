@@ -20,7 +20,7 @@ import { SenderAddressesCard } from "@/components/sender-addresses-card";
 import { MailSettingsCard } from "@/components/mail-settings-card";
 import type { AppData, OrgInput } from "@/lib/types";
 
-function AccountSection({ data, recovery, twilioConnected = false }: { data: AppData; recovery: boolean; twilioConnected?: boolean }) {
+function AccountSection({ data, recovery, twilioConnected = false, mailStatus }: { data: AppData; recovery: boolean; twilioConnected?: boolean; mailStatus?: string }) {
   return (
     <>
       <AccountPassword name={data.viewer.name} email={data.viewer.email} recovery={recovery} />
@@ -36,6 +36,7 @@ function AccountSection({ data, recovery, twilioConnected = false }: { data: App
           domainSenders={data.domainSenders ?? []}
           mailSetup={data.mailSetup ?? { gmail: false, resend: false }}
           canManage={data.viewer.canManage}
+          mailStatus={mailStatus}
         />
       ) : null}
       <form action={logoutAction} className="mt-4">
@@ -45,7 +46,7 @@ function AccountSection({ data, recovery, twilioConnected = false }: { data: App
   );
 }
 
-export function SettingsView({ data, initialTab, recovery, twilioConnected = false }: { data: AppData; initialTab: string; recovery: boolean; twilioConnected?: boolean }) {
+export function SettingsView({ data, initialTab, recovery, twilioConnected = false, mailStatus }: { data: AppData; initialTab: string; recovery: boolean; twilioConnected?: boolean; mailStatus?: string }) {
   const bochur = data.viewer.role === "bochur";
   const shliach = data.viewer.role === "shliach";
   // Bochur: Account only (name, picture, theme, password). No Chabad house / org settings.
@@ -53,7 +54,7 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
     return (
       <div className="p-4 sm:p-6">
         <PageHeader title="Settings" crumb="Settings" description="Your account: name, picture, theme, and password." />
-        <AccountSection data={data} recovery={recovery} twilioConnected={twilioConnected} />
+        <AccountSection data={data} recovery={recovery} twilioConnected={twilioConnected} mailStatus={mailStatus} />
       </div>
     );
   }
@@ -75,7 +76,7 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
         <TabsContent value="account">
-          <AccountSection data={data} recovery={recovery} twilioConnected={twilioConnected} />
+          <AccountSection data={data} recovery={recovery} twilioConnected={twilioConnected} mailStatus={mailStatus} />
         </TabsContent>
         {data.viewer.canManage ? (
           <TabsContent value="templates">

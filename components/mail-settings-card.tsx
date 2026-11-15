@@ -10,16 +10,27 @@ import { deleteDomainSenderAction, disconnectGmailAccountAction, saveDomainSende
 import { isValidSenderEmail, normalizeSenderEmail } from "@/lib/outreach";
 import type { DomainSender, GmailAccount, MailSetup } from "@/lib/types";
 
+const MAIL_STATUS: Record<string, string> = {
+  connected: "Gmail is connected.",
+  denied: "Google access was not granted. Click Connect Gmail and try again, and choose the mailbox you want to send from (for example maine@chabadora.com).",
+  invalid: "That connect link was not valid or expired. Click Connect Gmail and try again from this site.",
+  error: "Gmail could not be connected. Click Connect Gmail and try again. If it still fails, in the Google account under Third-party access, remove the Cora Connect app, then connect again.",
+  preview: "Preview cannot connect Gmail.",
+  setup: "Gmail is not set up yet. An admin needs to add the Google client on Vercel.",
+};
+
 export function MailSettingsCard({
   gmailAccounts,
   domainSenders,
   mailSetup,
   canManage,
+  mailStatus,
 }: {
   gmailAccounts: GmailAccount[];
   domainSenders: DomainSender[];
   mailSetup: MailSetup;
   canManage: boolean;
+  mailStatus?: string;
 }) {
   const announce = useUndoToast();
   const practice = usePractice();
@@ -39,6 +50,7 @@ export function MailSettingsCard({
 
       <div className="grid gap-2">
         <h3 className="text-sm font-medium text-foreground">Gmail accounts</h3>
+        {mailStatus && MAIL_STATUS[mailStatus] ? <Notice>{MAIL_STATUS[mailStatus]}</Notice> : null}
         <ul className="grid gap-2">
           {gmailAccounts.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-3 py-2">

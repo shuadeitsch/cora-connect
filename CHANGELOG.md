@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.67
+- Connect Gmail now stays on the public site URL so the return from Google and the connect cookie use the same host, and it no longer pre-selects the person's CRM login email, so an admin can choose maine@chabadora.com (or another mailbox) in Google's account picker. If connect fails, Settings › Account shows why (denied, expired link, or an error) instead of failing silently. The Google return path is no longer sent to the login page, which had dropped the connection before it could be saved.
+
+
 ## 1.8.66
 - Gmail replies no longer wait for the daily cron. A signed-in user hitting **POST /api/gmail/sync** pulls new mail on that organization's connected Gmail channels through the history API (incremental, one sync at a time per inbox). The app calls it when Inbox, the Pre-planner, or a contact card opens, and about every two minutes while the app is open and visible (debounced). The daily Vercel cron stays as a backstop. Admins have a **Sync now** button on Settings and on Inbox.
 - Optional Google Pub/Sub push is documented for Saturday's checklist and is not required: topic `cora-connect-gmail-push`, publisher grant for `gmail-api-push@system.gserviceaccount.com`, and push subscription URL `https://outreach-crm-brown.vercel.app/api/webhooks/gmail/push`. See `docs/gmail-pubsub.md` and the note in Settings.
