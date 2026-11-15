@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.69
+- Public **Privacy Policy** and **Terms** pages are at `/privacy` and `/terms`, without signing in, so a Twilio A2P campaign can link to them. They are issued by Chabad of Maine (CORA). The privacy page covers what we collect (name, phone, email, and visit notes), use only for community outreach, that we never sell or share phone numbers or SMS opt-in data for marketing, message frequency and rates, STOP and HELP, data security, and an effective date of November 15, 2026. The terms page covers the outreach SMS program, opt-in, opt-out, HELP, rates, and carrier limits, and links to the privacy page and info@chabadora.com.
+
+
 ## 1.8.68
 - Settings no longer treats a Gmail messaging channel or a domain From address as a connected Gmail inbox. If Connect Gmail did not save an account, the success notice is not shown. An unlinked Gmail channel says it still needs to be attached. If Google rejects the OAuth client secret, Settings tells an admin to update `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on Vercel.
 

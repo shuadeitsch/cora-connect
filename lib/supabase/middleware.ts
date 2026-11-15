@@ -30,6 +30,8 @@ export async function updateSupabaseSession(request: NextRequest) {
     path === "/forgot-password" ||
     path === "/offline" ||
     path === "/about" ||
+    path === "/privacy" ||
+    path === "/terms" ||
     path === "/debug" ||
     path === "/health" ||
     path === "/api/version" ||
