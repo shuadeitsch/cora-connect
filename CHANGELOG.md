@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.72
+- Settings › Messaging settings no longer shows a stack of red error alerts after Connect Gmail: a successful connect is a green confirmation, and Resend/domain-setup notes are informational (Gmail does not need Resend). Text-from settings also load correctly again (the query had been ordering by a column that table does not have).
+- The Pre-planner has a **Message** button that opens a mass-message sheet for the people currently in view. Pick Email, Text, or WhatsApp, a template or your own message (use `{name}` or `{first name}`), uncheck anyone to leave out, and see who is skipped for a missing email or phone. Email sends through that state's default Gmail channel. Texting stays disabled, with a note that it turns on once Twilio approves the campaign, until `SMS_SENDING_ENABLED` is set to true. WhatsApp is a send-from-phone queue: each person gets a **Send on WhatsApp** button that opens a pre-filled `wa.me` link; when you send (or skip), it is logged on that entry and the next person is shown. A later Twilio WhatsApp API sender (`WHATSAPP_API_SENDING_ENABLED` and `TWILIO_WHATSAPP_FROM`) can replace the queue with one-click sending. Each send is personalized and logged on that Pre-planner entry.
+
 ## 1.8.71
 - Added a **Maine texting** channel for +1 (207) 977-2968, active and the default text channel for Maine. Settings now has a **Messaging settings** tab (renamed from Email templates) for Gmail, domain From addresses, Texting (Twilio) status, messaging channels, and templates. Those sections are no longer on the Account tab. Connect Gmail and its status messages open this tab.
 

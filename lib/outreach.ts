@@ -86,6 +86,7 @@ export function fillPlaceholders(template: string, vars: PlaceholderVars): strin
     .replace(/\{first name\}/gi, first)
     .replace(/\{last name\}/gi, last)
     .replace(/\{full name\}/gi, full)
+    .replace(/\{name\}/gi, full || first)
     .replace(/\{state\}/gi, vars.state ?? "")
     .replace(/\{city\}/gi, vars.city ?? "")
     .replace(/\{address\}/gi, vars.address ?? "")

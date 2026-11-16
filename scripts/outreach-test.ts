@@ -125,6 +125,8 @@ if (extraPhones.numbers.join(",") !== "+12075550100,+12075550199" || extraPhones
 
 
 const filled = fillPlaceholders("Hi {first name}, Chabad of {state} is visiting {state}.", { firstName: "Sarah", state: "Maine" });
+const named = fillPlaceholders("Hi {name}", { firstName: "Sarah", lastName: "Cohen", fullName: "Sarah Cohen" });
+if (named !== "Hi Sarah Cohen") throw new Error(`{name} should fill the full name, got ${named}`);
 if (filled !== "Hi Sarah, Chabad of Maine is visiting Maine.") fail(filled);
 
 const group = groupFillVars(people);

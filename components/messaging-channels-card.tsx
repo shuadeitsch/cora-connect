@@ -24,7 +24,7 @@ export function MessagingChannelsCard({ data }: { data: AppData }) {
   const [error, setError] = useState("");
   const [label, setLabel] = useState("");
   const [address, setAddress] = useState("");
-  const [type, setType] = useState<MessagingChannelType>("email_resend");
+  const [type, setType] = useState<MessagingChannelType>(() => (data.mailSetup.gmail ? "email_gmail" : data.mailSetup.sms ? "sms_twilio" : "email_resend"));
   const [states, setStates] = useState<string[]>([]);
   const [gmailAccountId, setGmailAccountId] = useState(data.gmailAccounts[0]?.id ?? "");
   const admin = data.viewer.role === "admin" && !data.viewer.preview;
@@ -142,7 +142,7 @@ export function MessagingChannelsCard({ data }: { data: AppData }) {
             <option value="sms_twilio">Text (Twilio)</option>
             <option value="whatsapp_twilio">WhatsApp (Twilio)</option>
           </select>
-          {setupNeeded(type) ? <Notice>{setupNeeded(type)}</Notice> : null}
+          {setupNeeded(type) ? <Notice tone="info">{setupNeeded(type)}</Notice> : null}
           <Input placeholder="Label (for example, Maine outreach)" value={label} onChange={(event) => setLabel(event.target.value)} />
           <Input
             placeholder={type.startsWith("email") ? "Sending email (maine@chabadora.com)" : "Sending number (+1…)"}

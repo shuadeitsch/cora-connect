@@ -4,11 +4,12 @@ import { loadDatabase } from "@/lib/session";
 import { isSupabaseMode, createClient } from "@/lib/supabase/server";
 import { gmailAccountSecrets, touchGmailAccount } from "@/lib/supabase/write";
 import { sendChannelMessage } from "@/lib/messaging-send";
-import { channelFamily, optedOut, type MessageChannelType } from "@/lib/messaging";
+import { channelFamily, optedOut, type MessageChannelType, type MessageFamily } from "@/lib/messaging";
 import { messagingSetupStatus, twilioFromNumber, twilioWhatsappNumber } from "@/lib/messaging-status";
 import { viewerPermissions } from "@/lib/model";
 import { newId } from "@/lib/ids";
 import { todayIso } from "@/lib/format";
+import { appendNote, parseNotesLog, parseReachedHows } from "@/lib/preplanner";
 import type { ActionResult, MessageItem, MessagingChannel, MessagingChannelType, User } from "@/lib/types";
 
 function assert(ok: unknown, message: string): asserts ok {
@@ -106,6 +107,7 @@ export async function sendCampaignMessage(
     templateName?: string;
     templateVars?: Record<string, string>;
     templateId?: string;
+    preplannerEntryId?: string;
   },
 ): Promise<ActionResult> {
   const family = channelFamily(input.type);
@@ -217,11 +219,169 @@ export async function sendCampaignMessage(
       sent_by: actor.id,
     });
     if (error && !/duplicate|unique/i.test(error.message)) throw new Error(error.message);
+    if (input.preplannerEntryId) {
+      await logPreplannerSend({
+        entryId: input.preplannerEntryId,
+        householdId: input.householdId,
+        orgId: actor.orgId,
+        actorName: actor.name,
+        family,
+        channelLabel: channel?.label || fromAddress || input.type,
+      });
+    }
     await log("sent");
     return { ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not send that message.";
     try { await log("failed", message); } catch { /* ignore */ }
+    return { ok: false, error: message };
+  }
+}
+
+
+async function logPreplannerSend(input: {
+  entryId: string;
+  householdId: string;
+  orgId: string;
+  actorName: string;
+  family: MessageFamily;
+  channelLabel: string;
+}) {
+  const how = input.family === "email" ? "email" : input.family === "whatsapp" ? "whatsapp" : "text";
+  const supabase = await createClient();
+  const loaded = await supabase
+    .from("preplanner_entries")
+    .select("id, household_id, notes, notes_log, reached_how, reached_hows")
+    .eq("id", input.entryId)
+    .eq("org_id", input.orgId)
+    .eq("household_id", input.householdId)
+    .maybeSingle();
+  if (loaded.error) throw new Error(loaded.error.message);
+  if (!loaded.data) return;
+  const hows = parseReachedHows(loaded.data.reached_hows ?? loaded.data.reached_how);
+  const nextHows = hows.includes(how as typeof hows[number]) ? hows : [...hows, how as typeof hows[number]];
+  const note = `Sent ${how === "email" ? "email" : how === "whatsapp" ? "WhatsApp" : "a text"} via ${input.channelLabel}.`;
+  const notesLog = appendNote(parseNotesLog(loaded.data.notes_log, String(loaded.data.notes ?? "")), note, input.actorName);
+  const { error } = await supabase
+    .from("preplanner_entries")
+    .update({
+      notes_log: notesLog,
+      reached_how: nextHows[0] ?? how,
+      reached_hows: nextHows,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.entryId)
+    .eq("org_id", input.orgId);
+  if (error) throw new Error(error.message);
+}
+
+
+/** Log a WhatsApp (or other) send that went out from the user's phone via wa.me, without calling Twilio. */
+export async function recordExternalMessage(
+  actor: User,
+  input: {
+    type: MessageChannelType;
+    to: string;
+    body: string;
+    householdId: string;
+    personId?: string;
+    projectId?: string | null;
+    templateName?: string;
+    templateId?: string;
+    preplannerEntryId?: string;
+    provider?: string;
+    channelLabel?: string;
+  },
+): Promise<ActionResult> {
+  const family = channelFamily(input.type);
+  const mode = family === "email" ? "email" : family === "whatsapp" ? "whatsapp" : "sms";
+  try {
+    assert(perms(actor).canOutreach || perms(actor).canEdit, "You don't have permission to send from the CRM.");
+    if (!isSupabaseMode()) return { ok: false, error: "Messaging needs the live CRM." };
+    const db = await loadDatabase();
+    const person = input.personId ? db.people.find((item) => item.id === input.personId) : undefined;
+    if (person && optedOut(person, family)) {
+      await logOutreachSend(actor, {
+        mode, templateId: input.templateId, templateName: input.templateName, subject: "", body: input.body,
+        recipientCount: 1, method: input.type, toAddress: input.to, status: "skipped", error: "Opted out",
+        householdId: input.householdId, personId: input.personId,
+      });
+      return { ok: false, error: "This person has opted out of that channel." };
+    }
+    const channel = (db.messagingChannels ?? []).find((item) => item.type === input.type && item.status === "active");
+    const supabase = await createClient();
+    const address = input.to.trim().toLowerCase();
+    const typ = input.type;
+    let threadId: string | null = (db.messageThreads ?? []).find(
+      (thread) => thread.householdId === input.householdId && thread.channelType === typ && thread.contactAddress.toLowerCase() === address,
+    )?.id ?? null;
+    if (!threadId) {
+      const inserted = await supabase.from("message_threads").insert({
+        org_id: actor.orgId,
+        household_id: input.householdId,
+        person_id: input.personId ?? null,
+        channel_id: channel?.id ?? null,
+        channel_type: typ,
+        contact_address: address,
+        project_id: input.projectId ?? null,
+        last_at: new Date().toISOString(),
+        last_preview: input.body.slice(0, 180),
+        last_direction: "out",
+        unread_count: 0,
+      }).select("id").single();
+      if (inserted.error) throw new Error(inserted.error.message);
+      threadId = inserted.data?.id ?? newId();
+    } else {
+      await supabase.from("message_threads").update({
+        last_at: new Date().toISOString(),
+        last_preview: input.body.slice(0, 180),
+        last_direction: "out",
+        channel_id: channel?.id ?? null,
+        project_id: input.projectId ?? null,
+      }).eq("id", threadId);
+    }
+    const { error } = await supabase.from("message_messages").insert({
+      thread_id: threadId,
+      org_id: actor.orgId,
+      household_id: input.householdId,
+      person_id: input.personId ?? null,
+      channel_id: channel?.id ?? null,
+      channel_type: typ,
+      direction: "out",
+      body: input.body,
+      subject: null,
+      status: "sent",
+      provider: input.provider || "wa.me",
+      provider_message_id: newId(),
+      template_name: input.templateName ?? null,
+      sent_by: actor.id,
+    });
+    if (error && !/duplicate|unique/i.test(error.message)) throw new Error(error.message);
+    if (input.preplannerEntryId) {
+      await logPreplannerSend({
+        entryId: input.preplannerEntryId,
+        householdId: input.householdId,
+        orgId: actor.orgId,
+        actorName: actor.name,
+        family,
+        channelLabel: input.channelLabel || channel?.label || "WhatsApp on your phone",
+      });
+    }
+    await logOutreachSend(actor, {
+      mode, templateId: input.templateId, templateName: input.templateName, subject: "", body: input.body,
+      recipientCount: 1, method: input.type, toAddress: input.to, status: "sent",
+      householdId: input.householdId, personId: input.personId,
+    });
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not log that message.";
+    try {
+      await logOutreachSend(actor, {
+        mode, templateId: input.templateId, templateName: input.templateName, subject: "", body: input.body,
+        recipientCount: 1, method: input.type, toAddress: input.to, status: "failed", error: message,
+        householdId: input.householdId, personId: input.personId,
+      });
+    } catch { /* ignore */ }
     return { ok: false, error: message };
   }
 }

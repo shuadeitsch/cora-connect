@@ -11,6 +11,7 @@ import { useUndoToast } from "@/components/undo-toast";
 import { deletePreplannerEntryAction } from "@/lib/actions";
 import { preplannerSortKey, preplannerWhen, reachedHowLabel } from "@/lib/preplanner";
 import { MessageInbox } from "@/components/message-inbox";
+import { PreplannerMessageDialog } from "@/components/preplanner-message-dialog";
 import { useGmailSyncOnOpen } from "@/components/gmail-inbox-sync";
 import type { AppData, HouseholdView, PreplannerEntry, PreplannerStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -21,8 +22,10 @@ export function PreplannerView({ data }: { data: AppData }) {
   const [tab, setTab] = useState<PreplannerStage | "inbox">("reached_out");
   const [editing, setEditing] = useState<PreplannerEntry | null>(null);
   const [confirming, setConfirming] = useState<PreplannerEntry | null>(null);
+  const [messaging, setMessaging] = useState(false);
   const [pending, start] = useTransition();
   const canChange = data.viewer.canEdit || data.viewer.canLogVisit;
+  const canMessage = data.viewer.canOutreach || data.viewer.canEdit;
   useGmailSyncOnOpen(!data.viewer.preview && !data.viewer.sandbox);
   const byId = useMemo(() => new Map(data.households.map((household) => [household.id, household])), [data.households]);
   const entries = data.preplannerEntries ?? [];
@@ -44,7 +47,8 @@ export function PreplannerView({ data }: { data: AppData }) {
         crumb="Pre-planner"
         description="Log every contact you reached, then confirm a visit when a date and time are set. Confirmed visits also show up on that day in the Daily planner."
       />
-      <div className="mb-4 inline-flex max-w-full flex-wrap gap-1 rounded-full border bg-card p-1" role="tablist" aria-label="Pre-planner stages">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="inline-flex max-w-full flex-wrap gap-1 rounded-full border bg-card p-1" role="tablist" aria-label="Pre-planner stages">
         <button type="button" role="tab" aria-selected={tab === "reached_out"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "reached_out" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("reached_out")}>
           Reached out ({reached.length})
         </button>
@@ -54,6 +58,12 @@ export function PreplannerView({ data }: { data: AppData }) {
         <button type="button" role="tab" aria-selected={tab === "inbox"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "inbox" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("inbox")}>
           Inbox{(data.unreadMessageCount ?? 0) ? ` (${data.unreadMessageCount})` : ""}
         </button>
+      </div>
+      {tab !== "inbox" && canMessage ? (
+        <Button type="button" className="min-h-11 rounded-full" onClick={() => setMessaging(true)} disabled={!shown.length}>
+          Message
+        </Button>
+      ) : null}
       </div>
       {tab === "inbox" ? (
         <div className="panel rounded-3xl p-4">
@@ -163,6 +173,12 @@ export function PreplannerView({ data }: { data: AppData }) {
         data={data}
         mode="confirm"
         onClose={() => setConfirming(null)}
+      />
+      <PreplannerMessageDialog
+        open={messaging}
+        data={data}
+        entries={shown}
+        onClose={() => setMessaging(false)}
       />
     </div>
   );

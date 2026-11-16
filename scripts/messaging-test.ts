@@ -6,6 +6,7 @@ import {
   toE164,
   withinWhatsAppWindow,
 } from "../lib/messaging";
+import { whatsappMeLink, whatsappMeDigits } from "../lib/whatsapp";
 import { normalizeNavOrder, DEFAULT_NAV_HREFS } from "../lib/nav-order";
 
 function assert(ok: unknown, message: string) {
@@ -14,6 +15,8 @@ function assert(ok: unknown, message: string) {
 
 assert(phoneDigits("+1 (207) 555-0100") === "2075550100", "phone last 10");
 assert(toE164("207-555-0100") === "+12075550100", "e164");
+assert(whatsappMeDigits("207-555-0100") === "12075550100", "wa digits");
+assert(whatsappMeLink("207-555-0100", "Hi {name}") === "https://wa.me/12075550100?text=Hi%20%7Bname%7D", "wa link");
 assert(smsOptOutCommand("STOP") === "stop", "stop");
 assert(smsOptOutCommand("unstop please") === "start", "unstop");
 assert(smsOptOutCommand("See you Friday") === null, "not a command");

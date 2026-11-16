@@ -5,7 +5,7 @@ export function messagingSetupStatus() {
     gmail: Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim()),
     resend: Boolean(process.env.RESEND_API_KEY?.trim()),
     sms: sid && Boolean(process.env.TWILIO_FROM_NUMBER?.trim()),
-    whatsapp: sid && Boolean(process.env.TWILIO_WHATSAPP_NUMBER?.trim()),
+    whatsapp: sid && Boolean((process.env.TWILIO_WHATSAPP_FROM?.trim() || process.env.TWILIO_WHATSAPP_NUMBER?.trim())),
     ingest: Boolean(process.env.MESSAGING_INGEST_KEY?.trim()),
   };
 }
@@ -21,10 +21,22 @@ export function twilioFromNumber(): string | null {
 }
 
 export function twilioWhatsappNumber(): string | null {
-  const raw = process.env.TWILIO_WHATSAPP_NUMBER?.trim();
+  const raw = process.env.TWILIO_WHATSAPP_FROM?.trim() || process.env.TWILIO_WHATSAPP_NUMBER?.trim();
   return raw || null;
+}
+
+/** When true, Pre-planner WhatsApp uses the Twilio API (Content templates) instead of the wa.me phone queue. Default off. */
+export function whatsappApiSendingEnabled(): boolean {
+  const raw = process.env.WHATSAPP_API_SENDING_ENABLED?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }
 
 export function twilioPhoneSid(): string | null {
   return process.env.TWILIO_PHONE_SID?.trim() || process.env.TWILIO_MESSAGING_SERVICE_SID?.trim() || null;
+}
+
+/** Outbound SMS stays off until an admin sets SMS_SENDING_ENABLED=true (after the A2P campaign is approved). */
+export function smsSendingEnabled(): boolean {
+  const raw = process.env.SMS_SENDING_ENABLED?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }

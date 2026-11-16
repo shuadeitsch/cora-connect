@@ -54,7 +54,9 @@ export function MailSettingsCard({
         <h3 className="text-sm font-medium text-foreground">Gmail accounts</h3>
         {(() => {
           const status = mailStatus === "connected" && !gmailAccounts.length ? "unsaved" : mailStatus;
-          return status && MAIL_STATUS[status] ? <Notice>{MAIL_STATUS[status]}</Notice> : null;
+          if (!status || !MAIL_STATUS[status]) return null;
+          const tone = status === "connected" ? "ok" : status === "setup" || status === "preview" ? "info" : "error";
+          return <Notice tone={tone}>{MAIL_STATUS[status]}</Notice>;
         })()}
         <ul className="grid gap-2">
           {gmailAccounts.map((item) => (
@@ -89,7 +91,7 @@ export function MailSettingsCard({
           <div className="grid gap-1">
             <Button type="button" className="min-h-11 w-fit rounded-full" disabled>Connect Gmail</Button>
             {canManage ? (
-              <Notice>Setup needed: add a Google Cloud OAuth client with gmail.send, gmail.readonly, and gmail.modify, then set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the Vercel project (production, preview, and development). Redirect URI: https://outreach-crm-brown.vercel.app/api/gmail/callback (and the same path on any custom domain). Already-connected send-only accounts must Connect again to read replies.</Notice>
+              <Notice tone="info">Setup needed: add a Google Cloud OAuth client with gmail.send, gmail.readonly, and gmail.modify, then set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the Vercel project (production, preview, and development). Redirect URI: https://outreach-crm-brown.vercel.app/api/gmail/callback (and the same path on any custom domain). Already-connected send-only accounts must Connect again to read replies.</Notice>
             ) : (
               <p className="text-sm text-muted-foreground">Gmail sending is not set up yet. An admin can add the Google client in Vercel.</p>
             )}
@@ -102,7 +104,7 @@ export function MailSettingsCard({
         <p className="text-sm text-muted-foreground">Used when sending through the domain (Resend). info@chabadora.com and maine@chabadora.com are included; admins can add more.</p>
         {!mailSetup.resend ? (
           canManage ? (
-            <Notice>Setup needed: set RESEND_API_KEY on the Vercel project, and add the chabadora.com domain in Resend with the DNS records Resend shows (SPF, DKIM, and domain verification).</Notice>
+            <Notice tone="info">To send from a chabadora.com address as well, set RESEND_API_KEY on the Vercel project and add the domain in Resend with the DNS records Resend shows (SPF, DKIM, and domain verification). Gmail sending does not need this.</Notice>
           ) : (
             <p className="text-sm text-muted-foreground">Domain sending is not set up yet. An admin can add the Resend key in Vercel.</p>
           )

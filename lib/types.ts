@@ -303,6 +303,8 @@ export interface MailSetup {
   resend: boolean;
   sms?: boolean;
   whatsapp?: boolean;
+  smsSendingEnabled?: boolean;
+  whatsappApiSendingEnabled?: boolean;
 }
 
 export type MessagingChannelType = "email_gmail" | "email_resend" | "sms_twilio" | "whatsapp_twilio";

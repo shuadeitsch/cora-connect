@@ -82,8 +82,8 @@ async function paged(table: string, columns = "*", order: string | string[] = "i
   return { rows, error: "" };
 }
 
-async function optionalTable(table: string): Promise<{ rows: Row[]; ready: boolean }> {
-  const loaded = await paged(table);
+async function optionalTable(table: string, order: string | string[] = "id"): Promise<{ rows: Row[]; ready: boolean }> {
+  const loaded = await paged(table, "*", order);
   if (!loaded.error) return { rows: loaded.rows, ready: true };
   if (/does not exist|schema cache|could not find the table/i.test(loaded.error)) return { rows: [], ready: false };
   throw new Error(`${table}: ${loaded.error}`);
@@ -130,7 +130,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
   const shareLoad = await optionalTable("contact_shares");
   const templateLoad = await optionalTable("outreach_templates");
   const senderLoad = await optionalTable("outreach_sender_addresses");
-  const textLoad = await optionalTable("outreach_text_settings");
+  const textLoad = await optionalTable("outreach_text_settings", "user_id");
   const preplannerLoad = await optionalTable("preplanner_entries");
   const domainSenderLoad = await optionalTable("outreach_domain_senders");
   const channelLoad = await optionalTable("outreach_channels");

@@ -11,7 +11,7 @@ import {
   type MessageChannelType,
   type MessageFamily,
 } from "@/lib/messaging";
-import { messagingIngestKey, twilioFromNumber, twilioWhatsappNumber } from "@/lib/messaging-status";
+import { messagingIngestKey, smsSendingEnabled, twilioFromNumber, twilioWhatsappNumber } from "@/lib/messaging-status";
 
 function twilioSid() {
   return process.env.TWILIO_ACCOUNT_SID?.trim() || "";
@@ -49,6 +49,9 @@ export async function sendTwilioMessage(input: {
   const sid = twilioSid();
   const token = twilioToken();
   if (!sid || !token) throw new Error("Twilio is not set up yet.");
+  if (!input.whatsapp && !smsSendingEnabled()) {
+    throw new Error("Texting turns on once Twilio approves our campaign.");
+  }
   const to = input.whatsapp
     ? (input.to.startsWith("whatsapp:") ? input.to : `whatsapp:${toE164(input.to) ?? input.to}`)
     : (toE164(input.to) ?? input.to);

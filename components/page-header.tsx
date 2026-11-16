@@ -65,16 +65,15 @@ export function PageHeader({
   );
 }
 
-export function Notice({ tone = "error", children }: { tone?: "error" | "ok"; children: ReactNode }) {
+export function Notice({ tone = "error", children }: { tone?: "error" | "ok" | "info"; children: ReactNode }) {
+  const style =
+    tone === "ok"
+      ? "rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+      : tone === "info"
+        ? "rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground"
+        : "rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700";
   return (
-    <div
-      role={tone === "error" ? "alert" : "status"}
-      className={
-        tone === "error"
-          ? "rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-          : "rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
-      }
-    >
+    <div role={tone === "error" ? "alert" : "status"} className={style}>
       {children}
     </div>
   );
