@@ -55,7 +55,10 @@ export async function sendTwilioMessage(input: {
   const from = input.whatsapp
     ? (input.from.startsWith("whatsapp:") ? input.from : `whatsapp:${input.from}`)
     : input.from;
-  const body = new URLSearchParams({ To: to, From: from });
+  const service = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim();
+  const body = new URLSearchParams({ To: to });
+  if (service && !input.whatsapp) body.set("MessagingServiceSid", service);
+  else body.set("From", from);
   if (input.templateName) {
     body.set("ContentSid", input.templateName);
     if (input.templateVars && Object.keys(input.templateVars).length) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.70
+- Texting credentials can now be set on Vercel (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, and `TWILIO_MESSAGING_SERVICE_SID`). Outbound texts use the Messaging Service so they go through the registered A2P campaign once it is approved. Settings › Account notes that US texting stays pending until that campaign is approved. Incoming SMS is received at `/api/webhooks/twilio/sms`.
+
+
 ## 1.8.69
 - Public **Privacy Policy** and **Terms** pages are at `/privacy` and `/terms`, without signing in, so a Twilio A2P campaign can link to them. They are issued by Chabad of Maine (CORA). The privacy page covers what we collect (name, phone, email, and visit notes), use only for community outreach, that we never sell or share phone numbers or SMS opt-in data for marketing, message frequency and rates, STOP and HELP, data security, and an effective date of November 15, 2026. The terms page covers the outreach SMS program, opt-in, opt-out, HELP, rates, and carrier limits, and links to the privacy page and info@chabadora.com.
 

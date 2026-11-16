@@ -10,6 +10,11 @@ export function TwilioSettingsCard({ connected }: { connected: boolean }) {
       <p className="mt-1 text-sm text-muted-foreground">
         Status: <span className="font-medium text-foreground">{connected ? "Connected" : "Not connected"}</span>
       </p>
+      {connected ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Credentials are in place. US texting stays pending until the Twilio A2P campaign is approved; do not send campaign texts until then.
+        </p>
+      ) : null}
       <p className="mt-2 text-sm text-muted-foreground">{TWILIO_SETUP_NOTE}</p>
       <a
         href={TWILIO_SIGNUP_URL}
