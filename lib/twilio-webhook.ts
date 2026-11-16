@@ -43,7 +43,7 @@ export async function handleTwilioWebhook(req: Request, kind: "sms" | "whatsapp"
   let channelId: string | undefined;
   if (key) {
     const supabase = createEphemeralClient();
-    const lookup = await supabase.rpc("lookup_messaging_channel", { p_key: key, p_address: to || from });
+    const lookup = await supabase.rpc("lookup_messaging_channel", { p_key: key, p_address: params.To || params.From || to || from, p_type: channelType });
     const row = lookup.data?.[0] as { id?: string; org_id?: string } | undefined;
     if (row?.org_id) orgId = row.org_id;
     if (row?.id) channelId = row.id;

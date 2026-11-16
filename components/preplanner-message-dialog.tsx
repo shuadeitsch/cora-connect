@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUndoToast } from "@/components/undo-toast";
 import { recordExternalMessageAction, sendCampaignMessageAction } from "@/lib/actions";
-import { defaultStatesOverlap } from "@/lib/messaging";
+import { channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
 import { fillPlaceholders, templatesOrDefault } from "@/lib/outreach";
-import { whatsappMeLink, whatsappNumberFor } from "@/lib/whatsapp";
+import { whatsappMeDigits, whatsappMeLink, whatsappNumberFor } from "@/lib/whatsapp";
 import type { AppData, HouseholdView, MessagingChannel, MessagingChannelType, Person, PreplannerEntry } from "@/lib/types";
 
 type Mode = "email" | "text" | "whatsapp";
@@ -76,6 +76,14 @@ function channelFor(channels: MessagingChannel[], type: MessagingChannelType, st
     ?? channels.find((item) => item.type === type && !item.defaultStates.length)
     ?? channels.find((item) => item.type === type)
   );
+}
+
+
+function lastWhatsAppInbound(data: AppData, householdId: string, phone: string) {
+  const digits = whatsappMeDigits(phone);
+  const threads = (data.messageThreads ?? []).filter((thread) => thread.householdId === householdId && channelFamily(thread.channelType) === "whatsapp");
+  const match = threads.find((thread) => whatsappMeDigits(thread.contactAddress) === digits) ?? threads[0];
+  return match?.lastInboundAt;
 }
 
 export function PreplannerMessageDialog({
@@ -164,12 +172,13 @@ export function PreplannerMessageDialog({
         else if (mode === "whatsapp" && !whatsappMeLink(address, "ok")) skip = "No valid WhatsApp number";
         else if (mode === "email" && !channelFor(channels, type, house!.state)) skip = "No Gmail channel for this state";
         else if (mode === "text" && !channelFor(channels, type, house!.state)) skip = "No texting channel for this state";
+        else if (mode === "whatsapp" && whatsappApi && data.mailSetup?.whatsappTemplateStatus !== "approved" && !withinWhatsAppWindow(lastWhatsAppInbound(data, house!.id, address))) skip = "Waiting for WhatsApp template approval (only people who replied in the last 24 hours can get a free-form message)";
         else if (mode === "whatsapp" && whatsappApi && !channelFor(channels, type, house!.state) && !data.mailSetup?.whatsapp) skip = "No WhatsApp channel for this state";
         out.push({ person, house: house!, entry, address, skip });
       }
     }
     return out;
-  }, [channels, data.mailSetup?.whatsapp, houses, mode, type, whatsappApi]);
+  }, [channels, data, houses, mode, type, whatsappApi, whatsappApiReady]);
 
   const ready = rows.filter((row) => !row.skip);
   const skipped = rows.filter((row) => row.skip);
@@ -217,8 +226,17 @@ export function PreplannerMessageDialog({
       setError("Select at least one person to message.");
       return;
     }
-    if (!body.trim() || (mode === "email" && !subject.trim())) {
-      setError(mode === "email" ? "Add a subject and a message." : "Write a message, or pick a template.");
+    if (!chosen.length) {
+      setError("No one is selected to message.");
+      return;
+    }
+    const whatsappApproved = mode !== "whatsapp" || data.mailSetup?.whatsappTemplateStatus === "approved";
+    if (mode === "email" && !subject.trim()) {
+      setError("Add a subject and a message.");
+      return;
+    }
+    if ((mode !== "whatsapp" || !whatsappApproved) && !body.trim()) {
+      setError("Write a message, or pick a template.");
       return;
     }
     start(async () => {
@@ -245,6 +263,7 @@ export function PreplannerMessageDialog({
           templateId: templateId || undefined,
           templateName: catalog.find((item) => item.id === templateId)?.name,
           preplannerEntryId: row.entry.id,
+          freeform: mode === "whatsapp" && data.mailSetup?.whatsappTemplateStatus !== "approved",
         });
         sent.push({ name: row.person.name || row.house.name, ok: result.ok, error: result.ok ? undefined : result.error });
       }
@@ -329,7 +348,8 @@ export function PreplannerMessageDialog({
     pending
     || (mode === "email" && !emailReady)
     || (mode === "text" && (!smsReady || !smsAllowed))
-    || (mode === "whatsapp" && whatsappApi && !whatsappApiReady);
+    || (mode === "whatsapp" && whatsappApi && !whatsappApiReady)
+    || !chosen.length;
 
   const primaryLabel = pending
     ? "Sending…"
@@ -411,6 +431,18 @@ export function PreplannerMessageDialog({
             ) : null}
             {mode === "whatsapp" && whatsappApi && !whatsappApiReady ? (
               <Notice tone="info">Twilio WhatsApp is not set up yet. Set TWILIO_WHATSAPP_FROM and an approved Content template, or leave API sending off to use the phone queue.</Notice>
+            ) : null}
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && data.mailSetup?.whatsappTemplateStatus === "approved" ? (
+              <Notice tone="ok">WhatsApp will send the approved template{data.mailSetup.whatsappTemplateName ? ` (${data.mailSetup.whatsappTemplateName})` : ""}, with each person’s name in the greeting.{data.mailSetup.whatsappTemplateBody ? ` “${data.mailSetup.whatsappTemplateBody.replace(/\{\{1\}\}/g, "{name")}”` : ""}</Notice>
+            ) : null}
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && data.mailSetup?.whatsappTemplateStatus === "pending" ? (
+              <Notice tone="info">The WhatsApp template{data.mailSetup.whatsappTemplateName ? ` (${data.mailSetup.whatsappTemplateName})` : ""} is waiting for Meta approval. Until it’s approved, you can only send a free-form message to people who WhatsApp’d you in the last 24 hours.</Notice>
+            ) : null}
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && data.mailSetup?.whatsappTemplateStatus === "rejected" ? (
+              <Notice>Meta did not approve the WhatsApp template{data.mailSetup.whatsappTemplateName ? ` (${data.mailSetup.whatsappTemplateName})` : ""}. You can still send a free-form message within 24 hours of a contact’s reply.</Notice>
+            ) : null}
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && data.mailSetup?.whatsappTemplateStatus === "missing" ? (
+              <Notice tone="info">No WhatsApp Content template is configured yet. You can only send a free-form message within 24 hours of a contact’s reply.</Notice>
             ) : null}
 
             <label className="grid gap-1 text-sm">

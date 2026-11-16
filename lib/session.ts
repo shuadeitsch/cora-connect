@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { todayIso } from "@/lib/format";
+import { whatsappTemplateState } from "@/lib/whatsapp-template";
 import { normalizeAccountStatus } from "@/lib/constants";
 import { present } from "@/lib/present";
 import { applyPreview, readPreview, readSandbox } from "@/lib/preview";
@@ -80,6 +81,15 @@ export const getAppData = cache(async (): Promise<AppData | null> => {
   const sandbox = await readSandbox();
   const effective = applyPreview(full, preview);
   const data = present(db, effective, isSupabaseMode() ? "supabase" : "demo", todayIso());
+  if (data.mailSetup?.whatsappApiSendingEnabled) {
+    const tpl = await whatsappTemplateState();
+    data.mailSetup = {
+      ...data.mailSetup,
+      whatsappTemplateStatus: tpl.status,
+      whatsappTemplateBody: tpl.body,
+      whatsappTemplateName: tpl.name,
+    };
+  }
   const flags = {
     ...(preview && user.role === "admin" ? { preview: { role: preview.role, state: preview.state ?? null } } : {}),
     ...(sandbox ? { sandbox: true } : {}),

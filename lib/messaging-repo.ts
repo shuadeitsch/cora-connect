@@ -4,8 +4,9 @@ import { loadDatabase } from "@/lib/session";
 import { isSupabaseMode, createClient } from "@/lib/supabase/server";
 import { gmailAccountSecrets, touchGmailAccount } from "@/lib/supabase/write";
 import { sendChannelMessage } from "@/lib/messaging-send";
-import { channelFamily, optedOut, type MessageChannelType, type MessageFamily } from "@/lib/messaging";
+import { channelFamily, optedOut, withinWhatsAppWindow, type MessageChannelType, type MessageFamily } from "@/lib/messaging";
 import { messagingSetupStatus, twilioFromNumber, twilioWhatsappNumber } from "@/lib/messaging-status";
+import { twilioWhatsappContentSid, whatsappTemplateState } from "@/lib/whatsapp-template";
 import { viewerPermissions } from "@/lib/model";
 import { newId } from "@/lib/ids";
 import { todayIso } from "@/lib/format";
@@ -108,6 +109,8 @@ export async function sendCampaignMessage(
     templateVars?: Record<string, string>;
     templateId?: string;
     preplannerEntryId?: string;
+    /** When true, send a free-form WhatsApp body (only allowed inside the 24-hour reply window). */
+    freeform?: boolean;
   },
 ): Promise<ActionResult> {
   const family = channelFamily(input.type);
@@ -154,18 +157,46 @@ export async function sendCampaignMessage(
       gmailCipher = secrets.cipher;
       gmailIv = secrets.iv;
     }
+    let templateName = input.templateName;
+    let templateVars = input.templateVars;
+    let body = input.body;
+    if (family === "whatsapp") {
+      const thread = (db.messageThreads ?? []).find((item) => {
+        if (item.householdId !== input.householdId) return false;
+        if (channelFamily(item.channelType) !== "whatsapp") return false;
+        const wanted = input.to.replace(/^whatsapp:/i, "").replace(/\D/g, "");
+        const have = item.contactAddress.replace(/^whatsapp:/i, "").replace(/\D/g, "");
+        return !wanted || have.slice(-10) === wanted.slice(-10);
+      });
+      const inWindow = withinWhatsAppWindow(thread?.lastInboundAt);
+      const tpl = await whatsappTemplateState();
+      const contentSid = twilioWhatsappContentSid();
+      const first = (person?.name ?? "").trim().split(/\s+/)[0] || "friend";
+      if (tpl.status === "approved" && contentSid && !input.freeform) {
+        templateName = contentSid;
+        templateVars = { "1": first };
+        body = body || `Hi ${first}`;
+      } else if (inWindow && body.trim()) {
+        templateName = undefined;
+        templateVars = undefined;
+      } else if (tpl.status !== "approved") {
+        throw new Error("The WhatsApp template is still waiting for Meta approval. You can send a free-form message only within 24 hours of a contact's reply.");
+      } else {
+        throw new Error("Write a WhatsApp message, or wait for the contact to reply.");
+      }
+    }
     const providerId = await sendChannelMessage({
       type: input.type,
       to: input.to,
-      body: input.body,
+      body,
       subject: input.subject,
       fromAddress: input.type === "email_gmail" && gmailCipher ? (channel?.address || fromAddress) : fromAddress,
       fromName,
       gmailCipher,
       gmailIv,
       personId: input.personId,
-      templateName: input.templateName,
-      templateVars: input.templateVars,
+      templateName,
+      templateVars,
     });
     if (gmailAccountId) {
       try { await touchGmailAccount(gmailAccountId); } catch { /* still sent */ }
@@ -186,7 +217,7 @@ export async function sendCampaignMessage(
         contact_address: address,
         project_id: input.projectId ?? null,
         last_at: new Date().toISOString(),
-        last_preview: input.body.slice(0, 180),
+        last_preview: body.slice(0, 180),
         last_direction: "out",
         unread_count: 0,
       }).select("id").single();
@@ -195,7 +226,7 @@ export async function sendCampaignMessage(
     } else {
       await supabase.from("message_threads").update({
         last_at: new Date().toISOString(),
-        last_preview: input.body.slice(0, 180),
+        last_preview: body.slice(0, 180),
         last_direction: "out",
         channel_id: channel?.id ?? null,
         project_id: input.projectId ?? null,

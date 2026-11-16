@@ -305,6 +305,9 @@ export interface MailSetup {
   whatsapp?: boolean;
   smsSendingEnabled?: boolean;
   whatsappApiSendingEnabled?: boolean;
+  whatsappTemplateStatus?: "approved" | "pending" | "rejected" | "missing";
+  whatsappTemplateBody?: string;
+  whatsappTemplateName?: string;
 }
 
 export type MessagingChannelType = "email_gmail" | "email_resend" | "sms_twilio" | "whatsapp_twilio";
