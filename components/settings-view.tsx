@@ -20,16 +20,23 @@ import { SenderAddressesCard } from "@/components/sender-addresses-card";
 import { MailSettingsCard } from "@/components/mail-settings-card";
 import type { AppData, OrgInput } from "@/lib/types";
 
-function AccountSection({ data, recovery, twilioConnected = false, mailStatus }: { data: AppData; recovery: boolean; twilioConnected?: boolean; mailStatus?: string }) {
+function AccountSection({ data, recovery }: { data: AppData; recovery: boolean }) {
   return (
     <>
       <AccountPassword name={data.viewer.name} email={data.viewer.email} recovery={recovery} />
       <AvatarPicker name={data.viewer.name} url={data.viewer.avatarUrl} />
       <ThemePicker saved={data.viewer.theme} backgroundUrl={data.viewer.backgroundUrl ?? null} themeMatchPhoto={Boolean(data.viewer.themeMatchPhoto)} themeColors={data.viewer.themeColors ?? null} />
       {data.viewer.role === "shliach" ? <ShliachPrefsForm data={data} /> : null}
-      {data.viewer.role === "admin" || data.viewer.role === "shliach" ? <TwilioSettingsCard connected={twilioConnected} /> : null}
-      {data.viewer.canManage || data.viewer.canOutreach ? <MessagingChannelsCard data={data} /> : null}
-      {data.viewer.canOutreach ? <SenderAddressesCard senders={data.outreachSenders} loginEmail={data.viewer.email} textSettings={data.outreachText} /> : null}
+      <form action={logoutAction} className="mt-4">
+        <Button type="submit" variant="outline" className="min-h-11 rounded-full">Log out</Button>
+      </form>
+    </>
+  );
+}
+
+function MessagingSection({ data, twilioConnected = false, mailStatus }: { data: AppData; twilioConnected?: boolean; mailStatus?: string }) {
+  return (
+    <>
       {data.viewer.canOutreach ? (
         <MailSettingsCard
           gmailAccounts={data.gmailAccounts ?? []}
@@ -39,28 +46,44 @@ function AccountSection({ data, recovery, twilioConnected = false, mailStatus }:
           mailStatus={mailStatus}
         />
       ) : null}
-      <form action={logoutAction} className="mt-4">
-        <Button type="submit" variant="outline" className="min-h-11 rounded-full">Log out</Button>
-      </form>
+      {data.viewer.canOutreach ? <SenderAddressesCard senders={data.outreachSenders} loginEmail={data.viewer.email} textSettings={data.outreachText} /> : null}
+      {data.viewer.role === "admin" || data.viewer.role === "shliach" ? <TwilioSettingsCard connected={twilioConnected} /> : null}
+      {data.viewer.canManage || data.viewer.canOutreach ? <MessagingChannelsCard data={data} /> : null}
+      {data.viewer.canManage ? <EmailTemplatesCard templates={data.outreachTemplates} canManage={data.viewer.canManage} /> : null}
     </>
   );
+}
+
+function canSeeMessaging(data: AppData) {
+  const role = data.viewer.role;
+  return data.viewer.canManage || data.viewer.canOutreach || role === "admin" || role === "shliach";
+}
+
+function requestedTab(initialTab: string) {
+  return initialTab === "templates" ? "messaging" : initialTab;
 }
 
 export function SettingsView({ data, initialTab, recovery, twilioConnected = false, mailStatus }: { data: AppData; initialTab: string; recovery: boolean; twilioConnected?: boolean; mailStatus?: string }) {
   const bochur = data.viewer.role === "bochur";
   const shliach = data.viewer.role === "shliach";
+  const messaging = canSeeMessaging(data);
   // Bochur: Account only (name, picture, theme, password). No Chabad house / org settings.
   if (bochur) {
     return (
       <div className="p-4 sm:p-6">
         <PageHeader title="Settings" crumb="Settings" description="Your account: name, picture, theme, and password." />
-        <AccountSection data={data} recovery={recovery} twilioConnected={twilioConnected} mailStatus={mailStatus} />
+        <AccountSection data={data} recovery={recovery} />
       </div>
     );
   }
   // Shliach: My Team lives here (not in the sidebar). Admins keep /team.
-  const allowed = shliach ? ["house", "account", "team"] : data.viewer.canManage ? ["house", "account", "templates"] : ["house", "account"];
-  const tab = allowed.includes(initialTab) ? initialTab : "house";
+  const allowed = [
+    "house",
+    "account",
+    ...(messaging ? ["messaging", "templates"] : []),
+    ...(shliach ? ["team"] : []),
+  ];
+  const tab = allowed.includes(requestedTab(initialTab)) ? requestedTab(initialTab) : "house";
   return (
     <div className="p-4 sm:p-6">
       <PageHeader title="Settings" crumb="Settings" />
@@ -68,19 +91,19 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
         <p className="mb-3 text-sm text-mutedink">Organization settings can be changed by an admin. Your password is on the Account tab.</p>
       ) : null}
       <Tabs key={tab} defaultValue={tab}>
-        <TabsList className="mb-4 h-auto flex-wrap bg-card">
-          <TabsTrigger value="house">Chabad House</TabsTrigger>
-          <TabsTrigger value="account">Account</TabsTrigger>
-          {data.viewer.canManage ? <TabsTrigger value="templates">Email templates</TabsTrigger> : null}
-          {shliach ? <TabsTrigger value="team">My Team</TabsTrigger> : null}
+        <TabsList className="mb-4 h-auto w-full flex-wrap justify-start gap-1 bg-card">
+          <TabsTrigger value="house" className="whitespace-nowrap">Chabad House</TabsTrigger>
+          <TabsTrigger value="account" className="whitespace-nowrap">Account</TabsTrigger>
+          {messaging ? <TabsTrigger value="messaging" className="whitespace-nowrap">Messaging settings</TabsTrigger> : null}
+          {shliach ? <TabsTrigger value="team" className="whitespace-nowrap">My Team</TabsTrigger> : null}
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
         <TabsContent value="account">
-          <AccountSection data={data} recovery={recovery} twilioConnected={twilioConnected} mailStatus={mailStatus} />
+          <AccountSection data={data} recovery={recovery} />
         </TabsContent>
-        {data.viewer.canManage ? (
-          <TabsContent value="templates">
-            <EmailTemplatesCard templates={data.outreachTemplates} canManage={data.viewer.canManage} />
+        {messaging ? (
+          <TabsContent value="messaging">
+            <MessagingSection data={data} twilioConnected={twilioConnected} mailStatus={mailStatus} />
           </TabsContent>
         ) : null}
         {shliach ? (

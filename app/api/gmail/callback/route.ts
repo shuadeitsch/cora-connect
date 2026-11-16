@@ -15,7 +15,7 @@ function fail(settings: URL, reason: string, log?: string) {
 
 export async function GET(request: Request) {
   const origin = await requestOrigin();
-  const settings = new URL("/settings?tab=account", origin);
+  const settings = new URL("/settings?tab=messaging", origin);
   const clearCookie = (res: NextResponse) => {
     res.cookies.set("cora_gmail_oauth", "", { httpOnly: true, path: "/api/gmail", maxAge: 0 });
     return res;

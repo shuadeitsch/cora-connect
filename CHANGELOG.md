@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.71
+- Added a **Maine texting** channel for +1 (207) 977-2968, active and the default text channel for Maine. Settings now has a **Messaging settings** tab (renamed from Email templates) for Gmail, domain From addresses, Texting (Twilio) status, messaging channels, and templates. Those sections are no longer on the Account tab. Connect Gmail and its status messages open this tab.
+
 ## 1.8.70
 - Texting credentials can now be set on Vercel (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, and `TWILIO_MESSAGING_SERVICE_SID`). Outbound texts use the Messaging Service so they go through the registered A2P campaign once it is approved. Settings › Account notes that US texting stays pending until that campaign is approved. Incoming SMS is received at `/api/webhooks/twilio/sms`.
 

@@ -17,10 +17,10 @@ export async function GET() {
     return NextResponse.redirect(new URL("/api/gmail/connect", origin));
   }
   const gate = await assertNotPreview();
-  if (!gate.ok) return NextResponse.redirect(new URL("/settings?tab=account&mail=preview", origin));
+  if (!gate.ok) return NextResponse.redirect(new URL("/settings?tab=messaging&mail=preview", origin));
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", origin));
-  if (!mailSetupStatus().gmail) return NextResponse.redirect(new URL("/settings?tab=account&mail=setup", origin));
+  if (!mailSetupStatus().gmail) return NextResponse.redirect(new URL("/settings?tab=messaging&mail=setup", origin));
   const state = randomBytes(24).toString("base64url");
   const url = gmailAuthUrl({
     clientId: process.env.GOOGLE_CLIENT_ID!.trim(),

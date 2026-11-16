@@ -24,7 +24,7 @@ const PAGES = [
   { href: "/team", label: "My Team", hint: "Team, invites & approvals" },
   { href: "/settings", label: "Settings", hint: "House and account" },
   { href: "/settings?tab=account", label: "Account", hint: "Password" },
-  { href: "/settings?tab=templates", label: "Email templates", hint: "Outreach drafts" },
+  { href: "/settings?tab=messaging", label: "Messaging settings", hint: "Gmail, texting, and templates" },
 ];
 
 export function CommandPalette({
@@ -46,7 +46,7 @@ export function CommandPalette({
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     const pages = PAGES.filter((page) => {
-      if (page.href.includes("tab=templates") && !canManage) return false;
+      if (page.href.includes("tab=messaging") && !canManage) return false;
       return !q || `${page.label} ${page.hint}`.toLowerCase().includes(q);
     }).map((page) => ({ ...page, kind: "Page" as const }));
     const homes = households
