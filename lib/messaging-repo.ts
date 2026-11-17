@@ -6,7 +6,7 @@ import { gmailAccountSecrets, touchGmailAccount } from "@/lib/supabase/write";
 import { sendChannelMessage } from "@/lib/messaging-send";
 import { channelFamily, optedOut, withinWhatsAppWindow, type MessageChannelType, type MessageFamily } from "@/lib/messaging";
 import { messagingSetupStatus, twilioFromNumber, twilioWhatsappNumber } from "@/lib/messaging-status";
-import { twilioWhatsappContentSid, whatsappTemplateState } from "@/lib/whatsapp-template";
+import { findWhatsAppTemplate, twilioWhatsappContentSid, whatsappTemplateState } from "@/lib/whatsapp-template";
 import { viewerPermissions } from "@/lib/model";
 import { newId } from "@/lib/ids";
 import { todayIso } from "@/lib/format";
@@ -109,6 +109,8 @@ export async function sendCampaignMessage(
     templateVars?: Record<string, string>;
     templateId?: string;
     preplannerEntryId?: string;
+    /** Twilio Content SID to send as a WhatsApp template. */
+    contentSid?: string;
     /** When true, send a free-form WhatsApp body (only allowed inside the 24-hour reply window). */
     freeform?: boolean;
   },
@@ -170,19 +172,21 @@ export async function sendCampaignMessage(
       });
       const inWindow = withinWhatsAppWindow(thread?.lastInboundAt);
       const tpl = await whatsappTemplateState();
-      const contentSid = twilioWhatsappContentSid();
+      const selected = findWhatsAppTemplate(tpl, input.contentSid || twilioWhatsappContentSid());
       const first = (person?.name ?? "").trim().split(/\s+/)[0] || "friend";
-      if (tpl.status === "approved" && contentSid && !input.freeform) {
-        templateName = contentSid;
+      if (selected?.status === "approved" && !input.freeform) {
+        templateName = selected.sid;
         templateVars = { "1": first };
-        body = body || `Hi ${first}`;
+        body = (selected.body || body || `Hi ${first}`).replace(/\{\{\s*1\s*\}\}/g, first);
       } else if (inWindow && body.trim()) {
         templateName = undefined;
         templateVars = undefined;
+      } else if (selected && selected.status !== "approved") {
+        throw new Error(`The WhatsApp template (${selected.label || selected.name}) is still waiting for Meta approval. You can send a free-form message only within 24 hours of a contact's reply.`);
       } else if (tpl.status !== "approved") {
         throw new Error("The WhatsApp template is still waiting for Meta approval. You can send a free-form message only within 24 hours of a contact's reply.");
       } else {
-        throw new Error("Write a WhatsApp message, or wait for the contact to reply.");
+        throw new Error("Pick an approved WhatsApp template, or write a message within 24 hours of a contact's reply.");
       }
     }
     const providerId = await sendChannelMessage({

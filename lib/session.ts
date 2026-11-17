@@ -88,6 +88,8 @@ export const getAppData = cache(async (): Promise<AppData | null> => {
       whatsappTemplateStatus: tpl.status,
       whatsappTemplateBody: tpl.body,
       whatsappTemplateName: tpl.name,
+      whatsappTemplateSid: tpl.sid,
+      whatsappTemplates: tpl.templates,
     };
   }
   const flags = {

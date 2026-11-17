@@ -12,7 +12,7 @@ import { recordExternalMessageAction, sendCampaignMessageAction } from "@/lib/ac
 import { channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
 import { fillPlaceholders, templatesOrDefault } from "@/lib/outreach";
 import { whatsappMeDigits, whatsappMeLink, whatsappNumberFor } from "@/lib/whatsapp";
-import type { AppData, HouseholdView, MessagingChannel, MessagingChannelType, Person, PreplannerEntry } from "@/lib/types";
+import type { AppData, HouseholdView, MessagingChannel, MessagingChannelType, Person, PreplannerEntry, WhatsAppContentTemplate } from "@/lib/types";
 
 type Mode = "email" | "text" | "whatsapp";
 
@@ -86,6 +86,26 @@ function lastWhatsAppInbound(data: AppData, householdId: string, phone: string) 
   return match?.lastInboundAt;
 }
 
+
+function fillWhatsAppContent(body: string, first: string) {
+  return body.replace(/\{\{\s*1\s*\}\}/g, first);
+}
+
+function defaultWhatsAppContentSid(templates: WhatsAppContentTemplate[], fallback?: string) {
+  const env = fallback ? templates.find((item) => item.sid === fallback) : undefined;
+  if (env?.status === "approved") return env.sid;
+  const approved = templates.find((item) => item.status === "approved");
+  if (approved) return approved.sid;
+  if (env) return env.sid;
+  return templates[0]?.sid ?? "";
+}
+
+function whatsappStatusLabel(status: WhatsAppContentTemplate["status"]) {
+  if (status === "approved") return "Approved";
+  if (status === "rejected") return "Not approved";
+  return "Pending Meta approval";
+}
+
 export function PreplannerMessageDialog({
   open,
   data,
@@ -121,6 +141,8 @@ export function PreplannerMessageDialog({
   const emailReady = Boolean(data.mailSetup?.gmail && channels.some((item) => item.type === "email_gmail" && item.gmailAccountId));
   const whatsappApi = Boolean(data.mailSetup?.whatsappApiSendingEnabled);
   const whatsappApiReady = Boolean(whatsappApi && data.mailSetup?.whatsapp);
+  const waTemplates = data.mailSetup?.whatsappTemplates ?? [];
+  const [waContentSid, setWaContentSid] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -129,6 +151,7 @@ export function PreplannerMessageDialog({
     setTemplateId(tmpl?.id ?? "");
     setSubject(tmpl?.subject ?? "");
     setBody(tmpl?.email ?? "");
+    setWaContentSid(defaultWhatsAppContentSid(waTemplates, data.mailSetup?.whatsappTemplateSid));
     setError("");
     setResults(null);
     setQueue(null);
@@ -143,6 +166,8 @@ export function PreplannerMessageDialog({
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps -- reset when the sheet opens
 
   const type = channelTypeFor(mode);
+  const selectedWa = waTemplates.find((item) => item.sid === waContentSid) ?? waTemplates[0];
+  const selectedWaApproved = selectedWa?.status === "approved";
 
   const rows = useMemo(() => {
     const out: {
@@ -172,13 +197,13 @@ export function PreplannerMessageDialog({
         else if (mode === "whatsapp" && !whatsappMeLink(address, "ok")) skip = "No valid WhatsApp number";
         else if (mode === "email" && !channelFor(channels, type, house!.state)) skip = "No Gmail channel for this state";
         else if (mode === "text" && !channelFor(channels, type, house!.state)) skip = "No texting channel for this state";
-        else if (mode === "whatsapp" && whatsappApi && data.mailSetup?.whatsappTemplateStatus !== "approved" && !withinWhatsAppWindow(lastWhatsAppInbound(data, house!.id, address))) skip = "Waiting for WhatsApp template approval (only people who replied in the last 24 hours can get a free-form message)";
+        else if (mode === "whatsapp" && whatsappApi && !selectedWaApproved && !withinWhatsAppWindow(lastWhatsAppInbound(data, house!.id, address))) skip = selectedWa ? `${selectedWa.label} is waiting for Meta approval (only people who replied in the last 24 hours can get a free-form message)` : "Waiting for WhatsApp template approval (only people who replied in the last 24 hours can get a free-form message)";
         else if (mode === "whatsapp" && whatsappApi && !channelFor(channels, type, house!.state) && !data.mailSetup?.whatsapp) skip = "No WhatsApp channel for this state";
         out.push({ person, house: house!, entry, address, skip });
       }
     }
     return out;
-  }, [channels, data, houses, mode, type, whatsappApi, whatsappApiReady]);
+  }, [channels, data, houses, mode, selectedWa, selectedWaApproved, type, whatsappApi, whatsappApiReady]);
 
   const ready = rows.filter((row) => !row.skip);
   const skipped = rows.filter((row) => row.skip);
@@ -230,13 +255,17 @@ export function PreplannerMessageDialog({
       setError("No one is selected to message.");
       return;
     }
-    const whatsappApproved = mode !== "whatsapp" || data.mailSetup?.whatsappTemplateStatus === "approved";
+    const whatsappApproved = mode !== "whatsapp" || selectedWaApproved;
     if (mode === "email" && !subject.trim()) {
       setError("Add a subject and a message.");
       return;
     }
     if ((mode !== "whatsapp" || !whatsappApproved) && !body.trim()) {
       setError("Write a message, or pick a template.");
+      return;
+    }
+    if (mode === "whatsapp" && whatsappApi && !whatsappApproved && !selectedWa) {
+      setError("No approved WhatsApp template is available yet. You can only send a free-form message within 24 hours of a contact’s reply.");
       return;
     }
     start(async () => {
@@ -249,8 +278,11 @@ export function PreplannerMessageDialog({
       const sent: { name: string; ok: boolean; error?: string }[] = [];
       for (const row of chosen) {
         const channel = channelFor(channels, type, row.house.state);
-        const filled = fillPlaceholders(body, varsFor(row.person, row.house));
-        const filledSubject = mode === "email" ? fillPlaceholders(subject, varsFor(row.person, row.house)) : undefined;
+        const names = varsFor(row.person, row.house);
+        const filled = mode === "whatsapp" && selectedWaApproved && selectedWa
+          ? fillWhatsAppContent(selectedWa.body, names.firstName || "friend")
+          : fillPlaceholders(body, names);
+        const filledSubject = mode === "email" ? fillPlaceholders(subject, names) : undefined;
         const result = await sendCampaignMessageAction({
           channelId: channel?.id,
           type,
@@ -261,9 +293,10 @@ export function PreplannerMessageDialog({
           personId: row.person.id,
           projectId: row.entry.projectId,
           templateId: templateId || undefined,
-          templateName: catalog.find((item) => item.id === templateId)?.name,
+          templateName: mode === "whatsapp" ? (selectedWa?.name || selectedWa?.label) : catalog.find((item) => item.id === templateId)?.name,
           preplannerEntryId: row.entry.id,
-          freeform: mode === "whatsapp" && data.mailSetup?.whatsappTemplateStatus !== "approved",
+          contentSid: mode === "whatsapp" ? selectedWa?.sid : undefined,
+          freeform: mode === "whatsapp" && !selectedWaApproved,
         });
         sent.push({ name: row.person.name || row.house.name, ok: result.ok, error: result.ok ? undefined : result.error });
       }
@@ -349,6 +382,7 @@ export function PreplannerMessageDialog({
     || (mode === "email" && !emailReady)
     || (mode === "text" && (!smsReady || !smsAllowed))
     || (mode === "whatsapp" && whatsappApi && !whatsappApiReady)
+    || (mode === "whatsapp" && whatsappApi && !selectedWaApproved && !body.trim())
     || !chosen.length;
 
   const primaryLabel = pending
@@ -432,48 +466,97 @@ export function PreplannerMessageDialog({
             {mode === "whatsapp" && whatsappApi && !whatsappApiReady ? (
               <Notice tone="info">Twilio WhatsApp is not set up yet. Set TWILIO_WHATSAPP_FROM and an approved Content template, or leave API sending off to use the phone queue.</Notice>
             ) : null}
-            {mode === "whatsapp" && whatsappApi && whatsappApiReady && data.mailSetup?.whatsappTemplateStatus === "approved" ? (
-              <Notice tone="ok">WhatsApp will send the approved template{data.mailSetup.whatsappTemplateName ? ` (${data.mailSetup.whatsappTemplateName})` : ""}, with each person’s name in the greeting.{data.mailSetup.whatsappTemplateBody ? ` “${data.mailSetup.whatsappTemplateBody.replace(/\{\{1\}\}/g, "{name")}”` : ""}</Notice>
-            ) : null}
-            {mode === "whatsapp" && whatsappApi && whatsappApiReady && data.mailSetup?.whatsappTemplateStatus === "pending" ? (
-              <Notice tone="info">The WhatsApp template{data.mailSetup.whatsappTemplateName ? ` (${data.mailSetup.whatsappTemplateName})` : ""} is waiting for Meta approval. Until it’s approved, you can only send a free-form message to people who WhatsApp’d you in the last 24 hours.</Notice>
-            ) : null}
-            {mode === "whatsapp" && whatsappApi && whatsappApiReady && data.mailSetup?.whatsappTemplateStatus === "rejected" ? (
-              <Notice>Meta did not approve the WhatsApp template{data.mailSetup.whatsappTemplateName ? ` (${data.mailSetup.whatsappTemplateName})` : ""}. You can still send a free-form message within 24 hours of a contact’s reply.</Notice>
-            ) : null}
-            {mode === "whatsapp" && whatsappApi && whatsappApiReady && data.mailSetup?.whatsappTemplateStatus === "missing" ? (
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && !waTemplates.length ? (
               <Notice tone="info">No WhatsApp Content template is configured yet. You can only send a free-form message within 24 hours of a contact’s reply.</Notice>
             ) : null}
-
-            <label className="grid gap-1 text-sm">
-              <span className="text-muted-foreground">Template</span>
-              <select
-                className="h-11 rounded-xl border bg-card px-3 text-sm"
-                value={templateId}
-                onChange={(event) => applyTemplate(event.target.value)}
-                aria-label="Message template"
-              >
-                <option value="">Write your own</option>
-                {catalog.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-              </select>
-            </label>
-            {mode === "email" ? (
-              <label className="grid gap-1 text-sm">
-                <span className="text-muted-foreground">Subject</span>
-                <Input value={subject} onChange={(event) => setSubject(event.target.value)} />
-              </label>
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && selectedWa?.status === "approved" ? (
+              <Notice tone="ok">WhatsApp will send “{selectedWa.label}” with each person’s name in the greeting.</Notice>
             ) : null}
-            <label className="grid gap-1 text-sm">
-              <span className="text-muted-foreground">Message</span>
-              <Textarea className="min-h-28" value={body} onChange={(event) => setBody(event.target.value)} />
-              <span className="text-xs text-muted-foreground">Use {"{name}"} or {"{first name}"} to personalize each message.</span>
-            </label>
-            {sample && body.trim() ? (
-              <p className="whitespace-pre-wrap rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
-                Preview for {sample.person.name || sample.house.name}: {preview}
-              </p>
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && selectedWa?.status === "pending" ? (
+              <Notice tone="info">“{selectedWa.label}” is waiting for Meta approval. Until it’s approved, you can only send a free-form message to people who WhatsApp’d you in the last 24 hours.</Notice>
+            ) : null}
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && selectedWa?.status === "rejected" ? (
+              <Notice>Meta did not approve “{selectedWa.label}”. You can still send a free-form message within 24 hours of a contact’s reply.</Notice>
+            ) : null}
+
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && waTemplates.length ? (
+              <fieldset className="grid gap-2">
+                <legend className="text-sm text-muted-foreground">WhatsApp template</legend>
+                <div className="grid gap-2">
+                  {waTemplates.map((item) => {
+                    const first = sample ? (varsFor(sample.person, sample.house).firstName || "friend") : "friend";
+                    const previewBody = fillWhatsAppContent(item.body, first);
+                    const checked = (selectedWa?.sid ?? waContentSid) === item.sid;
+                    return (
+                      <label
+                        key={item.sid}
+                        className={`grid cursor-pointer gap-1 rounded-2xl px-3 py-2.5 ring-1 ${checked ? "bg-muted/80 ring-primary" : "bg-card ring-input"}`}
+                      >
+                        <span className="flex items-start gap-2">
+                          <input
+                            type="radio"
+                            className="mt-1"
+                            name="whatsapp-content-template"
+                            value={item.sid}
+                            checked={checked}
+                            onChange={() => setWaContentSid(item.sid)}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-baseline justify-between gap-2">
+                              <span className="font-medium text-foreground">{item.label}</span>
+                              <span className={`text-xs ${item.status === "approved" ? "text-emerald-700" : item.status === "rejected" ? "text-destructive" : "text-muted-foreground"}`}>
+                                {whatsappStatusLabel(item.status)}
+                              </span>
+                            </span>
+                            <span className="block text-xs text-muted-foreground">{item.name}</span>
+                          </span>
+                        </span>
+                        {previewBody ? (
+                          <p className="whitespace-pre-wrap pl-6 text-xs text-muted-foreground">
+                            {sample ? `Preview for ${sample.person.name || sample.house.name}: ` : null}
+                            {previewBody}
+                          </p>
+                        ) : null}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ) : null}
+
+            {mode !== "whatsapp" || !whatsappApi || !selectedWaApproved ? (
+              <>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-muted-foreground">Template</span>
+                  <select
+                    className="h-11 rounded-xl border bg-card px-3 text-sm"
+                    value={templateId}
+                    onChange={(event) => applyTemplate(event.target.value)}
+                    aria-label="Message template"
+                  >
+                    <option value="">Write your own</option>
+                    {catalog.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                </label>
+                {mode === "email" ? (
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-muted-foreground">Subject</span>
+                    <Input value={subject} onChange={(event) => setSubject(event.target.value)} />
+                  </label>
+                ) : null}
+                <label className="grid gap-1 text-sm">
+                  <span className="text-muted-foreground">Message</span>
+                  <Textarea className="min-h-28" value={body} onChange={(event) => setBody(event.target.value)} />
+                  <span className="text-xs text-muted-foreground">Use {"{name}"} or {"{first name}"} to personalize each message.</span>
+                </label>
+                {sample && body.trim() ? (
+                  <p className="whitespace-pre-wrap rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+                    Preview for {sample.person.name || sample.house.name}: {preview}
+                  </p>
+                ) : null}
+              </>
             ) : null}
 
             <div className="grid gap-1.5">

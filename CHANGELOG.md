@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.74
+- The Pre-planner **Message** sheet’s WhatsApp option now lists live Twilio Content templates whose names start with `cora_` (including **Chanukah visit** / `cora_maine_chanukah` and `cora_maine_visit`). Each one shows a name-filled preview and its Meta approval status (pending, approved, or rejected). Only an approved template can be sent, using that template’s ContentSid and `{{1}}` as the person’s first name. Until Meta approves a selected template, sending stays gated to a free-form message within 24 hours of a contact’s reply. New `cora_` templates appear automatically from Twilio; `TWILIO_WHATSAPP_CONTENT_SID` is still the fallback default.
+
 ## 1.8.73
 - WhatsApp in the Pre-planner **Message** sheet can now send through the Twilio WhatsApp API (`whatsapp:+12079772968`) using Content template `cora_maine_visit` (`{{1}}` is the person’s name). Until Meta approves that template, sending is gated and only a free-form message is allowed within 24 hours of a contact’s reply; the sheet shows the approval status. Replies go to `/api/webhooks/twilio/whatsapp` (the WhatsApp sender webhook), so they can attach to the Pre-planner without changing the SMS Messaging Service webhook.
 

@@ -298,6 +298,16 @@ export interface DomainSender {
   sortOrder: number;
 }
 
+export type WhatsAppTemplateStatus = "approved" | "pending" | "rejected" | "missing";
+
+export interface WhatsAppContentTemplate {
+  sid: string;
+  name: string;
+  label: string;
+  body: string;
+  status: Exclude<WhatsAppTemplateStatus, "missing">;
+}
+
 export interface MailSetup {
   gmail: boolean;
   resend: boolean;
@@ -305,9 +315,11 @@ export interface MailSetup {
   whatsapp?: boolean;
   smsSendingEnabled?: boolean;
   whatsappApiSendingEnabled?: boolean;
-  whatsappTemplateStatus?: "approved" | "pending" | "rejected" | "missing";
+  whatsappTemplateStatus?: WhatsAppTemplateStatus;
   whatsappTemplateBody?: string;
   whatsappTemplateName?: string;
+  whatsappTemplateSid?: string;
+  whatsappTemplates?: WhatsAppContentTemplate[];
 }
 
 export type MessagingChannelType = "email_gmail" | "email_resend" | "sms_twilio" | "whatsapp_twilio";
