@@ -1,4 +1,7 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { parseSummerMode } from "@/lib/contact-tags";
+import { SUMMER_COOKIE } from "@/lib/summer";
 import { Shell } from "@/components/shell";
 import { WaitingRoom } from "@/components/waiting-room";
 import { formatMedium } from "@/lib/format";
@@ -16,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <Shell
       viewer={data.viewer}
+      summerMode={parseSummerMode((await cookies()).get(SUMMER_COOKIE)?.value)}
       notifications={data.notifications}
       households={data.households.map((household) => ({
         id: household.id,

@@ -60,7 +60,8 @@ import {
   setHouseholdSchedule,
 } from "@/lib/repo";
 import { assertNotPreview } from "@/lib/preview";
-import { getAppData, getCurrentUser } from "@/lib/session";
+import { parseSummerMode, summerVisible } from "@/lib/contact-tags";
+import { getAppDataAll as getAppData, getCurrentUser } from "@/lib/session";
 import { geocodeMany, geocodeText } from "@/lib/geocode";
 import { nearestNeighbor } from "@/lib/geo";
 import {
@@ -656,7 +657,13 @@ export async function searchContactsAction(query: string): Promise<ContactSearch
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("search_contacts", { p_q: q.slice(0, 80), p_limit: 12 });
   if (error || !Array.isArray(data)) return [];
-  return data.map((row: Record<string, unknown>) => ({
+  const mode = parseSummerMode((await (await import("next/headers")).cookies()).get("cora_summer")?.value);
+  let hidden = new Set<string>();
+  if (mode !== "all" && data.length) {
+    const { data: tagRows } = await supabase.from("households").select("id, tags").in("id", data.map((row: Record<string, unknown>) => String(row.household_id)));
+    hidden = new Set((tagRows ?? []).filter((row) => !summerVisible((row.tags as string[] | null) ?? [], mode)).map((row) => String(row.id)));
+  }
+  return data.filter((row: Record<string, unknown>) => !hidden.has(String(row.household_id))).map((row: Record<string, unknown>) => ({
     id: String(row.household_id),
     name: String(row.name ?? ""),
     city: String(row.city ?? ""),
@@ -664,4 +671,13 @@ export async function searchContactsAction(query: string): Promise<ContactSearch
     field: String(row.field ?? ""),
     value: String(row.value ?? ""),
   }));
+}
+
+/** Global Summer homes toggle: all, hide summer homes, or only summer homes. Saved in a cookie so it follows him across pages. */
+export async function setSummerModeAction(mode: string) {
+  const { cookies } = await import("next/headers");
+  const value = mode === "hide" || mode === "only" ? mode : "all";
+  (await cookies()).set("cora_summer", value, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+  revalidatePath("/", "layout");
+  return { ok: true as const, mode: value };
 }

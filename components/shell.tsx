@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import type { SummerMode } from "@/lib/contact-tags";
 import { SortableNav, NavHandle } from "@/components/sortable-nav";
 import { saveSidebarOrderAction } from "@/lib/nav-actions";
 import {
@@ -27,6 +28,8 @@ import {
   Menu,
   Route,
   Search,
+  Sun,
+  Check,
   Settings,
   Users,
 } from "lucide-react";
@@ -44,7 +47,7 @@ import { applyTheme, isThemeId, THEME_KEY } from "@/lib/themes";
 import { applyPhotoTheme, clearPhotoTheme, isPhotoThemeColors } from "@/lib/photo-theme";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { logoutAction } from "@/lib/actions";
+import { logoutAction, setSummerModeAction } from "@/lib/actions";
 import { scopeLabel } from "@/lib/constants";
 import { useViewingState } from "@/lib/viewing-state";
 import { formatMedium } from "@/lib/format";
@@ -227,12 +230,41 @@ function MoreGroup({
   );
 }
 
+const SUMMER_LABELS: Record<SummerMode, string> = { all: "All contacts", hide: "Hiding summer homes", only: "Only summer homes" };
+
+/** Global Summer homes toggle. Saved in a cookie, so every page (contacts, pre-planner, messages, map, reports, search) follows it. */
+function SummerToggle({ mode }: { mode: SummerMode }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const choose = (next: SummerMode) => startTransition(async () => { await setSummerModeAction(next); router.refresh(); });
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" aria-label={`Summer homes: ${SUMMER_LABELS[mode]}`} className={`relative inline-flex size-11 items-center justify-center rounded-full hover:bg-muted ${mode !== "all" ? "text-amber-700" : "text-foreground"}`}>
+          <Sun className="size-[18px]" />
+          {mode !== "all" ? <span className="absolute top-2 right-2 size-2 rounded-full bg-amber-600" /> : null}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-1.5">
+        <p className="px-2.5 py-1.5 text-xs text-muted-foreground">Summer homes (everywhere in the CRM){pending ? " · saving…" : ""}</p>
+        {([["all", "All contacts"], ["hide", "Hide summer homes"], ["only", "Only summer homes"]] as const).map(([value, label]) => (
+          <button key={value} type="button" aria-pressed={mode === value} onClick={() => choose(value)} className={`flex min-h-11 w-full items-center justify-between rounded-xl px-2.5 text-sm hover:bg-muted ${mode === value ? "font-semibold text-foreground" : "text-foreground"}`}>
+            {label}{mode === value ? <Check className="size-4" /> : null}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function Shell({
   viewer,
   households,
+  summerMode = "all",
   children,
 }: {
   viewer: Viewer;
+  summerMode?: SummerMode;
   /** Still passed by the layout; the bell is gone from the toolbar. */
   notifications?: AppNotificationView[];
   households: PaletteHousehold[];
@@ -348,6 +380,7 @@ export function Shell({
           <button type="button" aria-label="Search CORA Connect" className="inline-flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted md:hidden" onClick={() => setSearch(true)}>
             <Search className="size-[18px]" />
           </button>
+          <SummerToggle mode={summerMode} />
           <ThemeToggle />
           <Popover>
             <PopoverTrigger asChild>

@@ -69,7 +69,7 @@ import { usePractice } from "@/components/practice-provider";
 import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
 import { blankExtraAddress, formatExtraAddress, parseExtraAddresses } from "@/lib/extra-addresses";
-import { CONTACT_TAGS, officialTags } from "@/lib/contact-tags";
+import { CONTACT_TAGS, SUMMER_TAG, displayTags, isSummerHome, officialTags } from "@/lib/contact-tags";
 import { ContactFilterControls, filtersActive, useContactFilters } from "@/components/contact-filters";
 import { labeledVisitNotes, type LabeledNote, visitNoteLabel } from "@/lib/visit-notes";
 import { compareHasEmail, compareHasPhone } from "@/lib/contact-match";
@@ -295,7 +295,7 @@ export function HouseholdsView({
           row.city,
           row.state,
           row.zip,
-          officialTags(row.tags).join("; "),
+          displayTags(row.tags).join("; "),
           visit.visited,
           visitStatusLabel(visit.status),
           visitReactionMeta(visit.reaction)?.label ?? "",
@@ -1574,7 +1574,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                     aria-pressed={selected}
                     className={cn("h-8 rounded-full px-3 text-xs font-medium", selected ? "bg-amber-700 text-white" : "bg-muted text-foreground")}
                     onClick={() => {
-                      const current = officialTags(form.tags.split(","));
+                      const current = displayTags(form.tags.split(","));
                       const next = selected ? current.filter((item) => item !== tag) : [...current, tag];
                       setForm({ ...form, tags: next.join(", ") });
                     }}
@@ -1583,8 +1583,20 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                   </button>
                 );
               })}
+              <button
+                type="button"
+                aria-pressed={isSummerHome(form.tags.split(","))}
+                className={cn("h-8 rounded-full px-3 text-xs font-medium", isSummerHome(form.tags.split(",")) ? "bg-sky-700 text-white" : "bg-muted text-foreground")}
+                onClick={() => {
+                  const current = displayTags(form.tags.split(","));
+                  const next = isSummerHome(current) ? current.filter((item) => item !== SUMMER_TAG) : [...current, SUMMER_TAG];
+                  setForm({ ...form, tags: next.join(", ") });
+                }}
+              >
+                {SUMMER_TAG}
+              </button>
             </div>
-            <p className="text-xs text-muted-foreground">Tagged contacts stay off the main list. Search still finds them.</p>
+            <p className="text-xs text-muted-foreground">Not Jewish / Probably doesn't exist stay off the main list. Summer home stays active and is only hidden by the Summer homes toggle in the top bar.</p>
           </div>
           {data.viewer.role === "shliach" ? (
             <>
@@ -1869,12 +1881,12 @@ function HistoryDialog({ household, canHistory, onClose, onEditVisit }: { househ
 }
 
 function TagBadges({ tags }: { tags: string[] }) {
-  const shown = officialTags(tags);
+  const shown = displayTags(tags);
   if (!shown.length) return null;
   return (
     <>
       {shown.map((tag) => (
-        <span key={tag} className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-950">{tag}</span>
+        <span key={tag} className={tag === SUMMER_TAG ? "rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-950" : "rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-950"}>{tag}</span>
       ))}
     </>
   );

@@ -3,6 +3,9 @@ import { cache } from "react";
 import { todayIso } from "@/lib/format";
 import { whatsappTemplateState } from "@/lib/whatsapp-template";
 import { normalizeAccountStatus } from "@/lib/constants";
+import { cookies } from "next/headers";
+import { SUMMER_COOKIE } from "@/lib/summer";
+import { parseSummerMode, summerVisible } from "@/lib/contact-tags";
 import { present } from "@/lib/present";
 import { applyPreview, readPreview, readSandbox } from "@/lib/preview";
 import { loadDemo } from "@/lib/store";
@@ -71,7 +74,7 @@ export const loadDatabase = cache(async (): Promise<Database> => {
   return loadDemo();
 });
 
-export const getAppData = cache(async (): Promise<AppData | null> => {
+export const getAppDataAll = cache(async (): Promise<AppData | null> => {
   const user = await getCurrentUser();
   if (!user) return null;
   const db = await loadDatabase();
@@ -100,4 +103,24 @@ export const getAppData = cache(async (): Promise<AppData | null> => {
     return { ...data, viewer: { ...data.viewer, ...flags } };
   }
   return data;
+});
+
+/** App data with the global Summer homes toggle applied (cookie). Server actions use getAppDataAll so edits never miss a contact. */
+export const getAppData = cache(async (): Promise<AppData | null> => {
+  const data = await getAppDataAll();
+  if (!data) return data;
+  const mode = parseSummerMode((await cookies()).get(SUMMER_COOKIE)?.value);
+  if (mode === "all") return data;
+  const keep = new Set(data.households.filter((house) => summerVisible(house.tags, mode)).map((house) => house.id));
+  const households = data.households.filter((house) => keep.has(house.id));
+  return {
+    ...data,
+    households,
+    visits: data.visits.filter((visit) => keep.has(visit.householdId)),
+    routes: data.routes.map((route) => ({ ...route, stops: route.stops.filter((stop) => keep.has(stop.householdId)) })),
+    preplannerEntries: data.preplannerEntries.filter((entry) => keep.has(entry.householdId)),
+    contactedFacts: data.contactedFacts.filter((fact) => keep.has(fact.householdId)),
+    messageThreads: data.messageThreads.filter((thread) => !thread.householdId || keep.has(thread.householdId)),
+    stats: { ...data.stats, householdCount: households.length },
+  };
 });

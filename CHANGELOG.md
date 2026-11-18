@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.79
+- New **Summer home** tag, separate from Not Jewish / Probably doesn't exist (those keep behaving as before). Summer home contacts stay fully active and visible. Set it with the **Summer home** button next to Tags on a contact's edit form; it shows as a blue badge. A new **sun button in the top bar** is one global switch that follows you across pages: **All contacts**, **Hide summer homes**, or **Only summer homes**. It applies to Contacts, Pre-planner, the Message sheet audience, map and route planning, reports and dashboard counts, messages, and search. It is saved in your browser session, so it stays on until you change it. Six likely summer homes were tagged from their notes.
+
 ## 1.8.78
 - Editing a visit from a contact's visit history now updates that same visit instead of adding a new one. Visits that live on the contact history (added from the contact form, imports, or earlier edits) were not found by the edit save, so it created a fresh visit with a new id and left the original untouched. The save now finds the history row by its id and changes Visited, reaction, notes, date, status, activities and project in place. If the visit can't be found at all, it says so instead of creating a new one. Editing a visit from the log-a-visit list also updates the project when Visited names a project.
 

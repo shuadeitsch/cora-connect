@@ -61,12 +61,45 @@ export function canonicalTag(value: string): ContactTag | null {
   return null;
 }
 
-export function parseContactTags(value: string): { tags: ContactTag[]; unknown: string[] } {
-  const tags: ContactTag[] = [];
+/** Separate from the hidden tags above: a summer home stays fully active and visible unless the Summer homes toggle hides it. */
+export const SUMMER_TAG = "Summer home";
+
+export function isSummerTag(value: string): boolean {
+  const folded = foldTag(value).replace(/ /g, "");
+  return folded === "summerhome" || folded === "summerhomes";
+}
+
+export function isSummerHome(tags: string[] | undefined | null): boolean {
+  return (tags ?? []).some(isSummerTag);
+}
+
+export type SummerMode = "all" | "hide" | "only";
+
+export function parseSummerMode(value: string | undefined | null): SummerMode {
+  return value === "hide" || value === "only" ? value : "all";
+}
+
+/** Applies the global Summer homes toggle: all, hide summer homes, or only summer homes. */
+export function summerVisible(tags: string[] | undefined | null, mode: SummerMode): boolean {
+  if (mode === "all") return true;
+  return mode === "only" ? isSummerHome(tags) : !isSummerHome(tags);
+}
+
+/** Tags to show as badges and to keep when saving: the hidden tags plus Summer home. */
+export function displayTags(tags: string[]): string[] {
+  return isSummerHome(tags) ? [...officialTags(tags), SUMMER_TAG] : officialTags(tags);
+}
+
+export function parseContactTags(value: string): { tags: (ContactTag | typeof SUMMER_TAG)[]; unknown: string[] } {
+  const tags: (ContactTag | typeof SUMMER_TAG)[] = [];
   const unknown: string[] = [];
   for (const part of value.split(/[,;]/)) {
     const raw = part.trim();
     if (!raw) continue;
+    if (isSummerTag(raw)) {
+      if (!tags.includes(SUMMER_TAG)) tags.push(SUMMER_TAG);
+      continue;
+    }
     const tag = canonicalTag(raw);
     if (!tag) {
       unknown.push(raw);
