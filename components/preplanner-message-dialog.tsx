@@ -11,6 +11,7 @@ import { useUndoToast } from "@/components/undo-toast";
 import { recordExternalMessageAction, sendCampaignBatchAction } from "@/lib/actions";
 import { stateLabel } from "@/lib/constants";
 import { addressesForFamily, channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
+import { isDeceased } from "@/lib/contact-tags";
 import { fillPlaceholders, templatesOrDefault } from "@/lib/outreach";
 import { whatsappMeDigits, whatsappMeLink, whatsappNumberFor } from "@/lib/whatsapp";
 import type { AppData, HouseholdView, MessagingChannel, MessagingChannelType, Person, PreplannerEntry, WhatsAppContentTemplate } from "@/lib/types";
@@ -128,7 +129,7 @@ export function PreplannerMessageDialog({
   const practice = usePractice();
   const catalog = templatesOrDefault(data.outreachTemplates);
   const channels = useMemo(() => scopedChannels(data), [data]);
-  const baseHouses = useMemo(() => data.households.filter((house) => !house.deletedAt && !house.deletedByShliachAt), [data.households]);
+  const baseHouses = useMemo(() => data.households.filter((house) => !house.deletedAt && !house.deletedByShliachAt && !isDeceased(house.tags)), [data.households]);
   const states = useMemo(() => [...new Set(baseHouses.map((house) => stateLabel(house.state || "")).filter(Boolean))].sort(), [baseHouses]);
   const entryByHouse = useMemo(() => {
     const map = new Map<string, PreplannerEntry>();

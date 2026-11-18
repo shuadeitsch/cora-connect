@@ -1596,7 +1596,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                 {SUMMER_TAG}
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">Not Jewish / Probably doesn&apos;t exist stay off the main list. Summer home stays active and is only hidden by the Summer homes toggle in the top bar.</p>
+            <p className="text-xs text-muted-foreground">Not Jewish / Probably doesn&apos;t exist / Deceased stay off the main list. Summer home stays active and is only hidden by the Summer homes toggle in the top bar.</p>
           </div>
           {data.viewer.role === "shliach" ? (
             <>

@@ -246,7 +246,7 @@ Allowed values:
 - status: Completed or Deferred. Blank means Completed.
 - visit_date: YYYY-MM-DD, or blank.
 - reaction: Very happy, Warm, Neutral, Cold, or Very cold / angry. Neutral means "nisht ahin nisht aher". Leave blank if unknown.
-- tags: Not Jewish, Probably doesn't exist, or both. Separate tags with a comma or a semicolon. Matching ignores capitalization. Leave blank if neither applies.
+- tags: Not Jewish, Probably doesn't exist, Deceased, or any of them together. Separate tags with a comma or a semicolon. Matching ignores capitalization. Leave blank if neither applies.
 - state: Maine, Wisconsin, New Hampshire, or Unsorted. A 2-letter code (ME, WI, NH) or the full name is fine. Unsorted is for a contact that is not in one of those three states.
 - phone: digits, with or without dashes or parentheses. Example: 207-555-0100.
 - phone2, phone3: optional extra numbers, same format. Leave blank if you only have one.
@@ -396,7 +396,7 @@ export function mapContacts(
     const warnings: string[] = [];
     if (!name) warnings.push("No name. This row is still imported as Unnamed contact.");
     if (share.warning) warnings.push(share.warning);
-    if (tags.unknown.length) warnings.push(`Unknown tag “${tags.unknown.join(", ")}”. Use Not Jewish or Probably doesn't exist.`);
+    if (tags.unknown.length) warnings.push(`Unknown tag “${tags.unknown.join(", ")}”. Use Not Jewish, Probably doesn't exist, or Deceased.`);
     if (status.warning) warnings.push(status.warning);
     if (email && !/.+@.+\..+/.test(email)) warnings.push("Email does not look valid.");
     if (reaction && !parseHouseholdReaction(reaction)) warnings.push(`Unknown reaction “${reaction}”.`);

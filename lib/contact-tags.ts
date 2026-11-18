@@ -1,6 +1,6 @@
 import { normalizeState } from "@/lib/constants";
 
-export const CONTACT_TAGS = ["Not Jewish", "Probably doesn't exist"] as const;
+export const CONTACT_TAGS = ["Not Jewish", "Probably doesn't exist", "Deceased"] as const;
 
 export type ContactTag = (typeof CONTACT_TAGS)[number];
 
@@ -57,6 +57,7 @@ export function canonicalTag(value: string): ContactTag | null {
   if (!folded) return null;
   const compact = folded.replace(/ /g, "");
   if (folded === "not jewish" || folded === "non jewish" || compact === "notjewish" || compact === "nonjewish") return "Not Jewish";
+  if (folded === "deceased" || folded === "dead" || folded === "passed away" || compact === "deceased") return "Deceased";
   if (isProbablyDoesntExist(folded)) return "Probably doesn't exist";
   return null;
 }
@@ -183,4 +184,9 @@ export function countRemovedTagged(
     }
     return isTaggedContact(house.tags);
   }).length;
+}
+
+/** Deceased contacts are hidden like the other tags, and are also left out of the Message sheet. */
+export function isDeceased(tags: string[] | undefined | null): boolean {
+  return officialTags(tags ?? []).includes("Deceased");
 }

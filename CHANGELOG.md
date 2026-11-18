@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.80
+- New **Deceased** tag, alongside Not Jewish and Probably doesn't exist, and it works the same way: set it on the contact's edit form (a Deceased button in Tags), shown as a badge, in the Tags filter ("Tagged contacts" then Deceased), and in the CSV export and import. Deceased contacts stay off the main list, routes, reports and the Pre-planner like the other tags, and are also left out of the Message sheet's audience so nobody is messaged. Contacts BeenVerified or public records list as deceased were reviewed against visit history: those with no answered visit were tagged; those who answered the door were left alone with a note.
+
 ## 1.8.79
 - New **Summer home** tag, separate from Not Jewish / Probably doesn't exist (those keep behaving as before). Summer home contacts stay fully active and visible. Set it with the **Summer home** button next to Tags on a contact's edit form; it shows as a blue badge. A new **sun button in the top bar** is one global switch that follows you across pages: **All contacts**, **Hide summer homes**, or **Only summer homes**. It applies to Contacts, Pre-planner, the Message sheet audience, map and route planning, reports and dashboard counts, messages, and search. It is saved in your browser session, so it stays on until you change it. The Contacts filter panel (also used by Create route on the map and Plan a trip) has an **Exclude summer homes** checkbox, and an open route has a **Remove N summer homes from this route** button. Ten likely summer homes were tagged from their notes and public records.
 
