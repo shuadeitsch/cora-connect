@@ -557,6 +557,33 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
     const status = input.status ? parseStatus(input.status) : null;
     const reaction = visitLogReaction(input.reaction);
     const existing = input.id ? db.visits.find((visit) => visit.id === input.id) : undefined;
+    const priorHistoryRow = input.id ? (db.contactVisits ?? []).find((item) => item.id === input.id) : undefined;
+    const chosenName = (input.visited ?? "").trim();
+    const namedProject = chosenName ? db.projects.find((item) => item.name.trim().toLowerCase() === chosenName.toLowerCase()) : undefined;
+    if (input.id && !existing && !priorHistoryRow) throw new Error("That visit is no longer here. Close this and open it again.");
+    if (input.id && !existing && priorHistoryRow) {
+      // A visit saved on the contact's history (not the log-a-visit table): update that same row in place.
+      assert(priorHistoryRow.householdId === input.householdId, "That visit belongs to a different contact.");
+      const updated: ContactVisit = {
+        ...priorHistoryRow,
+        visited: chosenName || priorHistoryRow.visited,
+        visitedBy: (input.visitedBy ?? "").trim() || priorHistoryRow.visitedBy || null,
+        reaction: parseHouseholdReaction(input.reaction),
+        notes: input.details.trim(),
+        visitDate: date || null,
+        status: status ?? priorHistoryRow.status ?? "completed",
+        activities: [...new Set((input.activities ?? priorHistoryRow.activities ?? []).map((item) => normalizeActivity(item)).filter(Boolean))],
+        projectId: namedProject?.id ?? priorHistoryRow.projectId ?? null,
+      };
+      if (isSupabaseMode()) await writeContactVisit(updated, false);
+      else applyDemo((draft) => {
+        const list = draft.contactVisits ?? [];
+        const index = list.findIndex((item) => item.id === updated.id);
+        if (index >= 0) list[index] = updated;
+        draft.contactVisits = list;
+      });
+      return { ok: true, data: { id: updated.id } };
+    }
     if (existing && existing.visitorId && existing.visitorId !== actor.id && !perms(actor).canManage) {
       throw new Error("You can edit visits you logged. An admin can edit any visit.");
     }
@@ -570,7 +597,8 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
       throw new Error("You can only edit visits for your project.");
     }
     const visitProjectId =
-      existing?.projectId
+      namedProject?.id
+      ?? existing?.projectId
       ?? (actor.role === "bochur" ? actor.projectId ?? null : null)
       ?? null;
     const activities = [...new Set((input.activities ?? []).map((item) => normalizeActivity(item)).filter(Boolean))];
@@ -591,13 +619,14 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
     };
     const household = db.households.find((item) => item.id === input.householdId);
     const project = db.projects.find((item) => item.id === household?.projectId)?.name ?? "";
-    const priorHistory = (db.contactVisits ?? []).find((item) => item.id === visit.id);
+    const priorHistory = priorHistoryRow ?? (db.contactVisits ?? []).find((item) => item.id === visit.id);
     const chosenVisited = (input.visited ?? "").trim();
     const history: ContactVisit = {
       id: visit.id,
       orgId: visit.orgId,
       householdId: visit.householdId,
       visited: chosenVisited || priorHistory?.visited || project,
+      visitedBy: (input.visitedBy ?? "").trim() || priorHistory?.visitedBy || null,
       reaction: parseHouseholdReaction(input.reaction),
       notes: visit.details,
       visitDate: date || null,
@@ -607,7 +636,7 @@ export async function saveVisit(actor: User, input: VisitInput): Promise<ActionR
       createdAt: priorHistory?.createdAt ?? visit.createdAt,
       importBatchId: priorHistory?.importBatchId ?? null,
       activities,
-      projectId: priorHistory?.projectId ?? visit.projectId ?? household?.projectId ?? null,
+      projectId: namedProject?.id ?? priorHistory?.projectId ?? visit.projectId ?? household?.projectId ?? null,
     };
     const undo: UndoPayload = existing ? { type: "replace-visit", visit: existing } : { type: "delete-visit", id: visit.id };
     if (isSupabaseMode()) {

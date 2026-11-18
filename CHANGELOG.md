@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.78
+- Editing a visit from a contact's visit history now updates that same visit instead of adding a new one. Visits that live on the contact history (added from the contact form, imports, or earlier edits) were not found by the edit save, so it created a fresh visit with a new id and left the original untouched. The save now finds the history row by its id and changes Visited, reaction, notes, date, status, activities and project in place. If the visit can't be found at all, it says so instead of creating a new one. Editing a visit from the log-a-visit list also updates the project when Visited names a project.
+
 ## 1.8.77
 - Texts and WhatsApp now go to every number on a person (WhatsApp field, phone, phone 2, phone 3), not just the first. Duplicates are removed by the last 10 digits. In the Message sheet each number is its own recipient row, showing the name and the number, and each can be checked or unchecked on its own. `{name}` personalization is the same, the WhatsApp phone queue lists each number, and Results show which number each message went to. Email is unchanged. The older Message-this-state wizard does the same. Each contact is still marked as reached out once, and a reply from any of a person's numbers still matches them.
 
