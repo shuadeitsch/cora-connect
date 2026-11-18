@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.77
+- Texts and WhatsApp now go to every number on a person (WhatsApp field, phone, phone 2, phone 3), not just the first. Duplicates are removed by the last 10 digits. In the Message sheet each number is its own recipient row, showing the name and the number, and each can be checked or unchecked on its own. `{name}` personalization is the same, the WhatsApp phone queue lists each number, and Results show which number each message went to. Email is unchanged. The older Message-this-state wizard does the same. Each contact is still marked as reached out once, and a reply from any of a person's numbers still matches them.
+
 ## 1.8.76
 - Search (the bar at the top, or Ctrl/⌘ K) now finds a contact by anything saved on it: name, street, city, state or ZIP (or a full address like “12 Main St, Portland”), phone in any format or digits only, email, project, tags, notes, household members’ names, visit notes and reactions, other addresses, and Pre-planner notes. Matching is partial and not case-sensitive. Each result shows what matched, like “Address: 12 Main St · Portland, ME”. It searches on the server (new `search_contacts` function with trigram indexes, migration 053), so it stays fast and only returns contacts you can see: state scoping, masked phones and email, and visit-history permission all apply.
 

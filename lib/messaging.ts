@@ -72,6 +72,27 @@ export function addressForFamily(person: ContactablePerson, family: MessageFamil
   return toE164(person.phone || person.phone2 || person.phone3 || person.whatsapp || "");
 }
 
+/** Every number on a person for texts or WhatsApp (whatsapp, phone, phone2, phone3), deduped by last 10 digits. Email returns its one address. */
+export function addressesForFamily(person: ContactablePerson, family: MessageFamily): string[] {
+  if (family === "email") {
+    const email = emailsOf(person)[0];
+    return email ? [email] : [];
+  }
+  const order = family === "whatsapp"
+    ? [person.whatsapp, person.phone, person.phone2, person.phone3]
+    : [person.phone, person.phone2, person.phone3, person.whatsapp];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of order) {
+    const e164 = toE164(raw ?? "");
+    const key = phoneDigits(raw ?? "");
+    if (!e164 || key.length < 10 || seen.has(key)) continue;
+    seen.add(key);
+    out.push(e164);
+  }
+  return out;
+}
+
 export function optedOut(person: ContactablePerson, family: MessageFamily): boolean {
   if (family === "email") return Boolean(person.emailOptOut);
   if (family === "whatsapp") return Boolean(person.whatsappOptOut);
@@ -136,8 +157,8 @@ export function planCampaignAudience(input: {
       const key = `${person.id}:${family}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      const address = addressForFamily(person, family);
-      if (!address) {
+      const addresses = addressesForFamily(person, family);
+      if (!addresses.length) {
         skipped.push({ householdId: person.householdId, name: person.householdName, reason: "no-address", detail: `No ${family === "email" ? "email" : "phone"} for ${person.name || "this person"}` });
         continue;
       }
@@ -149,7 +170,7 @@ export function planCampaignAudience(input: {
         skipped.push({ householdId: person.householdId, name: person.householdName, reason: "already-contacted", detail: `Already contacted by ${family === "email" ? "email" : family === "whatsapp" ? "WhatsApp" : "text"} in this project` });
         continue;
       }
-      ready.push({ person, family, address });
+      for (const address of addresses) ready.push({ person, family, address });
     }
   }
   return { ready, skipped };

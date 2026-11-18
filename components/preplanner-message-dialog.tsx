@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useUndoToast } from "@/components/undo-toast";
 import { recordExternalMessageAction, sendCampaignBatchAction } from "@/lib/actions";
 import { stateLabel } from "@/lib/constants";
-import { channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
+import { addressesForFamily, channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
 import { fillPlaceholders, templatesOrDefault } from "@/lib/outreach";
 import { whatsappMeDigits, whatsappMeLink, whatsappNumberFor } from "@/lib/whatsapp";
 import type { AppData, HouseholdView, MessagingChannel, MessagingChannelType, Person, PreplannerEntry, WhatsAppContentTemplate } from "@/lib/types";
@@ -41,10 +41,9 @@ function varsFor(person: Person, house: HouseholdView | undefined) {
   };
 }
 
-function addressFor(mode: Mode, person: Person) {
-  if (mode === "email") return person.email.trim();
-  if (mode === "whatsapp") return whatsappNumberFor(person);
-  return personPhone(person);
+function addressesFor(mode: Mode, person: Person): string[] {
+  if (mode === "email") return person.email.trim() ? [person.email.trim()] : [];
+  return addressesForFamily(person, mode === "whatsapp" ? "whatsapp" : "sms");
 }
 
 function optedFor(mode: Mode, person: Person) {
@@ -231,6 +230,7 @@ export function PreplannerMessageDialog({
 
   const rows = useMemo(() => {
     const out: {
+      rid: string;
       person: Person;
       house: HouseholdView;
       entry?: PreplannerEntry;
@@ -241,6 +241,7 @@ export function PreplannerMessageDialog({
       const people = house!.people ?? [];
       if (!people.length) {
         out.push({
+          rid: `house-${house!.id}|`,
           person: { id: `house-${house!.id}`, householdId: house!.id, name: house!.name, gender: null, phone: "", phone2: "", phone3: "", email: "", whatsapp: "", sortOrder: 0 },
           house: house!,
           entry,
@@ -250,16 +251,19 @@ export function PreplannerMessageDialog({
         continue;
       }
       for (const person of people) {
-        const address = addressFor(mode, person);
-        let skip: string | undefined;
-        if (optedFor(mode, person)) skip = mode === "email" ? "Opted out of email" : mode === "whatsapp" ? "Opted out of WhatsApp" : "Opted out of texts";
-        else if (!address) skip = mode === "email" ? "No email on file" : "No phone on file";
-        else if (mode === "whatsapp" && !whatsappMeLink(address, "ok")) skip = "No valid WhatsApp number";
-        else if (mode === "email" && !channelFor(channels, type, house!.state)) skip = "No Gmail channel for this state";
-        else if (mode === "text" && !channelFor(channels, type, house!.state)) skip = "No texting channel for this state";
-        else if (mode === "whatsapp" && whatsappApi && !selectedWaApproved && !withinWhatsAppWindow(lastWhatsAppInbound(data, house!.id, address))) skip = selectedWa ? `${selectedWa.label} is waiting for Meta approval (only people who replied in the last 24 hours can get a free-form message)` : "Waiting for WhatsApp template approval (only people who replied in the last 24 hours can get a free-form message)";
-        else if (mode === "whatsapp" && whatsappApi && !channelFor(channels, type, house!.state) && !data.mailSetup?.whatsapp) skip = "No WhatsApp channel for this state";
-        out.push({ person, house: house!, entry, address, skip });
+        const addresses = addressesFor(mode, person);
+        const targets = addresses.length ? addresses : [""];
+        for (const address of targets) {
+          let skip: string | undefined;
+          if (optedFor(mode, person)) skip = mode === "email" ? "Opted out of email" : mode === "whatsapp" ? "Opted out of WhatsApp" : "Opted out of texts";
+          else if (!address) skip = mode === "email" ? "No email on file" : "No phone on file";
+          else if (mode === "whatsapp" && !whatsappMeLink(address, "ok")) skip = `${address} is not a valid WhatsApp number`;
+          else if (mode === "email" && !channelFor(channels, type, house!.state)) skip = "No Gmail channel for this state";
+          else if (mode === "text" && !channelFor(channels, type, house!.state)) skip = "No texting channel for this state";
+          else if (mode === "whatsapp" && whatsappApi && !selectedWaApproved && !withinWhatsAppWindow(lastWhatsAppInbound(data, house!.id, address))) skip = selectedWa ? `${selectedWa.label} is waiting for Meta approval (only people who replied in the last 24 hours can get a free-form message)` : "Waiting for WhatsApp template approval (only people who replied in the last 24 hours can get a free-form message)";
+          else if (mode === "whatsapp" && whatsappApi && !channelFor(channels, type, house!.state) && !data.mailSetup?.whatsapp) skip = "No WhatsApp channel for this state";
+          out.push({ rid: `${person.id}|${address}`, person, house: house!, entry, address, skip });
+        }
       }
     }
     return out;
@@ -267,7 +271,7 @@ export function PreplannerMessageDialog({
 
   const ready = rows.filter((row) => !row.skip);
   const skipped = rows.filter((row) => row.skip);
-  const chosen = ready.filter((row) => !excluded[row.person.id]);
+  const chosen = ready.filter((row) => !excluded[row.rid]);
   const sample = chosen[0] ?? ready[0];
   const preview = sample ? fillPlaceholders(body, varsFor(sample.person, sample.house)) : body;
   const current = queue?.[queueIndex];
@@ -360,7 +364,7 @@ export function PreplannerMessageDialog({
         } catch {
           batch = slice.map(() => ({ ok: false, error: "The connection dropped. Check Inbox before retrying." }));
         }
-        slice.forEach((row, index) => sent.push({ name: row.person.name || row.house.name, ok: batch[index]?.ok ?? false, error: batch[index]?.error }));
+        slice.forEach((row, index) => sent.push({ name: `${row.person.name || row.house.name}${mode !== "email" && row.address ? ` (${row.address})` : ""}`, ok: batch[index]?.ok ?? false, error: batch[index]?.error }));
         setResults([...sent]);
         setProgress({ done: Math.min(i + BATCH, chosen.length), total: chosen.length });
       }
@@ -397,7 +401,7 @@ export function PreplannerMessageDialog({
   function markWhatsApp(kind: "sent" | "skip") {
     if (!current) return;
     start(async () => {
-      const name = current.person.name || current.house.name;
+      const name = `${current.person.name || current.house.name} (${current.address})`;
       if (kind === "skip") {
         setResults((list) => [...(list ?? []), { name, ok: false, error: "Skipped" }]);
       } else {
@@ -695,20 +699,20 @@ export function PreplannerMessageDialog({
               </p>
               <div className="flex gap-3 text-xs">
                 <button type="button" className="text-primary underline" onClick={() => setExcluded({})}>Select all</button>
-                <button type="button" className="text-primary underline" onClick={() => setExcluded(Object.fromEntries(ready.map((row) => [row.person.id, true])))}>Clear all</button>
+                <button type="button" className="text-primary underline" onClick={() => setExcluded(Object.fromEntries(ready.map((row) => [row.rid, true])))}>Clear all</button>
               </div>
               <ul className="grid max-h-52 gap-1 overflow-y-auto rounded-2xl border p-2">
                 {ready.slice(0, 300).map((row) => (
-                  <li key={`${row.house.id}-${row.person.id}`}>
+                  <li key={row.rid}>
                     <label className="flex min-h-11 items-start gap-2 rounded-xl px-2 py-1.5 text-sm hover:bg-muted">
                       <input
                         type="checkbox"
                         className="mt-1 size-4"
-                        checked={!excluded[row.person.id]}
-                        onChange={(event) => setExcluded((current) => ({ ...current, [row.person.id]: !event.target.checked }))}
+                        checked={!excluded[row.rid]}
+                        onChange={(event) => setExcluded((current) => ({ ...current, [row.rid]: !event.target.checked }))}
                       />
                       <span className="min-w-0">
-                        <span className="block font-medium text-foreground">{row.person.name || row.house.name}</span>
+                        <span className="block font-medium text-foreground">{row.person.name || row.house.name}{mode !== "email" && row.address ? <span className="font-normal text-muted-foreground"> · {row.address}</span> : null}</span>
                         <span className="block truncate text-xs text-muted-foreground">{row.address}</span>
                       </span>
                     </label>
@@ -716,7 +720,7 @@ export function PreplannerMessageDialog({
                 ))}
                 {ready.length > 300 ? <li className="px-2 py-1.5 text-xs text-muted-foreground">Showing the first 300 of {ready.length}. Everyone checked is included.</li> : null}
                 {skipped.slice(0, 200).map((row) => (
-                  <li key={`skip-${row.house.id}-${row.person.id}`} className="px-2 py-1.5 text-sm text-muted-foreground">
+                  <li key={`skip-${row.rid}`} className="px-2 py-1.5 text-sm text-muted-foreground">
                     <span className="font-medium text-foreground">{row.person.name || row.house.name}</span>
                     <span> — {row.skip}</span>
                   </li>
