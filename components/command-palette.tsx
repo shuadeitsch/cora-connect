@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { officialTags } from "@/lib/contact-tags";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
+import { searchContactsAction, type ContactSearchHit } from "@/lib/actions";
 
 export type PaletteHousehold = {
   id: string;
@@ -42,6 +43,17 @@ export function CommandPalette({
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [remote, setRemote] = useState<{ q: string; hits: ContactSearchHit[] } | null>(null);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!open || q.length < 2) { setRemote(null); return; }
+    let live = true;
+    const timer = window.setTimeout(() => {
+      searchContactsAction(q).then((hits) => { if (live) setRemote({ q, hits }); }).catch(() => { if (live) setRemote(null); });
+    }, 150);
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [query, open]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -49,7 +61,15 @@ export function CommandPalette({
       if (page.href.includes("tab=messaging") && !canManage) return false;
       return !q || `${page.label} ${page.hint}`.toLowerCase().includes(q);
     }).map((page) => ({ ...page, kind: "Page" as const }));
-    const homes = households
+    const remoteHits = remote && remote.q === query.trim() ? remote.hits : null;
+    const homes = remoteHits
+      ? remoteHits.map((hit) => ({
+          href: `/households?focus=${hit.id}`,
+          label: hit.name,
+          hint: [hit.field === "Name" ? "" : `${hit.field}: ${hit.value.length > 70 ? `${hit.value.slice(0, 70)}…` : hit.value}`, `${hit.city}${hit.city && hit.state ? ", " : ""}${hit.state}`].filter(Boolean).join(" · "),
+          kind: "Household" as const,
+        }))
+      : households
       .filter((household) => {
         const noteText = (household.notes ?? []).map((note) => `${note.label} ${note.notes}`).join(" ");
         const tagText = (household.tags ?? []).join(" ");
@@ -69,7 +89,7 @@ export function CommandPalette({
         };
       });
     return [...pages, ...homes].slice(0, 12);
-  }, [query, households, canManage]);
+  }, [query, households, canManage, remote]);
 
   useEffect(() => {
     if (!open) return;
@@ -100,7 +120,7 @@ export function CommandPalette({
             ref={input}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search pages and contacts"
+            placeholder="Search pages and contacts (name, address, phone, email, notes…)"
             className="h-12 w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
             onKeyDown={(event) => {
               if (event.key === "Escape") onOpenChange(false);

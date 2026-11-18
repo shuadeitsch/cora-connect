@@ -1,5 +1,6 @@
 "use server";
 
+import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -642,4 +643,25 @@ export async function markThreadReadAction(threadId: string) {
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await markThreadRead(user, threadId));
+}
+
+
+export type ContactSearchHit = { id: string; name: string; city: string; state: string; field: string; value: string };
+
+export async function searchContactsAction(query: string): Promise<ContactSearchHit[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const user = await actor();
+  if (!user) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("search_contacts", { p_q: q.slice(0, 80), p_limit: 12 });
+  if (error || !Array.isArray(data)) return [];
+  return data.map((row: Record<string, unknown>) => ({
+    id: String(row.household_id),
+    name: String(row.name ?? ""),
+    city: String(row.city ?? ""),
+    state: String(row.state ?? ""),
+    field: String(row.field ?? ""),
+    value: String(row.value ?? ""),
+  }));
 }
