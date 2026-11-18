@@ -68,6 +68,7 @@ import {
   markThreadRead,
   saveMessagingChannel,
   sendCampaignMessage,
+  sendCampaignBatch,
   recordExternalMessage,
 } from "@/lib/messaging-repo";
 import type {
@@ -609,6 +610,16 @@ export async function sendCampaignMessageAction(input: Parameters<typeof sendCam
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await sendCampaignMessage(user, input));
+}
+
+export async function sendCampaignBatchAction(inputs: Parameters<typeof sendCampaignMessage>[1][]) {
+  const writable = await requireWritable();
+  if (!writable.ok) return { ok: false as const, error: writable.error };
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  const results = await sendCampaignBatch(user, inputs);
+  await refresh({ ok: true });
+  return { ok: true as const, results };
 }
 
 export async function recordExternalMessageAction(input: Parameters<typeof recordExternalMessage>[1]) {

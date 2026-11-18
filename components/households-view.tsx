@@ -29,6 +29,7 @@ import { Avatar } from "@/components/avatar";
 import { ImportContacts } from "@/components/import-contacts";
 import { OutreachDialog } from "@/components/outreach-dialog";
 import { MessageCampaignWizard } from "@/components/message-campaign-wizard";
+import { PreplannerMessageDialog } from "@/components/preplanner-message-dialog";
 import { MessageInbox } from "@/components/message-inbox";
 import { useGmailSyncOnOpen } from "@/components/gmail-inbox-sync";
 import { PreplannerDialog } from "@/components/preplanner-dialog";
@@ -132,6 +133,7 @@ export function HouseholdsView({
   const [preplanFor, setPreplanFor] = useState<HouseholdView[] | null>(null);
   const [outreach, setOutreach] = useState<"email" | "text" | null>(null);
   const [campaignOpen, setCampaignOpen] = useState(false);
+  const [massOpen, setMassOpen] = useState(false);
   const [campaignAudience, setCampaignAudience] = useState<"state" | "selected">("state");
   const [routeFromPicked, setRouteFromPicked] = useState(false);
   const [editing, setEditing] = useState<HouseholdView | null>(null);
@@ -452,6 +454,11 @@ export function HouseholdsView({
           >
             <Mail className="size-3.5" /> Message this state
           </Button>
+          {live.viewer.canOutreach || live.viewer.canEdit ? (
+            <Button type="button" className="h-10 rounded-full" onClick={() => setMassOpen(true)}>
+              <Mail className="size-3.5" /> Message… (WhatsApp, Text, Email)
+            </Button>
+          ) : null}
           {selected.length ? (
             <Button
               type="button"
@@ -715,6 +722,7 @@ export function HouseholdsView({
         onClose={() => setPreplanFor(null)}
       />
       <CreateRouteDialog data={live} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
+      <PreplannerMessageDialog open={massOpen} data={live} entries={[]} scope="contacts" initialState={filters.state} onClose={() => setMassOpen(false)} />
       <MessageCampaignWizard
         open={campaignOpen}
         households={campaignAudience === "selected" ? filtered.filter((row) => selected.includes(row.id)) : filtered}

@@ -1,5 +1,5 @@
 import "server-only";
-import { logOutreachSend } from "@/lib/repo";
+import { logOutreachSend, savePreplannerEntry } from "@/lib/repo";
 import { loadDatabase } from "@/lib/session";
 import { isSupabaseMode, createClient } from "@/lib/supabase/server";
 import { gmailAccountSecrets, touchGmailAccount } from "@/lib/supabase/write";
@@ -92,6 +92,52 @@ export async function disconnectMessagingChannel(actor: User, id: string): Promi
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not disconnect that channel." };
   }
+}
+
+function easternNow() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
+}
+
+/** Find this contact's Pre-planner entry, or add one, so "already reached out" stays accurate after a mass message. */
+async function ensurePreplannerEntryId(actor: User, input: { entryId?: string; householdId: string; projectId?: string | null; family: MessageFamily }): Promise<string | null> {
+  if (input.entryId) return input.entryId;
+  const supabase = await createClient();
+  const found = await supabase
+    .from("preplanner_entries")
+    .select("id")
+    .eq("org_id", actor.orgId)
+    .eq("household_id", input.householdId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (found.data?.id) return String(found.data.id);
+  const how = input.family === "email" ? "email" : input.family === "whatsapp" ? "whatsapp" : "text";
+  const now = easternNow();
+  const saved = await savePreplannerEntry(actor, {
+    householdId: input.householdId,
+    reachedDate: now.date,
+    reachedTime: now.time,
+    reachedHow: [how],
+    projectId: input.projectId ?? null,
+    stage: "reached_out",
+  });
+  return saved.ok ? saved.data?.id ?? null : null;
+}
+
+export async function sendCampaignBatch(
+  actor: User,
+  inputs: Parameters<typeof sendCampaignMessage>[1][],
+): Promise<{ ok: boolean; error?: string; person?: string }[]> {
+  const out: { ok: boolean; error?: string }[] = [];
+  for (const input of inputs.slice(0, 10)) {
+    const result = await sendCampaignMessage(actor, input);
+    out.push(result.ok ? { ok: true } : { ok: false, error: result.error });
+  }
+  return out;
 }
 
 export async function sendCampaignMessage(
@@ -254,16 +300,19 @@ export async function sendCampaignMessage(
       sent_by: actor.id,
     });
     if (error && !/duplicate|unique/i.test(error.message)) throw new Error(error.message);
-    if (input.preplannerEntryId) {
-      await logPreplannerSend({
-        entryId: input.preplannerEntryId,
-        householdId: input.householdId,
-        orgId: actor.orgId,
-        actorName: actor.name,
-        family,
-        channelLabel: channel?.label || fromAddress || input.type,
-      });
-    }
+    try {
+      const entryId = await ensurePreplannerEntryId(actor, { entryId: input.preplannerEntryId, householdId: input.householdId, projectId: input.projectId, family });
+      if (entryId) {
+        await logPreplannerSend({
+          entryId,
+          householdId: input.householdId,
+          orgId: actor.orgId,
+          actorName: actor.name,
+          family,
+          channelLabel: channel?.label || fromAddress || input.type,
+        });
+      }
+    } catch { /* the message was sent; tracking is best effort */ }
     await log("sent");
     return { ok: true };
   } catch (error) {
@@ -392,16 +441,19 @@ export async function recordExternalMessage(
       sent_by: actor.id,
     });
     if (error && !/duplicate|unique/i.test(error.message)) throw new Error(error.message);
-    if (input.preplannerEntryId) {
-      await logPreplannerSend({
-        entryId: input.preplannerEntryId,
-        householdId: input.householdId,
-        orgId: actor.orgId,
-        actorName: actor.name,
-        family,
-        channelLabel: input.channelLabel || channel?.label || "WhatsApp on your phone",
-      });
-    }
+    try {
+      const entryId = await ensurePreplannerEntryId(actor, { entryId: input.preplannerEntryId, householdId: input.householdId, projectId: input.projectId, family });
+      if (entryId) {
+        await logPreplannerSend({
+          entryId,
+          householdId: input.householdId,
+          orgId: actor.orgId,
+          actorName: actor.name,
+          family,
+          channelLabel: input.channelLabel || channel?.label || "WhatsApp on your phone",
+        });
+      }
+    } catch { /* logged below */ }
     await logOutreachSend(actor, {
       mode, templateId: input.templateId, templateName: input.templateName, subject: "", body: input.body,
       recipientCount: 1, method: input.type, toAddress: input.to, status: "sent",

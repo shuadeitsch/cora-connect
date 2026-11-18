@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.75
+- The **Message** sheet is no longer limited to people already in the Pre-planner. It now has a **Who to message** panel: pick a state (admins choose any state or All states, defaulting to Maine; a shliach is limited to his own), then **All contacts** or **Specific contacts** (search and tick). For All contacts you can combine **Cities** (multi-select, with counts) with **Everyone / Not reached out yet / Already reached out**. The recipient list is pre-checked with Select all / Clear all and per-person uncheck, and people with no phone/email or who opted out show in the skipped list. The WhatsApp template picker, approved-only gating, and `{name}` personalization are unchanged. Opened from the Pre-planner it starts on “Already reached out”; opened from Contacts (new **Message…** button) it starts on “Not reached out yet”.
+- Large sends go server-side in batches of 5 with a live “Sending 20 of 120” progress and a per-person Sent/Failed result, so they do not time out. Anyone messaged is added to the Pre-planner as reached out (with how they were reached and a note) if not already there, so “Already reached out” stays accurate.
+
+
 ## 1.8.74
 - The Pre-planner **Message** sheet’s WhatsApp option now lists live Twilio Content templates whose names start with `cora_` (including **Chanukah visit** / `cora_maine_chanukah` and `cora_maine_visit`). Each one shows a name-filled preview and its Meta approval status (pending, approved, or rejected). Only an approved template can be sent, using that template’s ContentSid and `{{1}}` as the person’s first name. Until Meta approves a selected template, sending stays gated to a free-form message within 24 hours of a contact’s reply. New `cora_` templates appear automatically from Twilio; `TWILIO_WHATSAPP_CONTENT_SID` is still the fallback default.
 

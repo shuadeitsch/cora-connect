@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUndoToast } from "@/components/undo-toast";
-import { recordExternalMessageAction, sendCampaignMessageAction } from "@/lib/actions";
+import { recordExternalMessageAction, sendCampaignBatchAction } from "@/lib/actions";
+import { stateLabel } from "@/lib/constants";
 import { channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
 import { fillPlaceholders, templatesOrDefault } from "@/lib/outreach";
 import { whatsappMeDigits, whatsappMeLink, whatsappNumberFor } from "@/lib/whatsapp";
@@ -106,34 +107,89 @@ function whatsappStatusLabel(status: WhatsAppContentTemplate["status"]) {
   return "Pending Meta approval";
 }
 
+type Audience = "all" | "specific";
+type Reach = "any" | "new" | "reached";
+
 export function PreplannerMessageDialog({
   open,
   data,
   entries,
+  scope = "preplanner",
+  initialState,
   onClose,
 }: {
   open: boolean;
   data: AppData;
   entries: PreplannerEntry[];
+  scope?: "preplanner" | "contacts";
+  initialState?: string;
   onClose: () => void;
 }) {
   const announce = useUndoToast();
   const practice = usePractice();
   const catalog = templatesOrDefault(data.outreachTemplates);
   const channels = useMemo(() => scopedChannels(data), [data]);
+  const baseHouses = useMemo(() => data.households.filter((house) => !house.deletedAt && !house.deletedByShliachAt), [data.households]);
+  const states = useMemo(() => [...new Set(baseHouses.map((house) => stateLabel(house.state || "")).filter(Boolean))].sort(), [baseHouses]);
+  const entryByHouse = useMemo(() => {
+    const map = new Map<string, PreplannerEntry>();
+    for (const entry of [...(data.preplannerEntries ?? []), ...entries]) if (!map.has(entry.householdId)) map.set(entry.householdId, entry);
+    return map;
+  }, [data.preplannerEntries, entries]);
+  const reachedIds = useMemo(() => {
+    const set = new Set<string>(entryByHouse.keys());
+    for (const fact of data.contactedFacts ?? []) set.add(fact.householdId);
+    return set;
+  }, [data.contactedFacts, entryByHouse]);
+  const isAdmin = data.viewer.role === "admin";
+  const [audience, setAudience] = useState<Audience>("all");
+  const [stateSel, setStateSel] = useState("");
+  const [cities, setCities] = useState<string[]>([]);
+  const [cityQuery, setCityQuery] = useState("");
+  const [reach, setReach] = useState<Reach>("any");
+  const [picked, setPicked] = useState<Record<string, boolean>>({});
+  const [pickQuery, setPickQuery] = useState("");
+  const [excluded, setExcluded] = useState<Record<string, boolean>>({});
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const stateHouses = useMemo(() => (stateSel ? baseHouses.filter((house) => stateLabel(house.state || "") === stateSel) : baseHouses), [baseHouses, stateSel]);
+  const cityOptions = useMemo(() => {
+    const counts = new Map<string, { label: string; n: number }>();
+    for (const house of stateHouses) {
+      const label = house.city.trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      const row = counts.get(key) ?? { label, n: 0 };
+      row.n += 1;
+      counts.set(key, row);
+    }
+    return [...counts.entries()].map(([key, row]) => ({ key, ...row })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [stateHouses]);
   const houses = useMemo(() => {
-    const map = new Map(data.households.map((house) => [house.id, house]));
-    return entries.map((entry) => ({ entry, house: map.get(entry.householdId) })).filter((row) => row.house);
-  }, [data.households, entries]);
+    let list: HouseholdView[];
+    if (audience === "specific") list = baseHouses.filter((house) => picked[house.id]);
+    else {
+      list = stateHouses;
+      if (cities.length) list = list.filter((house) => cities.includes(house.city.trim().toLowerCase()));
+      if (reach === "new") list = list.filter((house) => !reachedIds.has(house.id));
+      if (reach === "reached") list = list.filter((house) => reachedIds.has(house.id));
+    }
+    return list.map((house) => ({ entry: entryByHouse.get(house.id), house }));
+  }, [audience, baseHouses, cities, entryByHouse, picked, reach, reachedIds, stateHouses]);
+  const pickResults = useMemo(() => {
+    const q = pickQuery.trim().toLowerCase();
+    if (!q) return [];
+    return stateHouses
+      .filter((house) => `${house.name} ${house.city} ${house.street} ${(house.people ?? []).map((person) => `${person.name} ${person.phone} ${person.email}`).join(" ")}`.toLowerCase().includes(q))
+      .slice(0, 25);
+  }, [pickQuery, stateHouses]);
 
   const [mode, setMode] = useState<Mode>("email");
   const [templateId, setTemplateId] = useState(catalog[0]?.id ?? "");
   const [subject, setSubject] = useState(catalog[0]?.subject ?? "");
   const [body, setBody] = useState(catalog[0]?.email ?? "");
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
   const [results, setResults] = useState<{ name: string; ok: boolean; error?: string }[] | null>(null);
-  const [queue, setQueue] = useState<{ person: Person; house: HouseholdView; entry: PreplannerEntry; address: string }[] | null>(null);
+  const [queue, setQueue] = useState<{ person: Person; house: HouseholdView; entry?: PreplannerEntry; address: string }[] | null>(null);
   const [queueIndex, setQueueIndex] = useState(0);
   const [pending, start] = useTransition();
   const smsAllowed = Boolean(data.mailSetup?.smsSendingEnabled);
@@ -156,13 +212,17 @@ export function PreplannerMessageDialog({
     setResults(null);
     setQueue(null);
     setQueueIndex(0);
-    const next: Record<string, boolean> = {};
-    for (const { house } of houses) {
-      for (const person of house!.people ?? []) {
-        if (person.email.trim() && !person.emailOptOut) next[person.id] = true;
-      }
-    }
-    setSelected(next);
+    setExcluded({});
+    setProgress(null);
+    setCities([]);
+    setCityQuery("");
+    setPicked({});
+    setPickQuery("");
+    setAudience("all");
+    setReach(scope === "preplanner" ? "reached" : "new");
+    const terr = (data.viewer.territory ?? []).map((row) => stateLabel(row.state)).filter(Boolean);
+    const want = initialState ? stateLabel(initialState) : "";
+    setStateSel(isAdmin ? (want && states.includes(want) ? want : states.includes("Maine") ? "Maine" : "") : (terr.find((name) => states.includes(name)) ?? ""));
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps -- reset when the sheet opens
 
   const type = channelTypeFor(mode);
@@ -173,7 +233,7 @@ export function PreplannerMessageDialog({
     const out: {
       person: Person;
       house: HouseholdView;
-      entry: PreplannerEntry;
+      entry?: PreplannerEntry;
       address: string;
       skip?: string;
     }[] = [];
@@ -207,7 +267,7 @@ export function PreplannerMessageDialog({
 
   const ready = rows.filter((row) => !row.skip);
   const skipped = rows.filter((row) => row.skip);
-  const chosen = ready.filter((row) => selected[row.person.id]);
+  const chosen = ready.filter((row) => !excluded[row.person.id]);
   const sample = chosen[0] ?? ready[0];
   const preview = sample ? fillPlaceholders(body, varsFor(sample.person, sample.house)) : body;
   const current = queue?.[queueIndex];
@@ -227,16 +287,6 @@ export function PreplannerMessageDialog({
     setMode(next);
     const tmpl = catalog.find((item) => item.id === templateId);
     if (tmpl) setBody(bodyFromTemplate(next, tmpl.email, tmpl.sms));
-    setSelected((current) => {
-      const copy: Record<string, boolean> = {};
-      for (const { house } of houses) {
-        for (const person of house!.people ?? []) {
-          const address = addressFor(next, person);
-          copy[person.id] = Boolean(address && !optedFor(next, person) && (current[person.id] ?? true));
-        }
-      }
-      return copy;
-    });
     setResults(null);
     setQueue(null);
     setError("");
@@ -276,30 +326,45 @@ export function PreplannerMessageDialog({
       }
       setError("");
       const sent: { name: string; ok: boolean; error?: string }[] = [];
-      for (const row of chosen) {
-        const channel = channelFor(channels, type, row.house.state);
-        const names = varsFor(row.person, row.house);
-        const filled = mode === "whatsapp" && selectedWaApproved && selectedWa
-          ? fillWhatsAppContent(selectedWa.body, names.firstName || "friend")
-          : fillPlaceholders(body, names);
-        const filledSubject = mode === "email" ? fillPlaceholders(subject, names) : undefined;
-        const result = await sendCampaignMessageAction({
-          channelId: channel?.id,
-          type,
-          to: row.address,
-          body: filled,
-          subject: filledSubject,
-          householdId: row.house.id,
-          personId: row.person.id,
-          projectId: row.entry.projectId,
-          templateId: templateId || undefined,
-          templateName: mode === "whatsapp" ? (selectedWa?.name || selectedWa?.label) : catalog.find((item) => item.id === templateId)?.name,
-          preplannerEntryId: row.entry.id,
-          contentSid: mode === "whatsapp" ? selectedWa?.sid : undefined,
-          freeform: mode === "whatsapp" && !selectedWaApproved,
+      setProgress({ done: 0, total: chosen.length });
+      setResults([]);
+      const BATCH = 5;
+      for (let i = 0; i < chosen.length; i += BATCH) {
+        const slice = chosen.slice(i, i + BATCH);
+        const inputs = slice.map((row) => {
+          const channel = channelFor(channels, type, row.house.state);
+          const names = varsFor(row.person, row.house);
+          const filled = mode === "whatsapp" && selectedWaApproved && selectedWa
+            ? fillWhatsAppContent(selectedWa.body, names.firstName || "friend")
+            : fillPlaceholders(body, names);
+          return {
+            channelId: channel?.id,
+            type,
+            to: row.address,
+            body: filled,
+            subject: mode === "email" ? fillPlaceholders(subject, names) : undefined,
+            householdId: row.house.id,
+            personId: row.person.id,
+            projectId: row.entry?.projectId ?? undefined,
+            templateId: templateId || undefined,
+            templateName: mode === "whatsapp" ? (selectedWa?.name || selectedWa?.label) : catalog.find((item) => item.id === templateId)?.name,
+            preplannerEntryId: row.entry?.id,
+            contentSid: mode === "whatsapp" ? selectedWa?.sid : undefined,
+            freeform: mode === "whatsapp" && !selectedWaApproved,
+          };
         });
-        sent.push({ name: row.person.name || row.house.name, ok: result.ok, error: result.ok ? undefined : result.error });
+        let batch: { ok: boolean; error?: string }[];
+        try {
+          const res = await sendCampaignBatchAction(inputs);
+          batch = res.ok ? res.results : slice.map(() => ({ ok: false, error: res.error }));
+        } catch {
+          batch = slice.map(() => ({ ok: false, error: "The connection dropped. Check Inbox before retrying." }));
+        }
+        slice.forEach((row, index) => sent.push({ name: row.person.name || row.house.name, ok: batch[index]?.ok ?? false, error: batch[index]?.error }));
+        setResults([...sent]);
+        setProgress({ done: Math.min(i + BATCH, chosen.length), total: chosen.length });
       }
+      setProgress(null);
       setResults(sent);
       const okCount = sent.filter((item) => item.ok).length;
       if (okCount === sent.length) {
@@ -348,10 +413,10 @@ export function PreplannerMessageDialog({
           body: filled,
           householdId: current.house.id,
           personId: current.person.id,
-          projectId: current.entry.projectId,
+          projectId: current.entry?.projectId ?? undefined,
           templateId: templateId || undefined,
           templateName: catalog.find((item) => item.id === templateId)?.name,
-          preplannerEntryId: current.entry.id,
+          preplannerEntryId: current.entry?.id,
           provider: "wa.me",
           channelLabel: "WhatsApp on your phone",
         });
@@ -372,10 +437,10 @@ export function PreplannerMessageDialog({
   }
 
   const title = results && !queue
-    ? "Send results"
+    ? (progress ? `Sending ${progress.done} of ${progress.total}…` : "Send results")
     : queue && current
       ? `WhatsApp ${queueIndex + 1} of ${queue.length}`
-      : "Message Pre-planner contacts";
+      : scope === "preplanner" ? "Message contacts" : "Message contacts";
 
   const primaryDisabled =
     pending
@@ -386,7 +451,7 @@ export function PreplannerMessageDialog({
     || !chosen.length;
 
   const primaryLabel = pending
-    ? "Sending…"
+    ? (progress ? `Sending ${progress.done} of ${progress.total}…` : "Sending…")
     : mode === "text" && !smsAllowed
       ? "Texting not available yet"
       : mode === "whatsapp" && !whatsappApi
@@ -559,19 +624,88 @@ export function PreplannerMessageDialog({
               </>
             ) : null}
 
+            <fieldset className="grid gap-2 rounded-2xl border p-3">
+              <legend className="px-1 text-sm font-medium text-foreground">Who to message</legend>
+              {(isAdmin || states.length > 1) ? (
+                <label className="grid gap-1 text-sm">
+                  <span className="text-muted-foreground">State</span>
+                  <select className="h-11 rounded-xl border bg-card px-3 text-sm" value={stateSel} onChange={(event) => { setStateSel(event.target.value); setCities([]); }} aria-label="State">
+                    {isAdmin ? <option value="">All states</option> : null}
+                    {states.map((name) => <option key={name} value={name}>{name}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {([["all", `All contacts${stateSel ? ` in ${stateSel}` : ""}`], ["specific", "Specific contacts"]] as const).map(([value, label]) => (
+                  <button key={value} type="button" className={`inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-medium ring-1 ${audience === value ? "bg-primary text-primary-foreground ring-primary" : "bg-card ring-input"}`} onClick={() => { setAudience(value); setExcluded({}); }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {audience === "all" ? (
+                <>
+                  <div className="grid gap-1">
+                    <span className="text-sm text-muted-foreground">Cities{cities.length ? ` · ${cities.length} chosen` : " · all"}</span>
+                    <Input value={cityQuery} onChange={(event) => setCityQuery(event.target.value)} placeholder="Find a city" aria-label="Find a city" />
+                    <div className="grid max-h-36 gap-0.5 overflow-y-auto rounded-xl border p-1.5">
+                      {cityOptions.filter((row) => !cityQuery.trim() || row.label.toLowerCase().includes(cityQuery.trim().toLowerCase())).map((row) => (
+                        <label key={row.key} className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm hover:bg-muted">
+                          <input type="checkbox" className="size-4" checked={cities.includes(row.key)} onChange={(event) => { setCities((list) => event.target.checked ? [...list, row.key] : list.filter((key) => key !== row.key)); setExcluded({}); }} />
+                          <span className="flex-1">{row.label}</span>
+                          <span className="text-xs text-muted-foreground">{row.n}</span>
+                        </label>
+                      ))}
+                      {!cityOptions.length ? <span className="px-2 py-1 text-xs text-muted-foreground">No cities on file.</span> : null}
+                    </div>
+                    {cities.length ? <button type="button" className="justify-self-start text-xs text-primary underline" onClick={() => { setCities([]); setExcluded({}); }}>Clear cities</button> : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Already reached out">
+                    {([["any", "Everyone"], ["new", "Not reached out yet"], ["reached", "Already reached out"]] as const).map(([value, label]) => (
+                      <button key={value} type="button" role="radio" aria-checked={reach === value} className={`inline-flex min-h-10 items-center rounded-full px-3 text-sm font-medium ring-1 ${reach === value ? "bg-primary text-primary-foreground ring-primary" : "bg-card ring-input"}`} onClick={() => { setReach(value); setExcluded({}); }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">“Already reached out” means in the Pre-planner or messaged from here.</p>
+                </>
+              ) : (
+                <div className="grid gap-1">
+                  <Input value={pickQuery} onChange={(event) => setPickQuery(event.target.value)} placeholder="Search name, city, phone or email" aria-label="Search contacts" />
+                  {pickResults.length ? (
+                    <ul className="grid max-h-36 gap-0.5 overflow-y-auto rounded-xl border p-1.5">
+                      {pickResults.map((house) => (
+                        <li key={house.id}>
+                          <label className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm hover:bg-muted">
+                            <input type="checkbox" className="size-4" checked={Boolean(picked[house.id])} onChange={(event) => { setPicked((current) => ({ ...current, [house.id]: event.target.checked })); setExcluded({}); }} />
+                            <span className="flex-1">{house.name}</span>
+                            <span className="text-xs text-muted-foreground">{house.city}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground">{Object.values(picked).filter(Boolean).length} picked</p>
+                </div>
+              )}
+            </fieldset>
+
             <div className="grid gap-1.5">
               <p className="text-sm font-medium text-foreground">
                 Recipients · {chosen.length} selected{skipped.length ? ` · ${skipped.length} skipped` : ""}
               </p>
+              <div className="flex gap-3 text-xs">
+                <button type="button" className="text-primary underline" onClick={() => setExcluded({})}>Select all</button>
+                <button type="button" className="text-primary underline" onClick={() => setExcluded(Object.fromEntries(ready.map((row) => [row.person.id, true])))}>Clear all</button>
+              </div>
               <ul className="grid max-h-52 gap-1 overflow-y-auto rounded-2xl border p-2">
-                {ready.map((row) => (
-                  <li key={`${row.entry.id}-${row.person.id}`}>
+                {ready.slice(0, 300).map((row) => (
+                  <li key={`${row.house.id}-${row.person.id}`}>
                     <label className="flex min-h-11 items-start gap-2 rounded-xl px-2 py-1.5 text-sm hover:bg-muted">
                       <input
                         type="checkbox"
                         className="mt-1 size-4"
-                        checked={Boolean(selected[row.person.id])}
-                        onChange={(event) => setSelected((current) => ({ ...current, [row.person.id]: event.target.checked }))}
+                        checked={!excluded[row.person.id]}
+                        onChange={(event) => setExcluded((current) => ({ ...current, [row.person.id]: !event.target.checked }))}
                       />
                       <span className="min-w-0">
                         <span className="block font-medium text-foreground">{row.person.name || row.house.name}</span>
@@ -580,8 +714,9 @@ export function PreplannerMessageDialog({
                     </label>
                   </li>
                 ))}
-                {skipped.map((row) => (
-                  <li key={`skip-${row.entry.id}-${row.person.id}`} className="px-2 py-1.5 text-sm text-muted-foreground">
+                {ready.length > 300 ? <li className="px-2 py-1.5 text-xs text-muted-foreground">Showing the first 300 of {ready.length}. Everyone checked is included.</li> : null}
+                {skipped.slice(0, 200).map((row) => (
+                  <li key={`skip-${row.house.id}-${row.person.id}`} className="px-2 py-1.5 text-sm text-muted-foreground">
                     <span className="font-medium text-foreground">{row.person.name || row.house.name}</span>
                     <span> — {row.skip}</span>
                   </li>
