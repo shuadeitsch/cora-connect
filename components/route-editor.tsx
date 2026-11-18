@@ -1,5 +1,6 @@
 "use client";
 
+import { isSummerHome } from "@/lib/contact-tags";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, GripVertical, Plus, Shuffle, X } from "lucide-react";
@@ -92,6 +93,11 @@ export function RouteEditor({
       .slice(0, 20);
   }, [data.households, ids, search]);
 
+  const summerIds = useMemo(() => {
+    const tagged = new Set(data.households.filter((household) => isSummerHome(household.tags)).map((household) => household.id));
+    return ids.filter((id) => tagged.has(id));
+  }, [data.households, ids]);
+
   function change(next: string[]) {
     setIds(next);
     setOptimized(false);
@@ -147,6 +153,11 @@ export function RouteEditor({
           <Shuffle className="size-4" /> Re-optimize order
         </Button>
       </div>
+      {summerIds.length ? (
+        <button type="button" className="mb-1 justify-self-start rounded-full bg-sky-500/20 px-3 py-1.5 text-xs font-medium text-sky-950" onClick={() => change(ids.filter((id) => !summerIds.includes(id)))}>
+          Remove {summerIds.length} summer home{summerIds.length === 1 ? "" : "s"} from this route
+        </button>
+      ) : null}
       <ol className="grid gap-1" aria-label="Stops">
         {ids.map((id, index) => {
           const stop = byId.get(id);

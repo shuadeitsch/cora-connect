@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CONTACT_PROJECTS, FOCUS_STATES, UNSORTED_PROJECT, matchesStateFilter, sameState, stateLabel } from "@/lib/constants";
-import { CONTACT_TAGS, matchesTagFilter, showInContactList } from "@/lib/contact-tags";
+import { isSummerHome, CONTACT_TAGS, matchesTagFilter, showInContactList } from "@/lib/contact-tags";
 import { contactHasEmail, contactHasPhone, matchesVisitStatusFilters } from "@/lib/contact-match";
 import { formatMedium } from "@/lib/format";
 import { labeledVisitNotes } from "@/lib/visit-notes";
@@ -41,6 +41,7 @@ export const emptyFilters = {
   tag: "",
   tagsOn: false,
   duplicates: false,
+  excludeSummer: false,
   shliachDeleted: false,
   hasEmail: false,
   hasPhone: false,
@@ -72,6 +73,7 @@ export function filtersActive(filters: ContactFilters): boolean {
     || filters.tagsOn
     || filters.tag
     || filters.duplicates
+    || filters.excludeSummer
     || filters.shliachDeleted
     || filters.seasons.length
     || filters.cities.length,
@@ -101,6 +103,7 @@ export function activeFilterChips(filters: ContactFilters, isAdmin: boolean, tab
   for (const season of filters.seasons) chips.push({ key: `season:${season}`, label: season });
   if (filters.tagsOn) chips.push({ key: "tagsOn", label: filters.tag || "Tags" });
   if (filters.duplicates) chips.push({ key: "duplicates", label: "Possible duplicates" });
+  if (filters.excludeSummer) chips.push({ key: "excludeSummer", label: "Excluding summer homes" });
   if (isAdmin && filters.shliachDeleted) chips.push({ key: "shliachDeleted", label: "Deleted by shliach" });
   if (filters.cities.length) chips.push({ key: "cities", label: filters.cities.length === 1 ? "1 city" : `${filters.cities.length} cities` });
   return chips;
@@ -113,6 +116,7 @@ export function clearActiveFilter(filters: ContactFilters, key: string): Contact
   if (key === "visitDeferred") return withDerivedFilters({ ...filters, visitDeferred: false });
   if (key === "visitNotVisited") return withDerivedFilters({ ...filters, visitNotVisited: false });
   if (key === "tagsOn") return withDerivedFilters({ ...filters, tagsOn: false, tag: "" });
+  if (key === "excludeSummer") return withDerivedFilters({ ...filters, excludeSummer: false });
   if (key === "duplicates") return withDerivedFilters({ ...filters, duplicates: false });
   if (key === "shliachDeleted") return withDerivedFilters({ ...filters, shliachDeleted: false });
   if (key === "cities") return withDerivedFilters({ ...filters, cities: [] });
@@ -179,9 +183,10 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
         seasons: filters.seasons,
       })) return false;
       if (filters.duplicates && !household.possibleDuplicate) return false;
+      if (filters.excludeSummer && isSummerHome(household.tags)) return false;
       return true;
     });
-  }, [data.households, data.viewer.canViewHistory, data.viewer.role, query, filters.tag, filters.tagsOn, filters.shliachDeleted, filters.state, filters.hasEmail, filters.hasPhone, filters.visitCompleted, filters.visitDeferred, filters.visitNotVisited, filters.seasons, filters.duplicates, gone]);
+  }, [data.households, data.viewer.canViewHistory, data.viewer.role, query, filters.tag, filters.tagsOn, filters.shliachDeleted, filters.state, filters.hasEmail, filters.hasPhone, filters.visitCompleted, filters.visitDeferred, filters.visitNotVisited, filters.seasons, filters.duplicates, filters.excludeSummer, gone]);
 
   // Every city in the chosen state, alphabetical, with how many contacts each would show.
   const cityChoices = useMemo(() => {
@@ -378,6 +383,7 @@ function FilterPanelBody({ ctl, onChange, onDone }: { ctl: ContactFilterState; o
         </fieldset>
         <fieldset className="grid gap-0.5">
           <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Other</legend>
+          <FilterCheck checked={filters.excludeSummer} label="Exclude summer homes" onChange={(on) => set({ excludeSummer: on })} />
           <FilterCheck checked={filters.duplicates} label="Possible duplicates" onChange={(on) => set({ duplicates: on })} />
           {ctl.isAdmin ? (
             <FilterCheck checked={filters.shliachDeleted} label="Deleted by shliach" onChange={(on) => set({ shliachDeleted: on })} />
