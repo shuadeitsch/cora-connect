@@ -1,5 +1,6 @@
 "use client";
 
+import { fillTemplateBody, templateVarKeys, townFromCity, visitWhenFromScheduled } from "@/lib/whatsapp-vars";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePractice } from "@/components/practice-provider";
 import { Notice } from "@/components/page-header";
@@ -111,8 +112,8 @@ function lastWhatsAppInbound(data: AppData, householdId: string, phone: string) 
 }
 
 
-function fillWhatsAppContent(body: string, first: string) {
-  return body.replace(/\{\{\s*1\s*\}\}/g, first);
+function fillWhatsAppContent(body: string, first: string, extra: Record<string, string> = {}) {
+  return fillTemplateBody(body, { ...extra, "1": first });
 }
 
 function defaultWhatsAppContentSid(templates: WhatsAppContentTemplate[], fallback?: string) {
@@ -226,6 +227,7 @@ export function PreplannerMessageDialog({
   const whatsappApiReady = Boolean(whatsappApi && data.mailSetup?.whatsapp);
   const waTemplates = data.mailSetup?.whatsappTemplates ?? [];
   const [waContentSid, setWaContentSid] = useState("");
+  const [visitWhen, setVisitWhen] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -257,6 +259,13 @@ export function PreplannerMessageDialog({
   const type = channelTypeFor(mode);
   const selectedWa = waTemplates.find((item) => item.sid === waContentSid) ?? waTemplates[0];
   const selectedWaApproved = selectedWa?.status === "approved";
+  const waKeys = selectedWa ? (selectedWa.variables?.length ? selectedWa.variables : templateVarKeys(selectedWa.body)) : [];
+  const needsTown = waKeys.includes("2");
+  const needsWhen = waKeys.includes("3");
+  const waExtraFor = (house: HouseholdView, entry?: PreplannerEntry) => ({
+    "2": townFromCity(house.city),
+    "3": visitWhen.trim() || visitWhenFromScheduled(entry?.scheduledAt, house.state),
+  });
 
   const rows = useMemo(() => {
     const out: {
@@ -290,6 +299,8 @@ export function PreplannerMessageDialog({
           else if (mode === "whatsapp" && !whatsappMeLink(address, "ok")) skip = `${address} is not a valid WhatsApp number`;
           else if (mode === "email" && !channelFor(channels, type, house!.state)) skip = "No Gmail channel for this state";
           else if (mode === "text" && !channelFor(channels, type, house!.state)) skip = "No texting channel for this state";
+          else if (mode === "whatsapp" && whatsappApi && selectedWaApproved && needsTown && !townFromCity(house!.city)) skip = "No town on file";
+          else if (mode === "whatsapp" && whatsappApi && selectedWaApproved && needsWhen && !waExtraFor(house!, entry)["3"]) skip = "No visit date/time (type one above or schedule the visit)";
           else if (mode === "whatsapp" && whatsappApi && !selectedWaApproved && !withinWhatsAppWindow(lastWhatsAppInbound(data, house!.id, address))) skip = selectedWa ? `${selectedWa.label} is waiting for Meta approval (only people who replied in the last 24 hours can get a free-form message)` : "Waiting for WhatsApp template approval (only people who replied in the last 24 hours can get a free-form message)";
           else if (mode === "whatsapp" && whatsappApi && !channelFor(channels, type, house!.state) && !data.mailSetup?.whatsapp) skip = "No WhatsApp channel for this state";
           out.push({ rid: `${person.id}|${address}`, person, house: house!, entry, address, skip });
@@ -297,7 +308,7 @@ export function PreplannerMessageDialog({
       }
     }
     return out;
-  }, [channels, data, houses, mode, selectedWa, selectedWaApproved, type, whatsappApi, whatsappApiReady]);
+  }, [channels, data, houses, mode, selectedWa, selectedWaApproved, type, whatsappApi, whatsappApiReady, needsTown, needsWhen, visitWhen]);
 
   const manualWa = mode === "whatsapp" && !whatsappApi;
   const ready = rows.filter((row) => !row.skip);
@@ -370,7 +381,7 @@ export function PreplannerMessageDialog({
           const channel = channelFor(channels, type, row.house.state);
           const names = varsFor(row.person, row.house);
           const filled = mode === "whatsapp" && selectedWaApproved && selectedWa
-            ? fillWhatsAppContent(selectedWa.body, names.firstName || "friend")
+            ? fillWhatsAppContent(selectedWa.body, names.firstName || "friend", waExtraFor(row.house, row.entry))
             : fillPlaceholders(body, names);
           return {
             channelId: channel?.id,
@@ -385,6 +396,7 @@ export function PreplannerMessageDialog({
             templateName: mode === "whatsapp" ? (selectedWa?.name || selectedWa?.label) : catalog.find((item) => item.id === templateId)?.name,
             preplannerEntryId: row.entry?.id,
             contentSid: mode === "whatsapp" ? selectedWa?.sid : undefined,
+            templateVars: mode === "whatsapp" && selectedWaApproved ? { "2": waExtraFor(row.house, row.entry)["2"], "3": waExtraFor(row.house, row.entry)["3"] } : undefined,
             freeform: mode === "whatsapp" && !selectedWaApproved,
           };
         });
@@ -649,6 +661,13 @@ export function PreplannerMessageDialog({
             {mode === "whatsapp" && whatsappApi && whatsappApiReady && selectedWa?.status === "approved" ? (
               <Notice tone="ok">WhatsApp will send “{selectedWa.label}” with each person’s name in the greeting.</Notice>
             ) : null}
+            {mode === "whatsapp" && whatsappApi && whatsappApiReady && selectedWaApproved && needsWhen ? (
+              <label className="grid gap-1 text-sm">
+                <span className="text-muted-foreground">Visit date/time (required for this template)</span>
+                <Input value={visitWhen} onChange={(event) => setVisitWhen(event.target.value)} placeholder="Tuesday, December 8 at 2 PM" aria-label="Visit date/time" />
+                <span className="text-xs text-muted-foreground">Leave blank to use each contact’s scheduled visit from the pre-planner. The town comes from each contact’s city; anyone with no town or no visit time is skipped and listed below.</span>
+              </label>
+            ) : null}
             {mode === "whatsapp" && whatsappApi && whatsappApiReady && selectedWa?.status === "pending" ? (
               <Notice tone="info">“{selectedWa.label}” is waiting for Meta approval. Until it’s approved, you can only send a free-form message to people who WhatsApp’d you in the last 24 hours.</Notice>
             ) : null}
@@ -662,7 +681,7 @@ export function PreplannerMessageDialog({
                 <div className="grid gap-2">
                   {waTemplates.map((item) => {
                     const first = sample ? (varsFor(sample.person, sample.house).firstName || "friend") : "friend";
-                    const previewBody = fillWhatsAppContent(item.body, first);
+                    const previewBody = fillWhatsAppContent(item.body, first, sample ? waExtraFor(sample.house, sample.entry) : {});
                     const checked = (selectedWa?.sid ?? waContentSid) === item.sid;
                     return (
                       <label

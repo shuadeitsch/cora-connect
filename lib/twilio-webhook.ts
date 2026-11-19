@@ -32,7 +32,7 @@ export async function handleTwilioWebhook(req: Request, kind: "sms" | "whatsapp"
   }
   const from = (params.From || "").replace(/^whatsapp:/, "");
   const to = (params.To || "").replace(/^whatsapp:/, "");
-  const body = params.Body || params.MediaUrl0 || "";
+  const body = params.Body || params.ButtonText || params.ButtonPayload || params.MediaUrl0 || "";
   const sid = params.MessageSid || params.SmsMessageSid || "";
   if (!sid) return new NextResponse("Missing MessageSid", { status: 400 });
 

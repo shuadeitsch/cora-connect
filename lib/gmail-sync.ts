@@ -1,7 +1,7 @@
 import "server-only";
 import { decryptSecret } from "@/lib/mail-crypto";
 import { gmailAccessToken } from "@/lib/mail-send";
-import { ingestInbound, matchContactByAddress } from "@/lib/messaging-send";
+import { ingestInbound, matchContactByAddress, matchGmailReply } from "@/lib/messaging-send";
 import { messagingIngestKey } from "@/lib/messaging-status";
 import { createClient, createEphemeralClient } from "@/lib/supabase/server";
 
@@ -117,20 +117,24 @@ async function syncOneAccount(
         const payload = message.json as {
           payload?: { headers?: { name?: string; value?: string }[]; mimeType?: string; body?: { data?: string }; parts?: unknown };
           labelIds?: string[];
+          threadId?: string;
         };
         if ((payload.labelIds ?? []).includes("SENT")) continue;
         const from = fromEmail(header(payload.payload?.headers, "From"));
         if (!from || from === account.email.toLowerCase()) continue;
         const subject = header(payload.payload?.headers, "Subject");
         const body = plainBody(payload.payload).trim() || subject;
-        const match = await matchContactByAddress({ orgId: account.org_id, family: "email", address: from });
+        const byAddress = await matchContactByAddress({ orgId: account.org_id, family: "email", address: from });
+        // Not a saved address (personal email, alias, forward): fall back to the Gmail thread we sent into.
+        const byThread = byAddress ? null : await matchGmailReply({ threadId: String(payload.threadId ?? ""), messageId: id });
+        const match = byAddress ?? byThread;
         if (!match) continue;
         const result = await ingestInbound({
           orgId: match.orgId,
           householdId: match.householdId,
-          personId: match.personId,
+          personId: match.personId || null,
           channelType: "email_gmail",
-          contactAddress: from,
+          contactAddress: byThread ? byThread.contactAddress : from,
           body,
           subject,
           provider: "gmail",

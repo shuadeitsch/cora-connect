@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.84
+_Updated Nov 19, 2026, 6:46 PM (New York time)._
+- **WhatsApp templates can now have more than one variable.** The CRM reads each template's variables from Twilio. {{1}} is the first name as before, {{2}} is the contact's town (city) and {{3}} is the visit date and time. One-variable templates (Chanukah, Visit) work exactly as before.
+- New template **cora_maine_visit_students_utility** ("Visit with date and town", WhatsApp utility, with Yes / Another time / Not interested buttons) was submitted to Meta; it shows in the WhatsApp template list and is usable once approved.
+- In the Message sheet, a **Visit date/time** box appears for templates that need it (leave it blank to use each contact's scheduled visit from the pre-planner). The template preview shows every value filled in. Contacts with no town, or no visit time, are skipped and listed with the reason; the server also refuses to send them.
+- The message log now stores the full filled-in text and all template values for each WhatsApp send (it used to store only the first name). Delivery status callbacks are unchanged.
+- Replies that are button taps (Yes / Another time / Not interested) now show in the Inbox (the button text is used when the reply has no body).
+
 ## 1.8.83
 _Updated Nov 19, 2026, 7:00 PM (New York time)._
 - **Tap-to-send from your own WhatsApp.** New **Tap-to-send (my WhatsApp)** choice in the Message sheet. Pick the audience as usual (state, cities, reached or new, or specific people), write one message, and use `{first_name}`, `{name}` or `{city}` (new Insert buttons add them; the message starts with "Hi {first_name}," by default). Each person's copy is filled in with their name, skipping titles (Mrs. Ruth Gordon becomes Ruth) and saying "there" when there is no usable first name. The queue shows one person at a time: name, number, the exact message, a big **Open in WhatsApp** button (your WhatsApp app on a phone, WhatsApp Web on a Chromebook), then **Sent / Next** or **Skip**, with "N of M" and a progress bar. **Pause** keeps your place; reopening the Message sheet offers **Resume**. Tapping Sent / Next logs a "WhatsApp (manual)" message on the contact. The CRM never sends anything and opens nothing by itself.

@@ -308,6 +308,8 @@ export interface WhatsAppContentTemplate {
   label: string;
   body: string;
   status: Exclude<WhatsAppTemplateStatus, "missing">;
+  /** Variable keys the template needs, e.g. ["1","2","3"]. */
+  variables?: string[];
 }
 
 export interface MailSetup {

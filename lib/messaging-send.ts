@@ -169,6 +169,17 @@ export async function matchContactByAddress(opts: {
   return { orgId: row.org_id, householdId: row.household_id, personId: row.person_id, name: row.name ?? "" };
 }
 
+/** A reply from an address we never saved: find the conversation by the Gmail thread of the message we sent. */
+export async function matchGmailReply(opts: { threadId: string; messageId: string }): Promise<(MatchedContact & { contactAddress: string }) | null> {
+  const key = messagingIngestKey();
+  if (!key) return null;
+  const supabase = createEphemeralClient();
+  const { data, error } = await supabase.rpc("match_gmail_reply", { p_key: key, p_ids: [opts.threadId, opts.messageId].filter(Boolean) });
+  if (error || !data?.length) return null;
+  const row = data[0] as { org_id: string; household_id: string; person_id: string | null; contact_address: string };
+  return { orgId: row.org_id, householdId: row.household_id, personId: row.person_id ?? "", name: "", contactAddress: row.contact_address };
+}
+
 export async function ingestInbound(payload: {
   orgId?: string;
   householdId?: string;

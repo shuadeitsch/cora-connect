@@ -1,4 +1,5 @@
 import "server-only";
+import { templateVarKeys } from "@/lib/whatsapp-vars";
 import type { WhatsAppContentTemplate, WhatsAppTemplateStatus } from "@/lib/types";
 
 export type WhatsAppTemplateState = {
@@ -15,6 +16,7 @@ let cache: { at: number; value: WhatsAppTemplateState } | null = null;
 const LABELS: Record<string, string> = {
   cora_maine_chanukah: "Chanukah visit",
   cora_maine_visit: "Visit",
+  cora_maine_visit_students_utility: "Visit with date and town",
 };
 
 type TwilioContentTypes = Record<string, { body?: string } | undefined>;
@@ -24,6 +26,7 @@ type TwilioContentAndApproval = {
   friendly_name?: string;
   date_created?: string;
   types?: TwilioContentTypes;
+  variables?: Record<string, string>;
   approval_requests?: {
     status?: string;
     name?: string;
@@ -50,7 +53,7 @@ function isCoraName(name: string | undefined): boolean {
 }
 
 function contentBody(types?: TwilioContentTypes): string {
-  return types?.["twilio/text"]?.body || types?.["whatsapp/text"]?.body || Object.values(types ?? {}).find((item) => item?.body)?.body || "";
+  return types?.["twilio/text"]?.body || types?.["twilio/quick-reply"]?.body || types?.["whatsapp/text"]?.body || Object.values(types ?? {}).find((item) => item?.body)?.body || "";
 }
 
 function prettyLabel(name: string): string {
@@ -81,6 +84,7 @@ function toTemplate(item: TwilioContentAndApproval): WhatsAppContentTemplate | n
     label: prettyLabel(name || item.friendly_name || sid),
     body: contentBody(item.types),
     status,
+    variables: templateVarKeys(contentBody(item.types), Object.keys(item.variables ?? {})),
   };
 }
 

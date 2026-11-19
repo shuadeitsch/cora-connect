@@ -6,6 +6,7 @@ import { gmailAccountSecrets, touchGmailAccount } from "@/lib/supabase/write";
 import { sendChannelMessage } from "@/lib/messaging-send";
 import { channelFamily, optedOut, withinWhatsAppWindow, type MessageChannelType, type MessageFamily } from "@/lib/messaging";
 import { messagingSetupStatus, twilioFromNumber, twilioWhatsappNumber } from "@/lib/messaging-status";
+import { fillTemplateBody, templateVarKeys, townFromCity, visitWhenFromScheduled } from "@/lib/whatsapp-vars";
 import { findWhatsAppTemplate, twilioWhatsappContentSid, whatsappTemplateState } from "@/lib/whatsapp-template";
 import { viewerPermissions } from "@/lib/model";
 import { newId } from "@/lib/ids";
@@ -221,9 +222,29 @@ export async function sendCampaignMessage(
       const selected = findWhatsAppTemplate(tpl, input.contentSid || twilioWhatsappContentSid());
       const first = (person?.name ?? "").trim().split(/\s+/)[0] || "friend";
       if (selected?.status === "approved" && !input.freeform) {
+        const keys = selected.variables?.length ? selected.variables : templateVarKeys(selected.body || "");
+        const house = db.households.find((item) => item.id === input.householdId);
+        const entry = (db.preplannerEntries ?? []).find((item) => item.id === input.preplannerEntryId)
+          ?? (db.preplannerEntries ?? []).find((item) => item.householdId === input.householdId && item.scheduledAt);
+        const supplied = input.templateVars ?? {};
+        const vars: Record<string, string> = { "1": first };
+        for (const key of keys) {
+          if (key === "1") continue;
+          let value = (supplied[key] ?? "").trim();
+          if (!value && key === "2") value = townFromCity(house?.city);
+          if (!value && key === "3") value = visitWhenFromScheduled(entry?.scheduledAt, house?.state);
+          if (!value) {
+            throw new Error(key === "2"
+              ? "No town on file for this contact, so the WhatsApp visit message can't be filled in."
+              : key === "3"
+                ? "Add a visit date/time for this WhatsApp template."
+                : `Missing a value for WhatsApp template variable {{${key}}}.`);
+          }
+          vars[key] = value;
+        }
         templateName = selected.sid;
-        templateVars = { "1": first };
-        body = (selected.body || body || `Hi ${first}`).replace(/\{\{\s*1\s*\}\}/g, first);
+        templateVars = vars;
+        body = fillTemplateBody(selected.body || body || `Hi ${first}`, vars);
       } else if (inWindow && body.trim()) {
         templateName = undefined;
         templateVars = undefined;
@@ -290,13 +311,13 @@ export async function sendCampaignMessage(
       channel_id: channel?.id ?? null,
       channel_type: typ,
       direction: "out",
-      body: input.body,
+      body,
       subject: input.subject ?? null,
       status: "sent",
       provider: family === "email" ? (input.type === "email_gmail" ? "gmail" : "resend") : "twilio",
       provider_message_id: providerId,
       template_name: input.templateName ?? null,
-      template_vars: input.templateVars ?? null,
+      template_vars: templateVars ?? null,
       sent_by: actor.id,
     });
     if (error && !/duplicate|unique/i.test(error.message)) throw new Error(error.message);
