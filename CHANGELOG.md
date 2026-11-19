@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.8.84
-_Updated Nov 19, 2026, 11:46 PM (New York time)._
+_Updated Nov 19, 2026, 6:46 PM (New York time)._
 - **Email replies now reach the Inbox even when they come from a different address.** Replies were only attached to a contact if the sender's address exactly matched the email saved on that contact, and anything else was silently dropped. So a reply from your personal address (or an alias or forward) to an email we sent never showed up. The Gmail sync now also matches a reply to the email we sent by its Gmail conversation, and files it in that contact's existing thread (migration 056). Replies from saved addresses work as before.
 
 ## 1.8.84
