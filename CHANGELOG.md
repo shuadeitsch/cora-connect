@@ -1,6 +1,10 @@
 # Changelog
 
 ## 1.8.84
+_Updated Nov 19, 2026, 11:46 PM (New York time)._
+- **Email replies now reach the Inbox even when they come from a different address.** Replies were only attached to a contact if the sender's address exactly matched the email saved on that contact, and anything else was silently dropped. So a reply from your personal address (or an alias or forward) to an email we sent never showed up. The Gmail sync now also matches a reply to the email we sent by its Gmail conversation, and files it in that contact's existing thread (migration 056). Replies from saved addresses work as before.
+
+## 1.8.84
 _Updated Nov 19, 2026, 6:46 PM (New York time)._
 - **WhatsApp templates can now have more than one variable.** The CRM reads each template's variables from Twilio. {{1}} is the first name as before, {{2}} is the contact's town (city) and {{3}} is the visit date and time. One-variable templates (Chanukah, Visit) work exactly as before.
 - New template **cora_maine_visit_students_utility** ("Visit with date and town", WhatsApp utility, with Yes / Another time / Not interested buttons) was submitted to Meta; it shows in the WhatsApp template list and is usable once approved.
