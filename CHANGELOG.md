@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.83
+_Updated Nov 19, 2026, 7:00 PM (New York time)._
+- **Tap-to-send from your own WhatsApp.** New **Tap-to-send (my WhatsApp)** choice in the Message sheet. Pick the audience as usual (state, cities, reached or new, or specific people), write one message, and use `{first_name}`, `{name}` or `{city}` (new Insert buttons add them; the message starts with "Hi {first_name}," by default). Each person's copy is filled in with their name, skipping titles (Mrs. Ruth Gordon becomes Ruth) and saying "there" when there is no usable first name. The queue shows one person at a time: name, number, the exact message, a big **Open in WhatsApp** button (your WhatsApp app on a phone, WhatsApp Web on a Chromebook), then **Sent / Next** or **Skip**, with "N of M" and a progress bar. **Pause** keeps your place; reopening the Message sheet offers **Resume**. Tapping Sent / Next logs a "WhatsApp (manual)" message on the contact. The CRM never sends anything and opens nothing by itself.
+- **WhatsApp button on every contact** (list rows, cards, and the contact detail): opens a chat with the WhatsApp number, else the first valid phone, with "Hi <first name>," already typed.
+- The Message sheet audience now also leaves out Not Jewish and Probably doesn't exist contacts (Deceased was already out); the Summer home switch still applies.
+
 ## 1.8.82
 _Updated Nov 19, 2026, 6:40 PM (New York time)._
 - **Real delivery status for texts and WhatsApp.** Every send now asks Twilio to report back (a signed status callback, migration 055), and the message log updates to Delivered, Read, or Failed. A Failed message shows in red with a plain reason, for example code 63049: "WhatsApp (Meta) didn't deliver this marketing message." A message never goes backwards (Delivered/Read is not overwritten by an older Sent). The two WhatsApp sends from Nov 19, 6:00 PM were checked against Twilio and now show Failed (63049).

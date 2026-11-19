@@ -83,9 +83,9 @@ export function fillPlaceholders(template: string, vars: PlaceholderVars): strin
   const last = vars.lastName ?? "";
   const full = (vars.fullName ?? [first, last].filter(Boolean).join(" ")) || first;
   return template
-    .replace(/\{first name\}/gi, first)
-    .replace(/\{last name\}/gi, last)
-    .replace(/\{full name\}/gi, full)
+    .replace(/\{first[ _]name\}/gi, first)
+    .replace(/\{last[ _]name\}/gi, last)
+    .replace(/\{full[ _]name\}/gi, full)
     .replace(/\{name\}/gi, full || first)
     .replace(/\{state\}/gi, vars.state ?? "")
     .replace(/\{city\}/gi, vars.city ?? "")

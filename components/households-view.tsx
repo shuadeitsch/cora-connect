@@ -69,6 +69,7 @@ import { isNewContact } from "@/lib/new-contacts";
 import { usePractice } from "@/components/practice-provider";
 import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
+import { bestWhatsAppNumber, greetingFirstName, whatsappMeLink } from "@/lib/whatsapp";
 import { blankExtraAddress, formatExtraAddress, parseExtraAddresses } from "@/lib/extra-addresses";
 import { CONTACT_TAGS, SUMMER_TAG, displayTags, isSummerHome, officialTags } from "@/lib/contact-tags";
 import { ContactFilterControls, filtersActive, useContactFilters } from "@/components/contact-filters";
@@ -558,6 +559,7 @@ export function HouseholdsView({
                   <ShareWithBochurimToggle household={household} data={live} />
                   <div className="mt-auto flex gap-2">
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" onClick={() => setContact(household)}>Contact</Button>
+                    {live.viewer.canViewContact ? <WaRowButton household={household} label="" /> : null}
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} data-tour={index === 0 ? "visit-log" : undefined} onClick={() => { setVisitEdit(undefined); setVisitFor(household); }}>
                       <Pencil className="size-3.5" /> Visit
                     </Button>
@@ -638,6 +640,7 @@ export function HouseholdsView({
                   <td className="px-2">
                     <div className="flex items-center gap-1">
                       <IconAction label="Log visit" onClick={() => { setVisitEdit(undefined); setVisitFor(household); }} icon={Pencil} disabled={!live.viewer.canLogVisit} tour={index === 0 ? "visit-log" : undefined} />
+                      {live.viewer.canViewContact ? <WaRowButton household={household} label="" /> : null}
                       {live.viewer.role === "bochur" ? (
                         <IconAction label="Suggest edit" onClick={() => setEditing(household)} icon={MessageSquare} disabled={Boolean(live.viewer.preview) && !practice.active} tour={index === 0 ? "contacts-suggest" : undefined} />
                       ) : null}
@@ -1786,7 +1789,7 @@ function ContactDialog({
                       <span key={`${person.id}-${index}`} className="flex flex-wrap gap-2">
                         <ActionLink href={telHref(number)} icon={Phone} label={unique.length > 1 ? `Call (${index + 1})` : "Call"} />
                         <ActionLink href={smsHref(number)} icon={MessageSquare} label={unique.length > 1 ? `Text (${index + 1})` : "Text"} />
-                        <ActionLink href={whatsAppHref(number)} icon={MessageCircle} label={unique.length > 1 ? `WhatsApp (${index + 1})` : "WhatsApp"} />
+                        <ActionLink href={whatsappMeLink(number, `Hi ${greetingFirstName(person.name || household.name)},`) ?? whatsAppHref(number)} icon={MessageCircle} label={unique.length > 1 ? `WhatsApp (${index + 1})` : "WhatsApp"} />
                       </span>
                     ));
                   })}
@@ -1828,6 +1831,33 @@ function ContactDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Click-to-chat link in the user's own WhatsApp, with "Hi <first name>," filled in. Null when no number or hidden for this viewer. */
+function waChatLink(household: HouseholdView): string | null {
+  for (const person of household.people ?? []) {
+    const number = bestWhatsAppNumber(person);
+    if (!number) continue;
+    return whatsappMeLink(number, `Hi ${greetingFirstName(person.name || household.name)},`);
+  }
+  return null;
+}
+
+function WaRowButton({ household, label = "WhatsApp" }: { household: HouseholdView; label?: string }) {
+  const href = waChatLink(household);
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`WhatsApp ${household.name}`}
+      title={`Open WhatsApp chat with ${household.name}`}
+      className="inline-flex h-10 items-center justify-center gap-1 rounded-full border border-emerald-600/40 px-3 text-xs font-medium text-emerald-700"
+    >
+      <MessageCircle className="size-3.5" /> {label}
+    </a>
   );
 }
 

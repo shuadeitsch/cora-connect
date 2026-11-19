@@ -11,12 +11,35 @@ import { useUndoToast } from "@/components/undo-toast";
 import { recordExternalMessageAction, sendCampaignBatchAction } from "@/lib/actions";
 import { stateLabel } from "@/lib/constants";
 import { addressesForFamily, channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
-import { isDeceased } from "@/lib/contact-tags";
+import { isTaggedContact } from "@/lib/contact-tags";
 import { fillPlaceholders, templatesOrDefault } from "@/lib/outreach";
-import { whatsappMeDigits, whatsappMeLink, whatsappNumberFor } from "@/lib/whatsapp";
+import { greetingFirstName, whatsappMeDigits, whatsappMeLink, whatsappNumberFor } from "@/lib/whatsapp";
 import type { AppData, HouseholdView, MessagingChannel, MessagingChannelType, Person, PreplannerEntry, WhatsAppContentTemplate } from "@/lib/types";
 
 type Mode = "email" | "text" | "whatsapp";
+
+const TAP_KEY = "cora_tap_queue_v1";
+type SavedQueue = { items: { personId: string; houseId: string; entryId?: string; address: string }[]; index: number; body: string; templateId: string; savedAt: string };
+
+function readSavedQueue(): SavedQueue | null {
+  try {
+    const raw = typeof window === "undefined" ? null : window.localStorage.getItem(TAP_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SavedQueue;
+    return parsed && Array.isArray(parsed.items) && parsed.index < parsed.items.length ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedQueue(value: SavedQueue | null) {
+  try {
+    if (value) window.localStorage.setItem(TAP_KEY, JSON.stringify(value));
+    else window.localStorage.removeItem(TAP_KEY);
+  } catch {
+    // Storage can be off in private browsing; the queue still works for this session.
+  }
+}
 
 function personPhone(person: Person) {
   return person.phone.trim() || person.phone2.trim() || person.phone3.trim();
@@ -27,10 +50,10 @@ function firstAndLast(name: string) {
   return { firstName: first ?? "", lastName: rest.join(" ") };
 }
 
-function varsFor(person: Person, house: HouseholdView | undefined) {
+function varsFor(person: Person, house: HouseholdView | undefined, greeting = false) {
   const names = firstAndLast(person.name || house?.name || "");
   return {
-    firstName: names.firstName,
+    firstName: greeting ? greetingFirstName(person.name || house?.name || "") : names.firstName,
     lastName: names.lastName,
     fullName: person.name.trim() || house?.name || "",
     state: house?.state ?? "",
@@ -129,7 +152,7 @@ export function PreplannerMessageDialog({
   const practice = usePractice();
   const catalog = templatesOrDefault(data.outreachTemplates);
   const channels = useMemo(() => scopedChannels(data), [data]);
-  const baseHouses = useMemo(() => data.households.filter((house) => !house.deletedAt && !house.deletedByShliachAt && !isDeceased(house.tags)), [data.households]);
+  const baseHouses = useMemo(() => data.households.filter((house) => !house.deletedAt && !house.deletedByShliachAt && !isTaggedContact(house.tags)), [data.households]);
   const states = useMemo(() => [...new Set(baseHouses.map((house) => stateLabel(house.state || "")).filter(Boolean))].sort(), [baseHouses]);
   const entryByHouse = useMemo(() => {
     const map = new Map<string, PreplannerEntry>();
@@ -191,11 +214,15 @@ export function PreplannerMessageDialog({
   const [results, setResults] = useState<{ name: string; ok: boolean; error?: string }[] | null>(null);
   const [queue, setQueue] = useState<{ person: Person; house: HouseholdView; entry?: PreplannerEntry; address: string }[] | null>(null);
   const [queueIndex, setQueueIndex] = useState(0);
+  const [opened, setOpened] = useState(false);
+  const [saved, setSaved] = useState<SavedQueue | null>(null);
   const [pending, start] = useTransition();
   const smsAllowed = Boolean(data.mailSetup?.smsSendingEnabled);
   const smsReady = Boolean(data.mailSetup?.sms && channels.some((item) => item.type === "sms_twilio"));
   const emailReady = Boolean(data.mailSetup?.gmail && channels.some((item) => item.type === "email_gmail" && item.gmailAccountId));
-  const whatsappApi = Boolean(data.mailSetup?.whatsappApiSendingEnabled);
+  const [tap, setTap] = useState(false);
+  const apiConfigured = Boolean(data.mailSetup?.whatsappApiSendingEnabled);
+  const whatsappApi = apiConfigured && !tap;
   const whatsappApiReady = Boolean(whatsappApi && data.mailSetup?.whatsapp);
   const waTemplates = data.mailSetup?.whatsappTemplates ?? [];
   const [waContentSid, setWaContentSid] = useState("");
@@ -212,6 +239,8 @@ export function PreplannerMessageDialog({
     setResults(null);
     setQueue(null);
     setQueueIndex(0);
+    setTap(false);
+    setSaved(readSavedQueue());
     setExcluded({});
     setProgress(null);
     setCities([]);
@@ -270,13 +299,14 @@ export function PreplannerMessageDialog({
     return out;
   }, [channels, data, houses, mode, selectedWa, selectedWaApproved, type, whatsappApi, whatsappApiReady]);
 
+  const manualWa = mode === "whatsapp" && !whatsappApi;
   const ready = rows.filter((row) => !row.skip);
   const skipped = rows.filter((row) => row.skip);
   const chosen = ready.filter((row) => !excluded[row.rid]);
   const sample = chosen[0] ?? ready[0];
-  const preview = sample ? fillPlaceholders(body, varsFor(sample.person, sample.house)) : body;
+  const preview = sample ? fillPlaceholders(body, varsFor(sample.person, sample.house, manualWa)) : body;
   const current = queue?.[queueIndex];
-  const currentPreview = current ? fillPlaceholders(body, varsFor(current.person, current.house)) : "";
+  const currentPreview = current ? fillPlaceholders(body, varsFor(current.person, current.house, true)) : "";
   const currentLink = current ? whatsappMeLink(current.address, currentPreview) : null;
 
   function applyTemplate(id: string) {
@@ -397,6 +427,43 @@ export function PreplannerMessageDialog({
     setResults([]);
     setQueue(chosen.map((row) => ({ person: row.person, house: row.house, entry: row.entry, address: row.address })));
     setQueueIndex(0);
+    setOpened(false);
+    writeSavedQueue({
+      items: chosen.map((row) => ({ personId: row.person.id, houseId: row.house.id, entryId: row.entry?.id, address: row.address })),
+      index: 0, body, templateId, savedAt: new Date().toISOString(),
+    });
+  }
+
+  function resumeSaved() {
+    if (!saved) return;
+    const people = new Map<string, { person: Person; house: HouseholdView }>();
+    for (const house of data.households) for (const person of house.people ?? []) people.set(person.id, { person, house });
+    const entries = new Map((data.preplannerEntries ?? []).map((entry) => [entry.id, entry]));
+    const items = saved.items.flatMap((item) => {
+      const hit = people.get(item.personId);
+      if (!hit || isTaggedContact(hit.house.tags)) return [];
+      return [{ person: hit.person, house: hit.house, entry: item.entryId ? entries.get(item.entryId) : undefined, address: item.address }];
+    });
+    const skippedAlready = saved.items.slice(0, saved.index).length;
+    const rest = items.slice(Math.min(skippedAlready, items.length));
+    if (!rest.length) {
+      writeSavedQueue(null);
+      setSaved(null);
+      return;
+    }
+    setMode("whatsapp");
+    setTap(true);
+    setBody(saved.body);
+    setTemplateId(saved.templateId);
+    setResults([]);
+    setQueue(items);
+    setQueueIndex(Math.min(saved.index, items.length - 1));
+    setOpened(false);
+  }
+
+  function discardSaved() {
+    writeSavedQueue(null);
+    setSaved(null);
   }
 
   function markWhatsApp(kind: "sent" | "skip") {
@@ -410,8 +477,7 @@ export function PreplannerMessageDialog({
           setError("That number is not valid for WhatsApp.");
           return;
         }
-        window.open(currentLink, "_blank", "noopener,noreferrer");
-        const filled = fillPlaceholders(body, varsFor(current.person, current.house));
+        const filled = fillPlaceholders(body, varsFor(current.person, current.house, true));
         const result = await recordExternalMessageAction({
           type: "whatsapp_twilio",
           to: current.address,
@@ -420,18 +486,22 @@ export function PreplannerMessageDialog({
           personId: current.person.id,
           projectId: current.entry?.projectId ?? undefined,
           templateId: templateId || undefined,
-          templateName: catalog.find((item) => item.id === templateId)?.name,
+          templateName: catalog.find((item) => item.id === templateId)?.name ?? "WhatsApp (manual)",
           preplannerEntryId: current.entry?.id,
-          provider: "wa.me",
-          channelLabel: "WhatsApp on your phone",
+          provider: "whatsapp_manual",
+          channelLabel: "WhatsApp (manual)",
         });
         setResults((list) => [...(list ?? []), { name, ok: result.ok, error: result.ok ? undefined : result.error }]);
       }
+      setOpened(false);
       if (queueIndex + 1 >= (queue?.length ?? 0)) {
         setQueue(null);
+        writeSavedQueue(null);
         announce({ ok: true }, "WhatsApp queue finished.");
       } else {
         setQueueIndex((index) => index + 1);
+        const stored = readSavedQueue();
+        if (stored) writeSavedQueue({ ...stored, index: queueIndex + 1 });
       }
     });
   }
@@ -444,7 +514,7 @@ export function PreplannerMessageDialog({
   const title = results && !queue
     ? (progress ? `Sending ${progress.done} of ${progress.total}…` : "Send results")
     : queue && current
-      ? `WhatsApp ${queueIndex + 1} of ${queue.length}`
+      ? `Tap-to-send ${queueIndex + 1} of ${queue.length}`
       : scope === "preplanner" ? "Message contacts" : "Message contacts";
 
   const primaryDisabled =
@@ -474,21 +544,39 @@ export function PreplannerMessageDialog({
         {error ? <Notice>{error}</Notice> : null}
 
         {queue && current ? (
-          <div className="grid gap-3">
-            <p className="text-sm text-muted-foreground">
-              Opens WhatsApp for <span className="font-medium text-foreground">{current.person.name || current.house.name}</span>. After you send (or if you skip), we’ll go to the next person.
-            </p>
-            <p className="text-sm text-muted-foreground">{current.address}</p>
-            <p className="whitespace-pre-wrap rounded-2xl bg-muted px-3 py-2 text-sm text-foreground">{currentPreview}</p>
+          <div className="grid min-w-0 gap-3">
+            <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
+              <div className="h-full bg-primary" style={{ width: `${Math.round((queueIndex / queue.length) * 100)}%` }} />
+            </div>
+            <p className="text-sm text-muted-foreground">{queueIndex + 1} of {queue.length} · {queue.length - queueIndex - 1} left after this one</p>
+            <div>
+              <p className="text-lg font-medium text-foreground [overflow-wrap:anywhere]">{current.person.name || current.house.name}</p>
+              <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">{current.address}{current.house.city ? ` · ${current.house.city}` : ""}</p>
+            </div>
+            <p className="whitespace-pre-wrap rounded-2xl bg-muted px-3 py-2 text-sm text-foreground [overflow-wrap:anywhere]">{currentPreview}</p>
+            {currentLink ? (
+              <a
+                href={currentLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpened(true)}
+                className="inline-flex min-h-14 items-center justify-center rounded-full bg-emerald-600 px-5 text-base font-semibold text-white"
+              >
+                Open in WhatsApp
+              </a>
+            ) : (
+              <Notice>That number is not valid for WhatsApp. Skip it.</Notice>
+            )}
+            <p className="text-xs text-muted-foreground">Send the message in WhatsApp (phone app or WhatsApp Web), come back here, then tap Sent / Next.</p>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" className="min-h-11 rounded-full" disabled={pending || !currentLink} onClick={() => markWhatsApp("sent")}>
-                {pending ? "Saving…" : "Send on WhatsApp"}
+              <Button type="button" variant={opened ? "default" : "outline"} className="min-h-11 rounded-full" disabled={pending || !currentLink} onClick={() => markWhatsApp("sent")}>
+                {pending ? "Saving…" : "Sent / Next"}
               </Button>
               <Button type="button" variant="outline" className="min-h-11 rounded-full" disabled={pending} onClick={() => markWhatsApp("skip")}>
                 Skip
               </Button>
-              <Button type="button" variant="outline" className="min-h-11 rounded-full" disabled={pending} onClick={() => { setQueue(null); }}>
-                Back
+              <Button type="button" variant="outline" className="min-h-11 rounded-full" disabled={pending} onClick={() => { setQueue(null); setSaved(readSavedQueue()); }}>
+                Pause
               </Button>
             </div>
           </div>
@@ -508,16 +596,24 @@ export function PreplannerMessageDialog({
             <fieldset>
               <legend className="text-sm text-muted-foreground">Send by</legend>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {(["email", "text", "whatsapp"] as Mode[]).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className={`inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-medium ring-1 ${mode === option ? "bg-primary text-primary-foreground ring-primary" : "bg-card ring-input"}`}
-                    onClick={() => setModeAndBody(option)}
-                  >
-                    {option === "email" ? "Email" : option === "text" ? "Text" : "WhatsApp"}
-                  </button>
-                ))}
+                {(["email", "text", ...(apiConfigured ? ["whatsapp"] : []), "tap"] as (Mode | "tap")[]).map((option) => {
+                  const active = option === "tap" ? mode === "whatsapp" && !whatsappApi : mode === option && !(option === "whatsapp" && tap);
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={active}
+                      className={`inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-medium ring-1 ${active ? "bg-primary text-primary-foreground ring-primary" : "bg-card ring-input"}`}
+                      onClick={() => {
+                        setTap(option === "tap");
+                        setModeAndBody(option === "tap" ? "whatsapp" : option);
+                        if (option === "tap" && !/\{(first[ _]name|name)\}/i.test(body)) setBody((current) => `Hi {first_name},\n\n${current}`);
+                      }}
+                    >
+                      {option === "email" ? "Email" : option === "text" ? "Text" : option === "whatsapp" ? "WhatsApp (API)" : "Tap-to-send (my WhatsApp)"}
+                    </button>
+                  );
+                })}
               </div>
             </fieldset>
 
@@ -530,8 +626,19 @@ export function PreplannerMessageDialog({
             {mode === "text" ? (
               <Notice tone="info">Texting turns on once Twilio approves our campaign.</Notice>
             ) : null}
+            {saved && !queue ? (
+              <Notice tone="info">
+                <span className="grid gap-2">
+                  <span>You have an unfinished tap-to-send queue ({saved.items.length - saved.index} left).</span>
+                  <span className="flex flex-wrap gap-2">
+                    <Button type="button" className="min-h-11 rounded-full" onClick={resumeSaved}>Resume</Button>
+                    <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={discardSaved}>Discard</Button>
+                  </span>
+                </span>
+              </Notice>
+            ) : null}
             {mode === "whatsapp" && !whatsappApi ? (
-              <Notice tone="info">For now this opens WhatsApp on your phone for each person, with the message already filled in. We’ll mark it sent when you tap Send on WhatsApp.</Notice>
+              <Notice tone="info">This uses your own WhatsApp (phone app, or WhatsApp Web on a Chromebook). Nothing is sent by the CRM: each person opens in WhatsApp with their message filled in, you tap Send there, then tap Sent / Next here to log it.</Notice>
             ) : null}
             {mode === "whatsapp" && whatsappApi && !whatsappApiReady ? (
               <Notice tone="info">Twilio WhatsApp is not set up yet. Set TWILIO_WHATSAPP_FROM and an approved Content template, or leave API sending off to use the phone queue.</Notice>
@@ -619,7 +726,14 @@ export function PreplannerMessageDialog({
                 <label className="grid gap-1 text-sm">
                   <span className="text-muted-foreground">Message</span>
                   <Textarea className="min-h-28" value={body} onChange={(event) => setBody(event.target.value)} />
-                  <span className="text-xs text-muted-foreground">Use {"{name}"} or {"{first name}"} to personalize each message.</span>
+                  <span className="text-xs text-muted-foreground">Use {"{first_name}"}, {"{name}"} or {"{city}"} to personalize each message.{manualWa ? " If someone has no first name it says “there”." : ""}</span>
+                  {manualWa ? (
+                    <span className="flex flex-wrap gap-1.5">
+                      {["{first_name}", "{city}"].map((token) => (
+                        <button key={token} type="button" className="min-h-9 rounded-full bg-muted px-3 text-xs font-medium" onClick={() => setBody((current) => `${current}${current && !/\s$/.test(current) ? " " : ""}${token}`)}>Insert {token}</button>
+                      ))}
+                    </span>
+                  ) : null}
                 </label>
                 {sample && body.trim() ? (
                   <p className="whitespace-pre-wrap rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
