@@ -8,6 +8,7 @@ import { loadThreadMessagesAction, markThreadReadAction, sendCampaignMessageActi
 import { channelFamily, channelTypeLabel, withinWhatsAppWindow } from "@/lib/messaging";
 import type { AppData, MessageItem, MessageThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { describeMessageStatus } from "@/lib/message-status";
 import { usePractice } from "@/components/practice-provider";
 import { requestGmailSync, useGmailSyncOnOpen, useRefreshOnGmailSync } from "@/components/gmail-inbox-sync";
 
@@ -57,7 +58,7 @@ export function MessageInbox({
 
   const admin = data.viewer.role === "admin" && !data.viewer.preview;
   return (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 gap-3">
       {admin && !compact ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
@@ -82,41 +83,42 @@ export function MessageInbox({
           </Button>
         </div>
       ) : null}
-    <div className={cn("grid gap-3", compact ? "" : "lg:grid-cols-[16rem_minmax(0,1fr)]")}>
-      <ul className="grid gap-1">
+    <div className={cn("grid min-w-0 gap-3", compact ? "" : "lg:grid-cols-[16rem_minmax(0,1fr)]")}>
+      <ul className="grid min-w-0 content-start gap-1">
         {threads.length ? threads.map((thread) => {
           const house = houses.get(thread.householdId);
           return (
-            <li key={thread.id}>
+            <li key={thread.id} className="min-w-0">
               <button
                 type="button"
                 onClick={() => setActiveId(thread.id)}
                 className={cn(
-                  "flex min-h-12 w-full flex-col items-start rounded-2xl px-3 py-2 text-left text-sm",
+                  "flex min-h-12 w-full min-w-0 flex-col items-stretch rounded-2xl px-3 py-2 text-left text-sm",
                   activeId === thread.id ? "bg-accent text-foreground" : "hover:bg-muted",
                 )}
               >
-                <span className="flex w-full items-center justify-between gap-2">
-                  <span className="truncate font-medium">{house?.name ?? "Contact"}</span>
+                <span className="flex w-full min-w-0 items-center justify-between gap-2">
+                  <span className="min-w-0 flex-1 truncate font-medium">{house?.name ?? "Contact"}</span>
                   {thread.unreadCount > 0 ? (
                     <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">{thread.unreadCount}</span>
                   ) : null}
                 </span>
-                <span className="truncate text-xs text-muted-foreground">{channelTypeLabel(thread.channelType)} · {thread.lastPreview || "No preview"}</span>
+                <span className="block min-w-0 truncate text-xs text-muted-foreground">{channelTypeLabel(thread.channelType)} · {thread.lastPreview || "No preview"}</span>
               </button>
             </li>
           );
         }) : <li className="text-sm text-muted-foreground">No messages yet.</li>}
       </ul>
       {active ? (
-        <div className="grid gap-2 rounded-2xl border bg-card p-3">
-          <p className="text-sm font-medium text-foreground">{houses.get(active.householdId)?.name ?? "Contact"} · {channelTypeLabel(active.channelType)}</p>
-          <ol className="grid max-h-80 gap-2 overflow-y-auto">
+        <div className="grid min-w-0 gap-2 rounded-2xl border bg-card p-3">
+          <p className="min-w-0 text-sm font-medium text-foreground [overflow-wrap:anywhere]">{houses.get(active.householdId)?.name ?? "Contact"} · {channelTypeLabel(active.channelType)}</p>
+          <ol className="grid max-h-80 min-w-0 gap-2 overflow-y-auto overflow-x-hidden">
             {messages.map((item) => (
-              <li key={item.id} className={cn("max-w-[90%] rounded-2xl px-3 py-2 text-sm", item.direction === "out" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
+              <li key={item.id} className={cn("min-w-0 max-w-[90%] rounded-2xl px-3 py-2 text-sm [overflow-wrap:anywhere]", item.direction === "out" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
                 {item.subject ? <p className="text-xs opacity-80">{item.subject}</p> : null}
-                <p className="whitespace-pre-wrap">{item.body}</p>
+                <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{item.body}</p>
                 <p className="mt-1 text-[10px] opacity-70">{new Date(item.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+                {item.direction === "out" ? <DeliveryStatus status={item.status} error={item.error} /> : null}
               </li>
             ))}
           </ol>
@@ -124,7 +126,7 @@ export function MessageInbox({
           {needsWhatsAppTemplate ? (
             <input className="h-11 rounded-xl border px-3 text-sm" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="WhatsApp template name or Content SID" />
           ) : null}
-          <Textarea className="min-h-20" value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Reply on the same channel" />
+          <Textarea className="min-h-20 w-full min-w-0" value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Reply on the same channel" />
           <Button
             type="button"
             className="min-h-11 rounded-full"
@@ -165,6 +167,19 @@ export function MessageInbox({
     </div>
     </div>
   );
+}
+
+function DeliveryStatus({ status, error }: { status: string; error?: string | null }) {
+  const info = describeMessageStatus(status, error);
+  if (!info.label) return null;
+  if (info.tone === "bad") {
+    return (
+      <p className="mt-1 rounded-lg bg-red-600 px-2 py-1 text-[11px] font-semibold text-white [overflow-wrap:anywhere]">
+        Failed{info.reason ? `: ${info.reason}` : ""}
+      </p>
+    );
+  }
+  return <p className="mt-1 text-[10px] font-medium opacity-80" title={info.reason}>{info.label}</p>;
 }
 
 export function inboxUnread(threads: MessageThread[]): number {

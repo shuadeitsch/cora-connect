@@ -1560,6 +1560,27 @@ export async function deletePreplannerEntry(actor: User, id: string): Promise<Ac
   }
 }
 
+/** Removes several entries from the Pre-planner list only. The contacts themselves are never touched. */
+export async function deletePreplannerEntries(actor: User, ids: string[]): Promise<ActionResult> {
+  try {
+    assert(perms(actor).canEdit || perms(actor).canLogVisit, "You don't have permission to change the Pre-planner.");
+    const unique = [...new Set(ids)].slice(0, 500);
+    assert(unique.length, "Select at least one entry.");
+    for (const id of unique) {
+      if (isSupabaseMode()) await removePreplannerEntry(id);
+    }
+    if (!isSupabaseMode()) {
+      const gone = new Set(unique);
+      applyDemo((draft) => {
+        draft.preplannerEntries = (draft.preplannerEntries ?? []).filter((item) => !gone.has(item.id));
+      });
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not remove those entries." };
+  }
+}
+
 export async function confirmPreplannerVisit(
   actor: User,
   input: { id: string; requestedDate: string; requestedTime: string; notes?: string },

@@ -78,3 +78,23 @@ export async function handleTwilioWebhook(req: Request, kind: "sms" | "whatsapp"
 }
 
 void channelFamily;
+
+/** Twilio delivery status callback: updates the logged message (sent / delivered / read / failed). */
+export async function handleTwilioStatus(req: Request) {
+  const params = await formParams(req);
+  const url = await signedUrl(req, "/api/webhooks/twilio/status");
+  if (!verifyTwilioSignature({ url, params, signature: req.headers.get("x-twilio-signature") })) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+  const sid = params.MessageSid || params.SmsSid || "";
+  const status = params.MessageStatus || params.SmsStatus || "";
+  const key = messagingIngestKey();
+  if (sid && status && key) {
+    const code = params.ErrorCode || "";
+    const detail = code ? `${code}${params.ErrorMessage ? `: ${params.ErrorMessage}` : ""}` : "";
+    const supabase = createEphemeralClient();
+    const { error } = await supabase.rpc("update_message_status", { p_key: key, p_provider_id: sid, p_status: status, p_error: detail });
+    if (error) return new NextResponse("Error", { status: 500 });
+  }
+  return new NextResponse("OK", { status: 200 });
+}

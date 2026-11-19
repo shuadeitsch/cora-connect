@@ -1,4 +1,5 @@
 import "server-only";
+import { requestOrigin } from "@/lib/site";
 import { createHmac, timingSafeEqual } from "crypto";
 import { sendViaGmail, sendViaResend, withUnsubscribeFooter, unsubscribeUrlFor } from "@/lib/mail-send";
 import { decryptSecret } from "@/lib/mail-crypto";
@@ -60,6 +61,9 @@ export async function sendTwilioMessage(input: {
     : input.from;
   const service = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim();
   const body = new URLSearchParams({ To: to });
+  try {
+    body.set("StatusCallback", `${await requestOrigin()}/api/webhooks/twilio/status`);
+  } catch { /* no public URL available; delivery status just won't update */ }
   if (service && !input.whatsapp) body.set("MessagingServiceSid", service);
   else body.set("From", from);
   if (input.templateName) {

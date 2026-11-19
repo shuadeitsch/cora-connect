@@ -479,7 +479,7 @@ export async function loadThreadMessages(actor: User, threadId: string): Promise
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("message_messages")
-      .select("id, thread_id, household_id, person_id, channel_type, direction, body, subject, status, created_at, sent_by, template_name")
+      .select("id, thread_id, household_id, person_id, channel_type, direction, body, subject, status, error, created_at, sent_by, template_name")
       .eq("thread_id", threadId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
@@ -493,6 +493,7 @@ export async function loadThreadMessages(actor: User, threadId: string): Promise
       body: String(row.body ?? ""),
       subject: row.subject ? String(row.subject) : null,
       status: String(row.status ?? ""),
+      error: row.error ? String(row.error) : null,
       createdAt: String(row.created_at),
       sentBy: row.sent_by ? String(row.sent_by) : null,
       templateName: row.template_name ? String(row.template_name) : null,

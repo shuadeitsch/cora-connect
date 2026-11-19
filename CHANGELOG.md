@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.82
+_Updated Nov 19, 2026, 6:40 PM (New York time)._
+- **Real delivery status for texts and WhatsApp.** Every send now asks Twilio to report back (a signed status callback, migration 055), and the message log updates to Delivered, Read, or Failed. A Failed message shows in red with a plain reason, for example code 63049: "WhatsApp (Meta) didn't deliver this marketing message." A message never goes backwards (Delivered/Read is not overwritten by an older Sent). The two WhatsApp sends from Nov 19, 6:00 PM were checked against Twilio and now show Failed (63049).
+- **Pre-planner Inbox fixed.** Long names, emails and messages now wrap or cut off with "..." instead of spilling out of their boxes, the unread count no longer gets pushed out of view, and the reply box and Send button stay inside the panel on phones, Chromebooks and desktops.
+- **Pre-planner: select several and remove.** Each row has a checkbox, plus **Select all** (the entries on the tab you are viewing), a count, and **Remove N from pre-planner** with a confirmation. This only takes them off the Pre-planner list; the contacts stay in the CRM.
+
 ## 1.8.81
 _Updated Nov 19, 2026, 6:15 PM (New York time)._
 - On the contact add/edit form, phone numbers now work like addresses. There is one **Phone** field by default and an **Add another phone number** button; each click adds another phone field, and every extra one has a **Remove** button. The old fixed "Phone 2" and "Phone 3" boxes are gone. The first number is the primary one, and numbers are kept in the order shown (blank ones are dropped when you save). Editing a contact that already has several numbers shows all of them.

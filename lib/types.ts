@@ -365,6 +365,8 @@ export interface MessageItem {
   body: string;
   subject: string | null;
   status: string;
+  /** Delivery error code/message when status is failed. */
+  error?: string | null;
   createdAt: string;
   sentBy: string | null;
   templateName?: string | null;

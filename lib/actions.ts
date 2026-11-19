@@ -46,6 +46,7 @@ import {
   savePreplannerEntry,
   confirmPreplannerVisit,
   deletePreplannerEntry,
+  deletePreplannerEntries,
   markPreplannerScheduled,
   setAccountApproval,
   saveCustomField,
@@ -528,6 +529,14 @@ export async function deletePreplannerEntryAction(id: string) {
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await deletePreplannerEntry(user, id));
+}
+
+export async function deletePreplannerEntriesAction(ids: string[]) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return refresh(await deletePreplannerEntries(user, ids));
 }
 
 export async function markPreplannerScheduledAction(id: string, dayId: string) {
