@@ -14,7 +14,7 @@ function phonesOf(people: Person[]) {
   const values: string[] = [];
   const seen = new Set<string>();
   for (const person of people) {
-    for (const value of [person.phone, person.phone2, person.phone3]) {
+    for (const value of [person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? [])]) {
       const key = phoneKey(value ?? "");
       if (!key || seen.has(key)) continue;
       seen.add(key);
@@ -27,13 +27,19 @@ function phonesOf(people: Person[]) {
 function fillPhones(target: Person, incoming: string[]): { person: Person; added: string[] } {
   const slots: Array<"phone" | "phone2" | "phone3"> = ["phone", "phone2", "phone3"];
   const next = { ...target };
-  const have = new Set([phoneKey(next.phone), phoneKey(next.phone2), phoneKey(next.phone3)].filter(Boolean));
+  next.extraPhones = [...(next.extraPhones ?? [])];
+  const have = new Set([phoneKey(next.phone), phoneKey(next.phone2), phoneKey(next.phone3), ...next.extraPhones.map(phoneKey)].filter(Boolean));
   const added: string[] = [];
   for (const value of incoming) {
     const key = phoneKey(value);
     if (!key || have.has(key)) continue;
     const slot = slots.find((name) => !phoneKey(next[name]));
-    if (!slot) break;
+    if (!slot) {
+      next.extraPhones.push(value.trim());
+      have.add(key);
+      added.push(`phone ${3 + next.extraPhones.length}`);
+      continue;
+    }
     next[slot] = value;
     have.add(key);
     added.push(slot === "phone" ? "phone" : slot === "phone2" ? "phone 2" : "phone 3");

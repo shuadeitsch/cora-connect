@@ -295,6 +295,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     phone: text(row, "phone"),
     phone2: text(row, "phone2"),
     phone3: text(row, "phone3"),
+    extraPhones: Array.isArray(row.extra_phones) ? (row.extra_phones as unknown[]).map((item) => String(item ?? "").trim()).filter(Boolean) : [],
     email: text(row, "email"),
     whatsapp: text(row, "whatsapp"),
     sortOrder: Number(row.sort_order ?? 0),

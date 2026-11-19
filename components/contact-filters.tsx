@@ -160,7 +160,7 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
         ? labeledVisitNotes(household.notes, household.contactVisits ?? [], formatMedium).map((note) => `${note.label} ${note.notes}`).join(" ")
         : "";
       const extraHay = extraAddressSearchText(household.extraAddresses);
-      const hay = `${household.name} ${household.city} ${household.state} ${household.zip} ${extraHay} ${household.tags.join(" ")} ${household.projectName ?? ""} ${noteHay} ${household.people.map((person) => `${person.name} ${person.phone} ${person.phone2} ${person.phone3} ${person.email}`).join(" ")}`.toLowerCase();
+      const hay = `${household.name} ${household.city} ${household.state} ${household.zip} ${extraHay} ${household.tags.join(" ")} ${household.projectName ?? ""} ${noteHay} ${household.people.map((person) => `${person.name} ${person.phone} ${person.phone2} ${person.phone3} ${(person.extraPhones ?? []).join(" ")} ${person.email}`).join(" ")}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (filters.shliachDeleted) {
         if (!household.deletedByShliachAt) return false;

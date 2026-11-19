@@ -114,6 +114,7 @@ export async function writeHousehold(
           phone: person.phone,
           phone2: person.phone2 || null,
           phone3: person.phone3 || null,
+          extra_phones: person.extraPhones ?? [],
           email: person.email,
           whatsapp: person.phone || person.whatsapp,
           sort_order: person.sortOrder,

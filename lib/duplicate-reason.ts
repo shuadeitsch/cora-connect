@@ -15,6 +15,7 @@ export type DupPerson = {
   phone?: string;
   phone2?: string;
   phone3?: string;
+  extraPhones?: string[];
   email?: string;
 };
 
@@ -231,7 +232,7 @@ function namesEquivalent(left: string, right: string): "same" | "similar" | "" {
 function phones(side: DupSide) {
   const keys = new Set<string>();
   for (const person of side.people) {
-    for (const value of [person.phone, person.phone2, person.phone3]) {
+    for (const value of [person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? [])]) {
       const key = phoneKey(value ?? "");
       if (key) keys.add(key);
     }

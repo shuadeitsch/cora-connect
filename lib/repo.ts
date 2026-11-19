@@ -167,6 +167,7 @@ function householdFromInput(db: Database, actor: User, input: HouseholdInput, ex
   const phone = (input.people[0]?.phone ?? "").trim();
   const phone2 = (input.people[0]?.phone2 ?? "").trim();
   const phone3 = (input.people[0]?.phone3 ?? "").trim();
+  const extraPhones = (input.people[0]?.extraPhones ?? []).map((value) => value.trim()).filter(Boolean);
   const email = (input.people[0]?.email ?? "").trim();
   if (email && !/.+@.+\..+/.test(email)) throw new Error("Check the email address.");
   const self = db.users.find((user) => user.id === actor.id) ?? actor;
@@ -216,6 +217,7 @@ function householdFromInput(db: Database, actor: User, input: HouseholdInput, ex
     phone,
     phone2,
     phone3,
+    extraPhones,
     email,
     whatsapp: phone,
     sortOrder: 0,
@@ -526,6 +528,7 @@ export async function importHouseholds(actor: User, rows: CsvHouseholdRow[]): Pr
               phone: person.phone,
               phone2: person.phone2 ?? "",
               phone3: person.phone3 ?? "",
+              extraPhones: person.extraPhones ?? [],
               email: person.email,
               whatsapp: person.whatsapp,
             })) : []),

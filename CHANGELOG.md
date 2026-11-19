@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.81
+_Updated Nov 19, 2026, 6:15 PM (New York time)._
+- On the contact add/edit form, phone numbers now work like addresses. There is one **Phone** field by default and an **Add another phone number** button; each click adds another phone field, and every extra one has a **Remove** button. The old fixed "Phone 2" and "Phone 3" boxes are gone. The first number is the primary one, and numbers are kept in the order shown (blank ones are dropped when you save). Editing a contact that already has several numbers shows all of them.
+- A contact can now have more than three numbers. The first three are stored as before; the 4th and later go in a new `extra_phones` list (migration 054, which also updates the masked people view and search). Texts and WhatsApp go to every number (deduped by the last 10 digits), search finds any number (digits only or formatted), the Contacts phone filter and search box include them, duplicate detection and Keep-both merges include them, and the contact CSV export has a new last column `extra_phones`. CSV import still reads only phone, phone2 and phone3.
+
 ## 1.8.80
 - New **Deceased** tag, alongside Not Jewish and Probably doesn't exist, and it works the same way: set it on the contact's edit form (a Deceased button in Tags), shown as a badge, in the Tags filter ("Tagged contacts" then Deceased), and in the CSV export and import. Deceased contacts stay off the main list, routes, reports and the Pre-planner like the other tags, and are also left out of the Message sheet's audience so nobody is messaged. Contacts BeenVerified or public records list as deceased were reviewed against visit history: those with no answered visit were tagged; those who answered the door were left alone with a note.
 

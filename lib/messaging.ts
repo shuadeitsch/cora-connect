@@ -29,8 +29,8 @@ export function phoneDigits(value: string): string {
   return digits.length > 10 ? digits.slice(-10) : digits;
 }
 
-export function phonesOf(person: { phone?: string; phone2?: string; phone3?: string; whatsapp?: string }): string[] {
-  return [person.phone, person.phone2, person.phone3, person.whatsapp]
+export function phonesOf(person: { phone?: string; phone2?: string; phone3?: string; extraPhones?: string[]; whatsapp?: string }): string[] {
+  return [person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? []), person.whatsapp]
     .map((item) => phoneDigits(item ?? ""))
     .filter((item) => item.length >= 10);
 }
@@ -56,6 +56,7 @@ export type ContactablePerson = {
   phone?: string;
   phone2?: string;
   phone3?: string;
+  extraPhones?: string[];
   whatsapp?: string;
   emailOptOut?: boolean;
   smsOptOut?: boolean;
@@ -72,15 +73,15 @@ export function addressForFamily(person: ContactablePerson, family: MessageFamil
   return toE164(person.phone || person.phone2 || person.phone3 || person.whatsapp || "");
 }
 
-/** Every number on a person for texts or WhatsApp (whatsapp, phone, phone2, phone3), deduped by last 10 digits. Email returns its one address. */
+/** Every number on a person for texts or WhatsApp (whatsapp, phone, phone2, phone3, and any extra numbers), deduped by last 10 digits. Email returns its one address. */
 export function addressesForFamily(person: ContactablePerson, family: MessageFamily): string[] {
   if (family === "email") {
     const email = emailsOf(person)[0];
     return email ? [email] : [];
   }
   const order = family === "whatsapp"
-    ? [person.whatsapp, person.phone, person.phone2, person.phone3]
-    : [person.phone, person.phone2, person.phone3, person.whatsapp];
+    ? [person.whatsapp, person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? [])]
+    : [person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? []), person.whatsapp];
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of order) {

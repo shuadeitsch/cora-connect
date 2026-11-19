@@ -123,6 +123,8 @@ export interface Person {
   phone: string;
   phone2: string;
   phone3: string;
+  /** 4th number onward, in order. */
+  extraPhones?: string[];
   email: string;
   whatsapp: string;
   sortOrder: number;
@@ -707,6 +709,7 @@ export interface HouseholdInput {
     phone: string;
     phone2: string;
     phone3: string;
+    extraPhones?: string[];
     email: string;
     whatsapp: string;
   }[];

@@ -100,7 +100,7 @@ function peopleFor(db: Database, householdId: string, hideContact: boolean): Per
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((person) =>
       hideContact
-        ? { ...person, phone: "", phone2: "", phone3: "", email: "", whatsapp: "" }
+        ? { ...person, phone: "", phone2: "", phone3: "", extraPhones: [], email: "", whatsapp: "" }
         : person,
     );
 }

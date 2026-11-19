@@ -7,10 +7,10 @@ export function contactHasEmail(household: { people: { email?: string | null }[]
 }
 
 export function contactHasPhone(household: {
-  people: { phone?: string | null; phone2?: string | null; phone3?: string | null }[];
+  people: { phone?: string | null; phone2?: string | null; phone3?: string | null; extraPhones?: string[] | null }[];
 }): boolean {
   return household.people.some((person) =>
-    [person.phone, person.phone2, person.phone3].some((value) => Boolean(value?.trim())),
+    [person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? [])].some((value) => Boolean(value?.trim())),
   );
 }
 
@@ -54,8 +54,8 @@ export function compareHasEmail(
 }
 
 export function compareHasPhone(
-  a: { people: { phone?: string | null; phone2?: string | null; phone3?: string | null }[]; name: string },
-  b: { people: { phone?: string | null; phone2?: string | null; phone3?: string | null }[]; name: string },
+  a: { people: { phone?: string | null; phone2?: string | null; phone3?: string | null; extraPhones?: string[] | null }[]; name: string },
+  b: { people: { phone?: string | null; phone2?: string | null; phone3?: string | null; extraPhones?: string[] | null }[]; name: string },
 ): number {
   return Number(contactHasPhone(b)) - Number(contactHasPhone(a)) || a.name.localeCompare(b.name);
 }

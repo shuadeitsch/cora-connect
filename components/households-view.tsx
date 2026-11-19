@@ -60,6 +60,7 @@ import { useUndoToast } from "@/components/undo-toast";
 import { useRouter } from "next/navigation";
 import { shareWithBochurAction } from "@/lib/bochur-actions";
 import { CANONICAL_HEADERS } from "@/lib/csv";
+import { splitPhones } from "@/lib/phones";
 import { downloadCsvFile } from "@/lib/download-csv";
 import { VisitedPicker } from "@/components/visited-picker";
 import { isRealVisit } from "@/lib/visited";
@@ -277,7 +278,7 @@ export function HouseholdsView({
     if (!live.viewer.canExport || live.viewer.role === "bochur") return;
     const result = await downloadCsvFile({
       filename: "cora-contacts.csv",
-      headers: [...CANONICAL_HEADERS],
+      headers: [...CANONICAL_HEADERS, "extra_phones"],
       rows: rows.flatMap((row) => {
         const person = row.people[0];
         const visits = (row.contactVisits ?? []).filter((visit) => !visit.id.startsWith("legacy-"));
@@ -301,6 +302,7 @@ export function HouseholdsView({
           visitReactionMeta(visit.reaction)?.label ?? "",
           visit.notes,
           visit.visitDate ?? "",
+          (person?.extraPhones ?? []).join("; "),
         ]);
       }),
     });
@@ -1204,9 +1206,22 @@ function fromHousehold(household: HouseholdView, data: AppData): HouseholdInput 
       phone: household.people[0]?.phone ?? "",
       phone2: household.people[0]?.phone2 ?? "",
       phone3: household.people[0]?.phone3 ?? "",
+      extraPhones: household.people[0]?.extraPhones ?? [],
       email: household.people[0]?.email ?? "",
       whatsapp: household.people[0]?.phone ?? "",
     }],
+  };
+}
+
+function splitPhonesInto(current: HouseholdInput, list: string[]) {
+  const p = current.people[0];
+  return {
+    id: p?.id,
+    name: current.name,
+    gender: "",
+    ...splitPhones(list),
+    email: p?.email ?? "",
+    whatsapp: splitPhones(list).phone,
   };
 }
 
@@ -1217,30 +1232,62 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const announce = useUndoToast();
+  const [extraPhoneRows, setExtraPhoneRows] = useState(1);
   const shliachStates = [...new Set(data.viewer.territory.map((row) => stateLabel(row.state)).filter(Boolean))];
-  const phone = form.people[0]?.phone ?? "";
-  const phone2 = form.people[0]?.phone2 ?? "";
-  const phone3 = form.people[0]?.phone3 ?? "";
+  // Phones work like addresses: one field by default, more added with a button. The first is the primary.
+  const phoneList = [form.people[0]?.phone ?? "", form.people[0]?.phone2 ?? "", form.people[0]?.phone3 ?? "", ...(form.people[0]?.extraPhones ?? [])];
+  const shownPhones = (() => {
+    let last = phoneList.length - 1;
+    while (last > 0 && !phoneList[last]?.trim() && !(extraPhoneRows > last + 1)) last -= 1;
+    return Math.max(1, last + 1, extraPhoneRows);
+  })();
+  const phone = phoneList[0] ?? "";
+  const phone2 = phoneList[1] ?? "";
+  const phone3 = phoneList[2] ?? "";
   const email = form.people[0]?.email ?? "";
 
   useEffect(() => {
     if (!open) return;
     setError("");
-    setForm(household ? fromHousehold(household, data) : blankInput(data));
+    const next = household ? fromHousehold(household, data) : blankInput(data);
+    setForm(next);
+    const p = next.people[0];
+    setExtraPhoneRows(Math.max(1, [p?.phone, p?.phone2, p?.phone3, ...(p?.extraPhones ?? [])].filter((value) => (value ?? "").trim()).length));
   }, [open, household, data]);
 
-  function setContact(patch: { phone?: string; phone2?: string; phone3?: string; email?: string }) {
+  function setPhoneAt(index: number, value: string) {
+    setForm((current) => {
+      const p = current.people[0];
+      const list = [p?.phone ?? "", p?.phone2 ?? "", p?.phone3 ?? "", ...(p?.extraPhones ?? [])];
+      while (list.length <= index) list.push("");
+      list[index] = value;
+      return { ...current, people: [{ ...splitPhonesInto(current, list) }] };
+    });
+  }
+
+  function removePhoneAt(index: number) {
+    setForm((current) => {
+      const p = current.people[0];
+      const list = [p?.phone ?? "", p?.phone2 ?? "", p?.phone3 ?? "", ...(p?.extraPhones ?? [])];
+      list.splice(index, 1);
+      return { ...current, people: [{ ...splitPhonesInto(current, list) }] };
+    });
+    setExtraPhoneRows((count) => Math.max(1, count - 1));
+  }
+
+  function setContact(patch: { email?: string }) {
     setForm((current) => ({
       ...current,
       people: [{
         id: current.people[0]?.id,
         name: current.name,
         gender: "",
-        phone: patch.phone ?? current.people[0]?.phone ?? "",
-        phone2: patch.phone2 ?? current.people[0]?.phone2 ?? "",
-        phone3: patch.phone3 ?? current.people[0]?.phone3 ?? "",
+        phone: current.people[0]?.phone ?? "",
+        phone2: current.people[0]?.phone2 ?? "",
+        phone3: current.people[0]?.phone3 ?? "",
+        extraPhones: current.people[0]?.extraPhones ?? [],
         email: patch.email ?? current.people[0]?.email ?? "",
-        whatsapp: patch.phone ?? current.people[0]?.phone ?? "",
+        whatsapp: current.people[0]?.phone ?? "",
       }],
     }));
   }
@@ -1259,11 +1306,9 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                 id: form.people[0]?.id,
                 name: form.name,
                 gender: "",
-                phone,
-                phone2,
-                phone3,
+                ...splitPhones(phoneList),
                 email,
-                whatsapp: phone,
+                whatsapp: splitPhones(phoneList).phone,
               }],
             };
             start(async () => {
@@ -1334,10 +1379,32 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
         >
           <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Name</span><Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Phone</span><Input value={phone} onChange={(event) => setContact({ phone: event.target.value })} inputMode="tel" autoComplete="tel" /></label>
             <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Email</span><Input value={email} onChange={(event) => setContact({ email: event.target.value })} inputMode="email" /></label>
-            <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Phone 2</span><Input value={phone2} onChange={(event) => setContact({ phone2: event.target.value })} inputMode="tel" autoComplete="off" /></label>
-            <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Phone 3</span><Input value={phone3} onChange={(event) => setContact({ phone3: event.target.value })} inputMode="tel" autoComplete="off" /></label>
+          </div>
+          <div className="grid gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Phone</span>
+              <Button type="button" size="sm" variant="outline" className="min-h-11 rounded-full" onClick={() => setExtraPhoneRows(shownPhones + 1)}>
+                Add another phone number
+              </Button>
+            </div>
+            {Array.from({ length: shownPhones }, (_, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <Input
+                  aria-label={index === 0 ? "Phone" : `Phone ${index + 1}`}
+                  placeholder={index === 0 ? "Primary phone" : "Another phone number"}
+                  value={phoneList[index] ?? ""}
+                  onChange={(event) => setPhoneAt(index, event.target.value)}
+                  inputMode="tel"
+                  autoComplete={index === 0 ? "tel" : "off"}
+                />
+                {index > 0 ? (
+                  <Button type="button" size="sm" variant="outline" className="min-h-11 shrink-0 rounded-full" aria-label={`Remove phone ${index + 1}`} onClick={() => removePhoneAt(index)}>
+                    Remove
+                  </Button>
+                ) : null}
+              </div>
+            ))}
           </div>
           <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Address</span><Input value={form.street} onChange={(event) => setForm({ ...form, street: event.target.value })} /></label>
           <div className="grid gap-3 sm:grid-cols-4">
@@ -1706,7 +1773,7 @@ function ContactDialog({
               {canContact ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {household.people.flatMap((person) => {
-                    const numbers = [person.phone, person.phone2, person.phone3, person.whatsapp].map((value) => value.trim()).filter(Boolean);
+                    const numbers = [person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? []), person.whatsapp].map((value) => value.trim()).filter(Boolean);
                     const seen = new Set<string>();
                     const unique: string[] = [];
                     for (const value of numbers) {
