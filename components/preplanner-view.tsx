@@ -66,7 +66,7 @@ export function PreplannerView({ data }: { data: AppData }) {
         </button>
       </div>
       {tab !== "inbox" && canMessage ? (
-        <Button type="button" className="min-h-11 rounded-full" onClick={() => setMessaging(true)} disabled={!shown.length}>
+        <Button type="button" className="min-h-11 rounded-full" onClick={() => setMessaging(true)}>
           Message
         </Button>
       ) : null}

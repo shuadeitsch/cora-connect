@@ -250,7 +250,11 @@ export function PreplannerMessageDialog({
     setPicked({});
     setPickQuery("");
     setAudience("all");
-    setReach(scope === "preplanner" ? "reached" : "new");
+    if (scope === "preplanner" && !(data.preplannerEntries ?? []).length && !entries.length) {
+      // Nothing is in the Pre-planner: start from a hand-picked list instead of an empty audience.
+      setAudience("specific");
+      setReach("any");
+    } else setReach(scope === "preplanner" ? "reached" : "new");
     const terr = (data.viewer.territory ?? []).map((row) => stateLabel(row.state)).filter(Boolean);
     const want = initialState ? stateLabel(initialState) : "";
     setStateSel(isAdmin ? (want && states.includes(want) ? want : states.includes("Maine") ? "Maine" : "") : (terr.find((name) => states.includes(name)) ?? ""));
@@ -536,6 +540,17 @@ export function PreplannerMessageDialog({
     || (mode === "whatsapp" && whatsappApi && !whatsappApiReady)
     || (mode === "whatsapp" && whatsappApi && !selectedWaApproved && !body.trim())
     || !chosen.length;
+
+  const disabledReason = pending ? "" :
+    mode === "email" && !emailReady ? "Connect a Gmail account to send email."
+    : mode === "text" && !smsAllowed ? "Texting turns on once Twilio approves our campaign."
+    : mode === "text" && !smsReady ? "Texting isn't set up yet."
+    : mode === "whatsapp" && whatsappApi && !whatsappApiReady ? "WhatsApp (API) isn't set up yet. Use Tap-to-send instead."
+    : mode === "whatsapp" && whatsappApi && !selectedWaApproved && !body.trim() ? "The selected WhatsApp template isn't approved yet. Pick an approved one or write a message."
+    : !chosen.length ? (rows.length
+        ? (ready.length ? "Everyone is unchecked. Tick at least one person." : "No one here can be messaged on this channel. See the reasons listed above.")
+        : "No contacts in this audience yet. Choose Specific people (or change state, city or reached filters) to pick who to message.")
+    : "";
 
   const primaryLabel = pending
     ? (progress ? `Sending ${progress.done} of ${progress.total}…` : "Sending…")
@@ -867,6 +882,7 @@ export function PreplannerMessageDialog({
               <Button type="button" className="min-h-11 rounded-full" disabled={primaryDisabled} onClick={primaryAction}>
                 {primaryLabel}
               </Button>
+              {primaryDisabled && disabledReason ? <p className="basis-full text-sm text-muted-foreground" role="status">{disabledReason}</p> : null}
               <Button type="button" variant="outline" className="min-h-11 rounded-full" disabled={pending} onClick={onClose}>Cancel</Button>
             </div>
           </div>

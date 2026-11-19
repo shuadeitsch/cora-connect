@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.86
+_Updated Nov 19, 2026, 6:54 PM (New York time)._
+- **Fixed: the Pre-planner Message button was grey.** It was disabled whenever the Pre-planner list was empty (all entries had been removed), so there was no way to message anyone from that page. The button is now always available. When the Pre-planner is empty, the Message sheet opens on **Specific people** so you can search and pick who to message.
+- **No more silent grey buttons.** When Send is disabled in the Message sheet, a short line under it says why (no Gmail connected, texting not approved yet, WhatsApp API not set up, template not approved, nobody ticked, or nobody in the audience).
+
 ## 1.8.85
 _Updated Nov 19, 2026, 6:46 PM (New York time)._
 - **WhatsApp templates can now have more than one variable.** The CRM reads each template's variables from Twilio. {{1}} is the first name as before, {{2}} is the contact's town (city) and {{3}} is the visit date and time. One-variable templates (Chanukah, Visit) work exactly as before.
