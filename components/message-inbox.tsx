@@ -8,6 +8,7 @@ import { loadThreadMessagesAction, markThreadReadAction, sendCampaignMessageActi
 import { channelFamily, channelTypeLabel, withinWhatsAppWindow } from "@/lib/messaging";
 import type { AppData, MessageItem, MessageThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { UnmatchedInbox, useUnmatchedCount } from "@/components/unmatched-inbox";
 import { describeMessageStatus } from "@/lib/message-status";
 import { usePractice } from "@/components/practice-provider";
 import { requestGmailSync, useGmailSyncOnOpen, useRefreshOnGmailSync } from "@/components/gmail-inbox-sync";
@@ -57,8 +58,17 @@ export function MessageInbox({
   const needsWhatsAppTemplate = Boolean(active && channelFamily(active.channelType) === "whatsapp" && !withinWhatsAppWindow(active.lastInboundAt));
 
   const admin = data.viewer.role === "admin" && !data.viewer.preview;
+  const [tabKey, setTabKey] = useState<"chats" | "unknown">("chats");
+  const [unknownCount, setUnknownCount] = useUnmatchedCount(admin && !compact && live);
   return (
     <div className="grid min-w-0 gap-3">
+      {admin && !compact ? (
+        <div className="inline-flex max-w-full flex-wrap gap-1 rounded-full border bg-card p-1" role="tablist">
+          <button type="button" role="tab" aria-selected={tabKey === "chats"} className={cn("min-h-10 rounded-full px-3.5 text-sm font-medium", tabKey === "chats" ? "bg-primary text-primary-foreground" : "")} onClick={() => setTabKey("chats")}>Conversations</button>
+          <button type="button" role="tab" aria-selected={tabKey === "unknown"} className={cn("min-h-10 rounded-full px-3.5 text-sm font-medium", tabKey === "unknown" ? "bg-primary text-primary-foreground" : "")} onClick={() => setTabKey("unknown")}>Unknown sender{unknownCount ? ` (${unknownCount})` : ""}</button>
+        </div>
+      ) : null}
+      {admin && !compact && tabKey === "unknown" ? <UnmatchedInbox data={data} onCount={setUnknownCount} /> : null}
       {admin && !compact ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
@@ -83,7 +93,7 @@ export function MessageInbox({
           </Button>
         </div>
       ) : null}
-    <div className={cn("grid min-w-0 gap-3", compact ? "" : "lg:grid-cols-[16rem_minmax(0,1fr)]")}>
+    <div className={cn("grid min-w-0 gap-3", compact ? "" : "lg:grid-cols-[16rem_minmax(0,1fr)]", admin && !compact && tabKey === "unknown" ? "hidden" : "")}>
       <ul className="grid min-w-0 content-start gap-1">
         {threads.length ? threads.map((thread) => {
           const house = houses.get(thread.householdId);

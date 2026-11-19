@@ -1,7 +1,7 @@
 import "server-only";
 import { decryptSecret } from "@/lib/mail-crypto";
 import { gmailAccessToken } from "@/lib/mail-send";
-import { ingestInbound, matchContactByAddress, matchGmailReply } from "@/lib/messaging-send";
+import { ingestInbound, ingestUnmatched, matchContactByAddress, matchGmailReply } from "@/lib/messaging-send";
 import { messagingIngestKey } from "@/lib/messaging-status";
 import { createClient, createEphemeralClient } from "@/lib/supabase/server";
 
@@ -52,6 +52,23 @@ function plainBody(payload: { mimeType?: string; body?: { data?: string }; parts
   }
   if (payload.body?.data) return decodePart(payload.body.data);
   return "";
+}
+
+/** Obvious newsletters, notifications, no-reply and bulk mail are not worth an admin's time. */
+function looksAutomated(headers: { name?: string; value?: string }[] | undefined, labels: string[], from: string): boolean {
+  if (!labels.includes("INBOX")) return true;
+  if (labels.some((label) => ["SPAM", "TRASH", "CATEGORY_PROMOTIONS", "CATEGORY_UPDATES", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"].includes(label))) return true;
+  if (header(headers, "List-Unsubscribe") || header(headers, "List-Id") || header(headers, "X-Auto-Response-Suppress")) return true;
+  if (/^(bulk|list|junk|auto_reply)$/i.test(header(headers, "Precedence").trim())) return true;
+  const auto = header(headers, "Auto-Submitted").trim().toLowerCase();
+  if (auto && auto !== "no") return true;
+  if (/(^|[^a-z])(no-?reply|do-?not-?reply|mailer-daemon|postmaster|notifications?|bounce|alerts?)([^a-z]|$)/i.test(from.split("@")[0])) return true;
+  return false;
+}
+
+function fromName(raw: string): string {
+  const match = raw.match(/^\s*"?([^"<]+?)"?\s*</);
+  return (match?.[1] ?? "").trim();
 }
 
 function fromEmail(raw: string): string {
@@ -128,7 +145,24 @@ async function syncOneAccount(
         // Not a saved address (personal email, alias, forward): fall back to the Gmail thread we sent into.
         const byThread = byAddress ? null : await matchGmailReply({ threadId: String(payload.threadId ?? ""), messageId: id });
         const match = byAddress ?? byThread;
-        if (!match) continue;
+        if (!match) {
+          // Neither a saved address nor a thread we sent into. Keep real-looking mail addressed to this mailbox for an admin.
+          const heads = payload.payload?.headers;
+          const addressedHere = `${header(heads, "To")},${header(heads, "Cc")}`.toLowerCase().includes(account.email.toLowerCase());
+          if (addressedHere && !looksAutomated(heads, payload.labelIds ?? [], from)) {
+            await ingestUnmatched({
+              orgId: account.org_id,
+              channelType: "email_gmail",
+              address: from,
+              senderName: fromName(header(heads, "From")),
+              subject,
+              body,
+              provider: "gmail",
+              providerMessageId: id,
+            });
+          }
+          continue;
+        }
         const result = await ingestInbound({
           orgId: match.orgId,
           householdId: match.householdId,

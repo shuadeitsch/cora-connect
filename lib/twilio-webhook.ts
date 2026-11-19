@@ -1,6 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { applyOptOut, ingestInbound, matchContactByAddress, verifyTwilioSignature } from "@/lib/messaging-send";
+import { applyOptOut, ingestInbound, ingestUnmatched, matchContactByAddress, verifyTwilioSignature } from "@/lib/messaging-send";
 import { channelFamily, smsOptOutCommand, type MessageFamily } from "@/lib/messaging";
 import { messagingIngestKey } from "@/lib/messaging-status";
 import { createEphemeralClient } from "@/lib/supabase/server";
@@ -51,7 +51,17 @@ export async function handleTwilioWebhook(req: Request, kind: "sms" | "whatsapp"
 
   const match = await matchContactByAddress({ orgId, family, address: from });
   if (!match) {
-    // Unknown sender: accept so Twilio does not retry, but do not create a contact.
+    // Unknown sender: keep it for an admin to attach or dismiss (no contact is created). Always answer 200 so Twilio does not retry.
+    await ingestUnmatched({
+      orgId,
+      channelId,
+      channelType,
+      address: from,
+      senderName: params.ProfileName || undefined,
+      body,
+      provider: "twilio",
+      providerMessageId: sid,
+    });
     return new NextResponse("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
   }
 

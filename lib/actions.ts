@@ -61,6 +61,7 @@ import {
   setHouseholdSchedule,
 } from "@/lib/repo";
 import { assertNotPreview } from "@/lib/preview";
+import { attachUnmatched, createFromUnmatched, dismissUnmatched, listUnmatched } from "@/lib/unmatched";
 import { parseSummerMode, summerVisible } from "@/lib/contact-tags";
 import { getAppDataAll as getAppData, getCurrentUser } from "@/lib/session";
 import { geocodeMany, geocodeText } from "@/lib/geocode";
@@ -639,6 +640,30 @@ export async function recordExternalMessageAction(input: Parameters<typeof recor
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
   return refresh(await recordExternalMessage(user, input));
+}
+
+export async function listUnmatchedAction() {
+  const user = await actor();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  return listUnmatched(user);
+}
+
+export async function attachUnmatchedAction(input: { id: string; householdId: string; addToContact: boolean }) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  return refresh(await attachUnmatched(writable.user, input));
+}
+
+export async function createFromUnmatchedAction(input: { id: string; name: string; projectId: string; state: string; city: string }) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  return refresh(await createFromUnmatched(writable.user, input));
+}
+
+export async function dismissUnmatchedAction(id: string) {
+  const writable = await requireWritable();
+  if (!writable.ok) return writable;
+  return refresh(await dismissUnmatched(writable.user, id));
 }
 
 export async function loadThreadMessagesAction(threadId: string) {

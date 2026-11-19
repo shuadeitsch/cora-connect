@@ -180,6 +180,39 @@ export async function matchGmailReply(opts: { threadId: string; messageId: strin
   return { orgId: row.org_id, householdId: row.household_id, personId: row.person_id ?? "", name: "", contactAddress: row.contact_address };
 }
 
+/** Keep an inbound message from a sender that matches no contact, so an admin can attach or dismiss it. */
+export async function ingestUnmatched(payload: {
+  orgId?: string | null;
+  channelId?: string | null;
+  channelType: string;
+  address: string;
+  senderName?: string;
+  subject?: string;
+  body: string;
+  provider: string;
+  providerMessageId: string;
+}): Promise<{ id: string | null } | { error: string }> {
+  const key = messagingIngestKey();
+  if (!key) return { error: "Inbound messaging is not set up yet (MESSAGING_INGEST_KEY)." };
+  const supabase = createEphemeralClient();
+  const { data, error } = await supabase.rpc("ingest_unmatched_message", {
+    p_key: key,
+    payload: {
+      org_id: payload.orgId ?? null,
+      channel_id: payload.channelId ?? null,
+      channel_type: payload.channelType,
+      address: payload.address,
+      sender_name: payload.senderName ?? null,
+      subject: payload.subject ?? null,
+      body: payload.body,
+      provider: payload.provider,
+      provider_message_id: payload.providerMessageId,
+    },
+  });
+  if (error) return { error: error.message };
+  return { id: (data as string | null) ?? null };
+}
+
 export async function ingestInbound(payload: {
   orgId?: string;
   householdId?: string;
