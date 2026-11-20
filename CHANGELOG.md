@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.95
+_Updated Nov 19, 2026, 7:27 PM (New York time)._
+- **Greetings now always use the name on file.** With first names: "Hi Adam and Isabel!". With only titles and a surname: "Mr. and Mrs. Smith", "Dr. and Dr. Cohen", "Dr. and Mrs. Katz", "Rabbi and Mrs. Levi", "Dr. Cohen". Families: "The Cohen Family" becomes "Hi Cohen family!". "there" is used only when there is no usable name at all. Same greeting in the preview, email, text, WhatsApp, tap-to-send and the WhatsApp template.
+
 ## 1.8.94
 _Updated Nov 19, 2026, 7:25 PM (New York time)._
 - **Greetings fixed for couples.** A name like "Adam & Isabelle Johnson" or "Adam and Isabel Johnson" now greets as "Hi Adam and Isabelle!" (it used to fall back to "there"). "Mr. & Mrs. Eric Lusty" still greets as "Eric", titles (Mr., Mrs., Dr., Rabbi) are skipped, and families or unusable names still say "there".

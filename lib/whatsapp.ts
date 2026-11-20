@@ -24,6 +24,7 @@ export function whatsappMeLink(phone: string, text: string): string | null {
 const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "rabbi", "rav", "prof", "professor", "mx", "rev", "hon", "judge", "sir"]);
 
 const CONJUNCTIONS = new Set(["and", "&", "+"]);
+const DOTTED_TITLES = new Set(["mr", "mrs", "ms", "dr", "prof", "rev", "hon", "mx"]);
 
 function cleanToken(raw: string): string {
   return raw.replace(/^[^\p{L}&+]+|[^\p{L}&+]+$/gu, "");
@@ -37,39 +38,64 @@ function isGoodFirst(word: string): boolean {
   return word.length >= 2 && !TITLES.has(word.toLowerCase());
 }
 
+function canonicalTitle(word: string): string {
+  const key = word.toLowerCase().replace(/[^a-z]/g, "");
+  const base = titleCase(key);
+  return DOTTED_TITLES.has(key) ? `${base}.` : base;
+}
+
 /**
  * Name used in a greeting, the same everywhere (email, text, WhatsApp, tap-to-send, WhatsApp template {{1}}).
- * Skips titles (Mrs. Ruth Gordon -> Ruth), greets couples together (Adam & Isabelle Johnson -> Adam and Isabelle),
- * keeps one name for "Mr. & Mrs. Eric Lusty" (-> Eric), and falls back to "there" when there is no usable first name.
+ * - First names win: "Mrs. Ruth Gordon" -> Ruth, "Adam & Isabelle Johnson" -> Adam and Isabelle, "Mr. & Mrs. Eric Lusty" -> Eric.
+ * - Titles + surname only: "Mr. and Mrs. Smith" -> Mr. and Mrs. Smith, "Dr. and Dr. Cohen" -> Dr. and Dr. Cohen, "Dr. Cohen" -> Dr. Cohen.
+ * - Families: "The Cohen Family" -> Cohen family.
+ * - "there" only when there is no usable name at all.
  */
 export function greetingFirstName(name: string): string {
   const raw = name.trim();
   if (!raw || /[@\d]/.test(raw)) return "there";
-  if (/\b(the|family|household|estate|trust)\b/i.test(raw)) return "there";
-  // Drop titles anywhere; keep conjunctions as separators.
+  if (/\b(estate|trust)\b/i.test(raw)) return "there";
+  const family = raw.match(/^(?:the\s+)?(.+?)\s+(?:family|household)$/i);
+  if (family) {
+    const surname = family[1].trim().split(/\s+/).map(titleCase).join(" ");
+    return /\b(and|&)\b/i.test(surname) ? surname.replace(/\s*&\s*/g, " and ") + " family" : `${surname} family`;
+  }
+  if (/\b(family|household)\b/i.test(raw)) return "there";
   const tokens = raw.replace(/\s*[&+]\s*/g, " & ").split(/\s+/).map((part) => {
     const lower = part.toLowerCase().replace(/[^a-z&+]/g, "");
     if (part === "&" || part === "+" || lower === "and") return "&";
-    // "Adam&Isabelle" style
     return cleanToken(part);
-  }).filter((part) => part && !TITLES.has(part.toLowerCase().replace(/[^a-z]/g, "")));
+  }).filter(Boolean);
+  const isTitle = (token: string) => TITLES.has(token.toLowerCase().replace(/[^a-z]/g, ""));
+  const titles: string[] = []; // titles and "and", in order
   const groups: string[][] = [[]];
   for (const token of tokens) {
-    if (CONJUNCTIONS.has(token.toLowerCase())) { if (groups[groups.length - 1].length) groups.push([]); continue; }
+    if (CONJUNCTIONS.has(token.toLowerCase())) {
+      titles.push("and");
+      if (groups[groups.length - 1].length) groups.push([]);
+      continue;
+    }
+    if (isTitle(token)) { titles.push(canonicalTitle(token)); continue; }
     groups[groups.length - 1].push(token);
   }
   const parts = groups.filter((group) => group.length);
   if (!parts.length) return "there";
   const firstA = parts[0][0];
-  if (!isGoodFirst(firstA)) return "there";
-  if (parts.length >= 2) {
-    const firstB = parts[1][0];
-    // A couple needs a first name on both sides: "Adam & Isabelle Johnson", "John Smith & Mary Jones".
-    if (isGoodFirst(firstB) && (parts[1].length >= 2 || parts[0].length >= 1)) {
-      const sameSurnameOnly = parts[0].length === 1 && parts[1].length === 1;
-      if (!sameSurnameOnly) return `${titleCase(firstA)} and ${titleCase(firstB)}`;
+  // Only a surname after the titles: greet with the titles ("Mr. and Mrs. Smith").
+  if (parts.length === 1 && parts[0].length === 1 && titles.some((t) => t !== "and")) {
+    const phrase: string[] = [];
+    for (const t of titles) {
+      if (t === "and" && (!phrase.length || phrase[phrase.length - 1] === "and")) continue;
+      phrase.push(t);
     }
+    while (phrase[phrase.length - 1] === "and") phrase.pop();
+    return `${phrase.join(" ")} ${titleCase(firstA)}`;
   }
+  if (!isGoodFirst(firstA)) {
+    // An initial like "J. Smith": use the whole name rather than "there".
+    return parts[0].map((w) => (w.length === 1 ? `${w.toUpperCase()}.` : titleCase(w))).join(" ");
+  }
+  if (parts.length >= 2 && isGoodFirst(parts[1][0])) return `${titleCase(firstA)} and ${titleCase(parts[1][0])}`;
   return titleCase(firstA);
 }
 
