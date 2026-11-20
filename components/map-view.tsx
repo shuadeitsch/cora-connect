@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import type { MapPin } from "@/components/map-canvas";
 import { useMapPoints } from "@/components/map-points";
 import { ContactFilterControls, filterPill, filtersActive, useContactFilters } from "@/components/contact-filters";
+import { VisitDialog } from "@/components/visit-dialog";
 import { cn } from "@/lib/utils";
 import { RouteLegend, useRouteColoring } from "@/components/route-colors";
 import type { AppData, HouseholdView } from "@/lib/types";
@@ -28,6 +29,7 @@ export function MapView({ data }: { data: AppData }) {
   const [activeRoute, setActiveRoute] = useState("");
   const [routesOpen, setRoutesOpen] = useState(false);
   const [contactId, setContactId] = useState("");
+  const [visitFor, setVisitFor] = useState("");
   const phone = useIsPhone();
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -110,7 +112,7 @@ export function MapView({ data }: { data: AppData }) {
         routeLine={line}
         routeLines={routeLines}
         onOpen={setContactId}
-        onVisit={(id) => router.push(`/reports?new=1&household=${id}`)}
+        onVisit={(id) => setVisitFor(id)}
       />
       <div className="pointer-events-none absolute inset-0 z-[500]">
         {phone ? (
@@ -182,6 +184,12 @@ export function MapView({ data }: { data: AppData }) {
           </div>
         </BottomSheet>
       ) : null}
+      <VisitDialog
+        open={Boolean(visitFor)}
+        onOpenChange={(open) => { if (!open) setVisitFor(""); }}
+        households={data.households.map((household) => ({ id: household.id, name: household.name }))}
+        initial={visitFor ? { householdId: visitFor, visitDate: "", status: "", reaction: "", details: "", visited: "", visitedBy: "", activities: [] } : undefined}
+      />
     </div>
   );
 }

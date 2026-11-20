@@ -76,8 +76,13 @@ export async function setBochurProjectAction(bochurId: string, projectId: string
   if (!user) return { ok: false, error: "Sign in again." };
   if (user.role !== "admin" && user.role !== "shliach") return { ok: false, error: "Not allowed." };
   const supabase = await createClient();
-  const { error } = await supabase.from("profiles").update({ project_id: projectId || null }).eq("id", bochurId).eq("role", "bochur");
-  if (error) return { ok: false, error: error.message };
+  const { data: updated, error } = await supabase.from("profiles").update({ project_id: projectId || null }).eq("id", bochurId).eq("role", "bochur").select("id");
+  if (error) {
+    if (/pick the shliach/i.test(error.message)) return { ok: false, error: "Pick this bochur's shliach first, then set his project." };
+    return { ok: false, error: error.message };
+  }
+  // RLS filters rows silently: no row back means nothing was saved.
+  if (!updated?.length) return { ok: false, error: "Could not save: you can only change a project for your own bochurim." };
   revalidatePath("/team");
   return { ok: true };
 }

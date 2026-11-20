@@ -236,7 +236,7 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
           <table className="w-full min-w-[720px] text-left text-[13px]">
             <thead className="text-[11px] tracking-wide text-mutedink uppercase">
               <tr className="border-b">
-                {["Name", "Email", "Role", "Status", "Permission status", ""].map((label) => (
+                {["Name", "Email", "Role", "Status", ""].map((label) => (
                   <th key={label} className="px-3 py-2 font-medium">{label}</th>
                 ))}
               </tr>
@@ -257,14 +257,13 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
                       ) : null}
                     </td>
                     <td className="px-3 py-2">
-                      <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] text-orange-700 ring-1 ring-orange-200">
-                        {ACCOUNT_STATUS_LABEL[member.status]}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={access.tone === "ok" ? "rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 ring-1 ring-emerald-200" : "rounded-full bg-red-50 px-2 py-0.5 text-[11px] text-red-700 ring-1 ring-red-200"}>
-                        {access.label}
-                      </span>
+                      {access.tone === "bad" ? (
+                        <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] text-red-700 ring-1 ring-red-200">Access expired</span>
+                      ) : (
+                        <span className={member.status === "approved" ? "rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 ring-1 ring-emerald-200" : "rounded-full bg-orange-50 px-2 py-0.5 text-[11px] text-orange-700 ring-1 ring-orange-200"}>
+                          {ACCOUNT_STATUS_LABEL[member.status]}
+                        </span>
+                      )}
                       {member.expiresAt ? <div className="mt-1 text-[11px] text-mutedink">Until {formatMedium(member.expiresAt)}</div> : null}
                     </td>
                     <td className="px-3 py-2 text-right">
@@ -326,11 +325,13 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
             </label>
             <div className="grid gap-2">
               <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Role</span>
-              <div className="inline-flex rounded-full bg-muted p-1" role="radiogroup" aria-label="Invite role">
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Role">
                 {([
                   ["admin", "Cora Connect admin"],
                   ["shliach", "Shliach"],
                   ["bochur", "Bochur"],
+                  ["visitor", "Visitor"],
+                  ["limited", "Limited"],
                 ] as const).map(([value, label]) => (
                   <button
                     key={value}
@@ -338,8 +339,8 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
                     role="radio"
                     aria-checked={form.role === value}
                     className={cn(
-                      "h-8 flex-1 whitespace-nowrap rounded-full px-3 text-xs font-medium",
-                      form.role === value ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-background",
+                      "min-h-10 whitespace-nowrap rounded-full px-3 text-xs font-medium",
+                      form.role === value ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-background",
                     )}
                     onClick={() => setRole(value)}
                   >
@@ -347,21 +348,6 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
                   </button>
                 ))}
               </div>
-              <label className="grid gap-1 text-sm">
-                <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Or visitor access</span>
-                <select
-                  className={field}
-                  value={form.role === "admin" || form.role === "shliach" || form.role === "bochur" ? "" : form.role}
-                  onChange={(event) => {
-                    const value = event.target.value as Role | "";
-                    if (value) setRole(value);
-                  }}
-                >
-                  <option value="">Keep Cora Connect admin / Shliach / Bochur above</option>
-                  <option value="visitor">Visitor</option>
-                  <option value="limited">Limited</option>
-                </select>
-              </label>
             </div>
             {form.role === "bochur" ? (
               <div className="grid gap-2 rounded-xl bg-background p-3">

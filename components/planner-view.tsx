@@ -160,7 +160,6 @@ export function PlannerView({ data, days, loadError, adminPanel = null }: { data
         title={bochur ? "Daily schedule" : "Daily planner"}
         crumb={bochur ? "Daily schedule" : "Daily planner"}
       />
-      {adminPanel}
       {bochur && !canEdit ? (
         <p className="mb-3 rounded-2xl bg-muted/60 px-3 py-2 text-sm text-muted-foreground">View only — ask your shliach if you need to edit the schedule.</p>
       ) : null}
@@ -273,6 +272,7 @@ export function PlannerView({ data, days, loadError, adminPanel = null }: { data
         {canEdit && !loadError && dates.length ? quick(after, "Add day after") : null}
         {!visibleDays.length && !loadError ? <p className="panel rounded-3xl px-4 py-10 text-center text-sm text-muted-foreground">No days in the planner.</p> : null}
       </div>
+      {adminPanel ? <div className="mt-6">{adminPanel}</div> : null}
     </div>
     </PlannedContext.Provider>
   );

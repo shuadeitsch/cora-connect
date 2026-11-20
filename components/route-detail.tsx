@@ -15,6 +15,7 @@ import { deleteRouteAction, saveRouteAction } from "@/lib/actions";
 import { AddressLink } from "@/components/address-link";
 import { fullAddress } from "@/lib/format";
 import { nearestNeighbor } from "@/lib/geo";
+import { VisitDialog } from "@/components/visit-dialog";
 import { RouteCities } from "@/components/route-cities";
 import type { AppData, RouteStopView, RouteView } from "@/lib/types";
 
@@ -25,6 +26,7 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
   const [pending, start] = useTransition();
   const { pointFor } = useMapPoints(data.households);
   const [starting, setStarting] = useState(false);
+  const [visitFor, setVisitFor] = useState("");
   const params = useSearchParams();
   const [editing, setEditing] = useState(() => params.get("edit") === "1" && data.viewer.canCreateRoute);
   const [saved, setSaved] = useState<{ key: string; name: string; projectName: string } | null>(null);
@@ -146,7 +148,7 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
                   <Navigation className="size-3.5" /> Navigate
                 </AddressLink>
                 {stop.phone ? <a className="text-xs text-link" href={`tel:${stop.phone.replace(/\D/g, "")}`}>Call</a> : null}
-                <Link className="text-xs text-link" href={`/reports?new=1&household=${stop.householdId}`}>Log visit</Link>
+                <button type="button" className="text-xs text-link" onClick={() => setVisitFor(stop.householdId)}>Log visit</button>
               </div>
             </li>
           ))}
@@ -160,9 +162,15 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
           start={data.org.startLat != null && data.org.startLng != null ? { lat: data.org.startLat, lng: data.org.startLng } : null}
           routeLine={pins.map((pin) => ({ lat: pin.lat, lng: pin.lng }))}
           onOpen={(id) => router.push(`/households?focus=${id}`)}
-          onVisit={(id) => router.push(`/reports?new=1&household=${id}`)}
+          onVisit={(id) => setVisitFor(id)}
         />
       </div>
+      <VisitDialog
+        open={Boolean(visitFor)}
+        onOpenChange={(open) => { if (!open) setVisitFor(""); }}
+        households={data.households.map((household) => ({ id: household.id, name: household.name }))}
+        initial={visitFor ? { householdId: visitFor, visitDate: "", status: "", reaction: "", details: "", visited: "", visitedBy: "", activities: [] } : undefined}
+      />
     </div>
   );
 }

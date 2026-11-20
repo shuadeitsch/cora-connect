@@ -38,13 +38,14 @@ export function PreplannerDialog({
   const [reachedDate, setReachedDate] = useState("");
   const [reachedTime, setReachedTime] = useState("");
   const [reachedHow, setReachedHow] = useState<string[]>(["phone"]);
-  const [followUpHow, setFollowUpHow] = useState("phone");
   const [requestedDate, setRequestedDate] = useState("");
   const [requestedTime, setRequestedTime] = useState("");
   const [notes, setNotes] = useState("");
   const [projectId, setProjectId] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  // One question now: follow-up channel follows how they were reached (kept in the data for older screens).
+  const chosenFollowUp = initial?.followUpHow && reachedHow.includes(initial.followUpHow) ? initial.followUpHow : reachedHow[0] ?? "phone";
   const confirming = mode === "confirm" || (mode === "edit" && initial?.stage === "confirmed");
 
   useEffect(() => {
@@ -52,7 +53,6 @@ export function PreplannerDialog({
     setReachedDate(initial?.reachedDate ?? new Date().toISOString().slice(0, 10));
     setReachedTime((initial?.reachedTime ?? "").slice(0, 5));
     setReachedHow(parseReachedHows(initial?.reachedHow).length ? parseReachedHows(initial?.reachedHow) : ["phone"]);
-    setFollowUpHow(initial?.followUpHow ?? parseReachedHows(initial?.reachedHow)[0] ?? "phone");
     setRequestedDate(initial?.requestedDate ?? "");
     setRequestedTime((initial?.requestedTime ?? "").slice(0, 5));
     setNotes("");
@@ -65,8 +65,8 @@ export function PreplannerDialog({
     : initial
       ? "Edit Pre-planner entry"
       : households.length === 1
-        ? `Log a reach-out to ${households[0]!.name}`
-        : `Log a reach-out to ${households.length} contacts`;
+        ? `Reached out to ${households[0]!.name}`
+        : `Reached out to ${households.length} contacts`;
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
@@ -76,8 +76,8 @@ export function PreplannerDialog({
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           {confirming
-            ? "A confirmed visit needs a date and time. The reach-out history is kept."
-            : "Record when and how you reached this contact. A visit date is only needed when you confirm the visit."}
+            ? "Pick the day and time you will visit."
+            : "Write down when and how you got in touch. You only need a visit date once the visit is set."}
         </p>
         {initial?.notesLog?.length ? (
           <ol className="grid gap-2 rounded-2xl bg-muted/50 p-3 text-sm">
@@ -97,11 +97,11 @@ export function PreplannerDialog({
           onSubmit={(event) => {
             event.preventDefault();
             if (!confirming && (!reachedDate || !reachedTime)) {
-              setError("Pick when you reached out, including the time.");
+              setError("Pick the date and time you reached them.");
               return;
             }
             if ((!confirming || mode === "edit") && !reachedHow.length) {
-              setError("Pick how you reached them.");
+              setError("Pick how you reached them (phone, text, etc.).");
               return;
             }
             if (confirming && (!requestedDate || !requestedTime)) {
@@ -147,7 +147,7 @@ export function PreplannerDialog({
                   reachedDate,
                   reachedTime,
                   reachedHow,
-                  followUpHow,
+                  followUpHow: chosenFollowUp,
                   requestedDate: requestedDate || undefined,
                   requestedTime: requestedTime || undefined,
                   notes,
@@ -163,7 +163,7 @@ export function PreplannerDialog({
                     reachedDate,
                     reachedTime,
                     reachedHow,
-                    followUpHow,
+                    followUpHow: chosenFollowUp,
                     notes,
                     projectId: projectId || null,
                     stage: "reached_out",
@@ -188,16 +188,16 @@ export function PreplannerDialog({
             <>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1 text-sm">
-                  <span className="text-muted-foreground">Reached out — date</span>
+                  <span className="text-muted-foreground">Date you reached them</span>
                   <Input type="date" required={!confirming} className="h-11" value={reachedDate} onChange={(event) => setReachedDate(event.target.value)} />
                 </label>
                 <label className="grid gap-1 text-sm">
-                  <span className="text-muted-foreground">Reached out — time</span>
+                  <span className="text-muted-foreground">Time you reached them</span>
                   <Input type="time" required={!confirming} className="h-11" value={reachedTime} onChange={(event) => setReachedTime(event.target.value)} />
                 </label>
               </div>
               <fieldset className="grid gap-2">
-                <legend className="text-sm text-muted-foreground">How they were reached</legend>
+                <legend className="text-sm text-muted-foreground">How did you reach them? (tap all that apply)</legend>
                 <div className="flex flex-wrap gap-1.5" role="group" aria-label="How they were reached">
                   {PREPLANNER_REACHED.map((item) => {
                     const checked = reachedHow.includes(item.id);
@@ -228,12 +228,6 @@ export function PreplannerDialog({
                   })}
                 </div>
               </fieldset>
-              <label className="grid gap-1 text-sm">
-                <span className="text-muted-foreground">Follow up by</span>
-                <select className="h-11 rounded-xl border border-input bg-card px-3 text-base sm:text-sm" value={followUpHow} onChange={(event) => setFollowUpHow(event.target.value)} aria-label="Follow-up channel">
-                  {PREPLANNER_REACHED.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                </select>
-              </label>
               {projects.length ? (
                 <label className="grid gap-1 text-sm">
                   <span className="text-muted-foreground">Project</span>
@@ -257,13 +251,13 @@ export function PreplannerDialog({
             </div>
           ) : null}
           <label className="grid gap-1 text-sm">
-            <span className="text-muted-foreground">{initial ? "Add a note" : "Conversation notes"}</span>
-            <Textarea className="min-h-24" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="The back-and-forth — what was said, and what you'll follow up with." />
+            <span className="text-muted-foreground">{initial ? "Add a note" : "Notes"}</span>
+            <Textarea className="min-h-24" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="What was said, and what to follow up on." />
           </label>
           {error ? <Notice>{error}</Notice> : null}
           <div className="flex flex-wrap gap-2">
             <Button type="submit" className="min-h-11 rounded-full" disabled={pending || (!initial && !households.length)}>
-              {pending ? "Saving…" : confirming ? "Confirm visit" : initial ? "Save changes" : "Add to Reached out"}
+              {pending ? "Saving…" : confirming ? "Confirm visit" : initial ? "Save changes" : "Save"}
             </Button>
             <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={onClose}>Cancel</Button>
           </div>

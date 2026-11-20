@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CalendarRange, ListChecks, Map as MapIcon, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
+import { Building2, CalendarRange, ListChecks, Map as MapIcon, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { RouteCities } from "@/components/route-cities";
 import { RouteQuickEdit } from "@/components/route-quick-edit";
 import { CityRouteDialog, PickContactsDialog } from "@/components/create-route";
@@ -11,6 +11,7 @@ import { Notice, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { deleteRouteAction, deleteRoutesAction } from "@/lib/actions";
 import { formatDots } from "@/lib/format";
@@ -24,6 +25,7 @@ export function RoutesView({ data }: { data: AppData }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const [choosing, setChoosing] = useState(false);
   const [byCity, setByCity] = useState(false);
   const [picking, setPicking] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -71,15 +73,30 @@ export function RoutesView({ data }: { data: AppData }) {
           <div className="flex flex-wrap justify-end gap-2">
           {data.viewer.canCreateRoute ? (
             <>
-              <Button className="rounded-full" onClick={() => router.push("/saved-routes/new")}><MapIcon className="size-4" /> Build on map</Button>
-              <Button className="rounded-full" onClick={() => setPicking(true)}><ListChecks className="size-4" /> Pick contacts</Button>
-              <Button className="rounded-full" onClick={() => setByCity(true)}><Building2 className="size-4" /> New route by city</Button>
-              <Button className="rounded-full" onClick={() => router.push("/saved-routes/plan")}><CalendarRange className="size-4" /> Plan a trip</Button>
+              <Button className="rounded-full" onClick={() => setChoosing(true)}><Plus className="size-4" /> New route</Button>
             </>
           ) : null}
           </div>
         }
       />
+      <Dialog open={choosing} onOpenChange={setChoosing}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle className="font-heading text-foreground">New route: which kind?</DialogTitle></DialogHeader>
+          <div className="grid gap-2">
+            {[
+              { icon: MapIcon, title: "Build on map", text: "Tap contacts on the map.", go: () => router.push("/saved-routes/new") },
+              { icon: ListChecks, title: "Pick contacts", text: "Choose contacts from a list.", go: () => setPicking(true) },
+              { icon: Building2, title: "By city", text: "Make a route from one city.", go: () => setByCity(true) },
+              { icon: CalendarRange, title: "Plan a trip", text: "Plan several days away.", go: () => router.push("/saved-routes/plan") },
+            ].map((item) => (
+              <button key={item.title} type="button" className="flex min-h-14 items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-left hover:bg-muted" onClick={() => { setChoosing(false); item.go(); }}>
+                <item.icon className="size-5 shrink-0 text-primary" />
+                <span><span className="block text-sm font-semibold text-foreground">{item.title}</span><span className="block text-xs text-mutedink">{item.text}</span></span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       <CityRouteDialog data={data} open={byCity} onClose={() => setByCity(false)} />
       <PickContactsDialog data={data} open={picking} onClose={() => setPicking(false)} />
       <RouteQuickEdit data={data} route={editing} onClose={() => setEditingId(null)} />

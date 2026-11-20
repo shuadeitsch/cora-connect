@@ -50,6 +50,8 @@ export function BochurimPanel({ data }: { data: AppData }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [projectDraft, setProjectDraft] = useState<Record<string, string>>({});
+  const toast = useToast();
   const [, start] = useTransition();
   const admin = data.viewer.canManage;
   const mine = data.members.filter((member) => member.kind === "member" && member.role === "bochur" && (admin || member.leaderId === data.viewer.id));
@@ -58,6 +60,24 @@ export function BochurimPanel({ data }: { data: AppData }) {
   const order = (member: TeamMember) => (member.status === "pending" ? 0 : member.status === "approved" && !(member.expiresAt && member.expiresAt.slice(0, 10) < todayIso()) ? 1 : 2);
   mine.sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name));
   const today = todayIso();
+
+  // The chosen project shows at once and stays put while it saves; it goes back only if the save fails.
+  const projectOf = (member: TeamMember) => (member.id in projectDraft ? projectDraft[member.id]! : member.projectId ?? "");
+  function changeProject(member: TeamMember, next: string) {
+    const before = member.projectId ?? "";
+    setError("");
+    setProjectDraft((current) => ({ ...current, [member.id]: next }));
+    void setBochurProjectAction(member.id, next).then((result) => {
+      if (!result.ok) {
+        setProjectDraft((current) => ({ ...current, [member.id]: before }));
+        setError(`${member.name}: ${result.error ?? "Could not save the project."}`);
+        toast({ title: result.error ?? "Could not save the project.", tone: "error" });
+        return;
+      }
+      toast({ title: next ? "Project saved" : "Project removed", tone: "ok" });
+      router.refresh();
+    });
+  }
 
   function run(id: string, task: () => Promise<{ ok: boolean; error?: string }>) {
     setError("");
@@ -110,18 +130,22 @@ export function BochurimPanel({ data }: { data: AppData }) {
                           {!leader ? <option value="">No shliach set</option> : null}
                           {shluchim.map((shliach) => <option key={shliach.id} value={shliach.id}>{shliach.name}</option>)}
                         </select>
-                    <select
-                      aria-label="Project"
-                      className="mt-1 h-10 w-full rounded-lg border border-input bg-card px-2 text-sm"
-                      value={member.projectId ?? ""}
-                      disabled={busy === member.id}
-                      onChange={(event) => run(member.id, () => setBochurProjectAction(member.id, event.target.value))}
-                    >
-                      <option value="">No project</option>
-                      {data.projects.map((project) => (
-                        <option key={project.id} value={project.id}>{project.name}</option>
-                      ))}
-                    </select>
+                      </label>
+                    ) : null}
+                    {canAct ? (
+                      <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="shrink-0">Project</span>
+                        <select
+                          aria-label={`Project for ${member.name}`}
+                          className="h-9 max-w-[14rem] min-w-0 rounded-lg border bg-background px-2 text-sm text-foreground"
+                          value={projectOf(member)}
+                          onChange={(event) => changeProject(member, event.target.value)}
+                        >
+                          <option value="">No project</option>
+                          {data.projects.map((project) => (
+                            <option key={project.id} value={project.id}>{project.name}</option>
+                          ))}
+                        </select>
                       </label>
                     ) : null}
                   </div>

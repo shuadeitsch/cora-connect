@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.9.12
+_Updated Nov 20, 2026, 3:22 PM (New York time)._
+- **Simpler CRM, ten changes.**
+- **Summer homes button:** the sun icon is now a small "Summer homes" button with the same All contacts / Hide summer homes choice.
+- **One wording for visits:** "Log visit" everywhere (was Visit, Report, Log a visit). The card button "Contact" is now "Details".
+- **Cleaner contact cards:** "Unsorted" no longer repeats on a card (a visit with no project shows its date or "Visit"). A bochur's page is titled "Contacts".
+- **One main button per card:** Log visit stays on the card; Details, Pre-planner, History and Suggest an edit moved into a "⋯" menu so nothing is cut off on phones.
+- **Plain wording** in the Log visit and Pre-planner forms. The two "how they were reached" questions are now one (saved data is unchanged and still compatible).
+- **Short New contact form:** name plus phone or address; email, more phones/addresses, visits, tags and sharing are under "More details". Editing a contact still shows everything.
+- **Bug fix:** "Log visit" on a route stop (and on the map) opens that contact's visit form instead of sending you to the Dashboard.
+- **One "New route" button** asks which kind (Build on map, Pick contacts, By city, Plan a trip). Map now sits next to Routes in the menu.
+- **Twilio admin panel** (admins only) moved from the top of the Daily planner to the bottom.
+- **Assigning a bochur's project in My Team is smooth and reliable.** The Project dropdown used to sit inside the "Assign shliach" label (two dropdowns in one label, so taps hit the wrong one), appeared only for admins (a shliach could not set his own bochur's project), was disabled while saving and snapped back until the page reloaded, and a failed save (for example a bochur with no shliach, or a save blocked by permissions) was silent. Now each has its own dropdown (admins and the bochur's shliach), the choice shows at once and stays put, you get "Project saved" / "Project removed", and a failed save goes back with a plain message.
+- **My Team:** one Status column (instead of two), one role list when inviting (Cora Connect admin, Shliach, Bochur, Visitor, Limited; a bochur still needs his shliach and waits for that shliach's approval), and sign-up asks only for what applies to your role (state for a shliach, project for a bochur, nothing extra for an admin).
+
 ## 1.9.11
 _Updated Nov 20, 2026, 2:55 PM (New York time)._
 - **Settings polish on phones.** On the messaging cards the status dot now sits beside the title, the status text gets its own full-width line, and Reconnect Gmail / Sync now sit on a row below it. The Settings tabs now scroll sideways instead of wrapping.

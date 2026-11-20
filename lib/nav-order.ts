@@ -6,15 +6,15 @@ export const DEFAULT_NAV_HREFS = [
   "/households",
   "/pre-planner",
   "/saved-routes",
+  "/map",
   "/planner",
   "/team",
   "/settings",
-  "/map",
   "/beta",
   "/tutorials",
 ] as const;
 
-export const MORE_NAV_HREFS = new Set(["/map", "/beta", "/tutorials"]);
+export const MORE_NAV_HREFS = new Set(["/beta", "/tutorials"]);
 
 export type NavHref = (typeof DEFAULT_NAV_HREFS)[number];
 

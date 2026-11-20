@@ -28,7 +28,6 @@ import {
   Menu,
   Route,
   Search,
-  Sun,
   Check,
   Settings,
   Users,
@@ -63,6 +62,7 @@ const PRIMARY: NavItem[] = [
   { href: "/households", label: "Contacts", icon: House },
   { href: "/pre-planner", label: "Pre-planner", icon: CalendarClock },
   { href: "/saved-routes", label: "Routes", icon: Route },
+  { href: "/map", label: "Map", icon: Map },
   { href: "/planner", label: "Daily planner", short: "Planner", icon: CalendarDays },
 ];
 
@@ -71,9 +71,8 @@ const SIDEBAR_EXTRA: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** Map and Beta sit under More at the bottom of the desktop sidebar. */
+/** Beta and Tutorial sit under More at the bottom of the desktop sidebar. */
 const MORE_ITEMS: NavItem[] = [
-  { href: "/map", label: "Map", icon: Map },
   { href: "/beta", label: "Beta", icon: FlaskConical, adminOnly: true },
   { href: "/tutorials", label: "Tutorial", icon: BookOpen },
 ];
@@ -241,9 +240,9 @@ function SummerToggle({ mode }: { mode: SummerMode }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" aria-label={`Summer homes: ${SUMMER_LABELS[mode]}`} className={`relative inline-flex size-11 items-center justify-center rounded-full hover:bg-muted ${mode !== "all" ? "text-amber-700" : "text-foreground"}`}>
-          <Sun className="size-[18px]" />
-          {mode !== "all" ? <span className="absolute top-2 right-2 size-2 rounded-full bg-amber-600" /> : null}
+        <button type="button" aria-label={`Summer homes: ${SUMMER_LABELS[mode]}`} className={`mx-0.5 inline-flex h-9 items-center gap-1 rounded-full border px-2 text-[11px] font-medium sm:mx-1 sm:px-3 sm:text-xs whitespace-nowrap hover:bg-muted ${mode !== "all" ? "border-amber-600/50 text-amber-800 dark:text-amber-300" : "border-border text-foreground"}`}>
+          Summer homes
+          {mode !== "all" ? <span className="size-2 rounded-full bg-amber-600" aria-hidden="true" /> : null}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-1.5">

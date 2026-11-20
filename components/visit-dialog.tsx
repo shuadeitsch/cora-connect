@@ -51,7 +51,7 @@ export function VisitDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-heading text-foreground">{form.id ? "Edit visit" : "Log a visit"}</DialogTitle>
+          <DialogTitle className="font-heading text-foreground">{form.id ? "Edit visit" : "Log visit"}</DialogTitle>
         </DialogHeader>
         <form
           className="grid gap-3"
@@ -87,19 +87,19 @@ export function VisitDialog({
           <VisitedPicker value={form.visited ?? ""} onChange={(visited) => set("visited", visited)} />
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-sm">
-              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visit date</span>
+              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Date</span>
               <Input type="date" value={form.visitDate} onChange={(event) => set("visitDate", event.target.value)} />
             </label>
             <label className="grid gap-1 text-sm">
-              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Status</span>
+              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Did it happen?</span>
               <select className={field} value={form.status} onChange={(event) => set("status", event.target.value)}>
-                <option value="">Blank</option>
-                <option value="completed">Completed</option>
-                <option value="deferred">Deferred</option>
+                <option value="">Not set</option>
+                <option value="completed">Visited</option>
+                <option value="deferred">Put off</option>
               </select>
             </label>
             <label className="grid gap-1 text-sm">
-              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Reaction</span>
+              <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">How it went</span>
               <select className={field} value={form.reaction} onChange={(event) => set("reaction", event.target.value)}>
                 <option value="">None</option>
                 {VISIT_REACTIONS.map((reaction) => (
@@ -113,16 +113,16 @@ export function VisitDialog({
 
           <VisitActivityPicker value={form.activities ?? []} onChange={(activities) => set("activities", activities)} />
           <label className="grid gap-1 text-sm">
-            <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visited by</span>
+            <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Who went</span>
             <Input
               value={form.visitedBy ?? ""}
               onChange={(event) => set("visitedBy", event.target.value)}
-              placeholder="Auto-fills from assigned bochurim if left blank"
+              placeholder="Leave blank to fill in automatically"
             />
           </label>
           <label className="grid gap-1 text-sm">
-            <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Details</span>
-            <Textarea value={form.details} onChange={(event) => set("details", event.target.value)} rows={4} placeholder="What happened at the door?" />
+            <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Notes</span>
+            <Textarea value={form.details} onChange={(event) => set("details", event.target.value)} rows={4} placeholder="What happened?" />
           </label>
           {error ? <Notice>{error}</Notice> : null}
           <div className="flex flex-wrap justify-between gap-2">

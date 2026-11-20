@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   Mail,
   MapPin,
+  MoreHorizontal,
   MessageSquare,
   Pencil,
   Phone,
@@ -33,6 +34,7 @@ import { Notice, PageHeader } from "@/components/page-header";
 import { useToast } from "@/components/toast";
 import { VisitDialog } from "@/components/visit-dialog";
 import { VisitActivityBadges, VisitActivityPicker } from "@/components/visit-activity-picker";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -62,7 +64,7 @@ import { isRealVisit } from "@/lib/visited";
 import { setViewingState } from "@/lib/viewing-state";
 import { isNewContact } from "@/lib/new-contacts";
 import { usePractice } from "@/components/practice-provider";
-import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
+import { FOCUS_STATES, projectLabel, UNSORTED_PROJECT, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
 import { formatMedium, telHref } from "@/lib/format";
 import { blankExtraAddress, formatExtraAddress, parseExtraAddresses } from "@/lib/extra-addresses";
 import { CONTACT_TAGS, SUMMER_TAG, displayTags, isSummerHome, officialTags } from "@/lib/contact-tags";
@@ -98,6 +100,7 @@ export function HouseholdsView({
   initialList = "",
   initialMode = "",
   focusId,
+  visitId,
   twilioConnected = false,
 }: {
   data: AppData;
@@ -110,6 +113,7 @@ export function HouseholdsView({
   initialList?: string;
   initialMode?: string;
   focusId: string;
+  visitId?: string;
   twilioConnected?: boolean;
 }) {
   const router = useRouter();
@@ -184,6 +188,14 @@ export function HouseholdsView({
     const match = live.households.find((household) => household.id === focusId);
     if (match) setContact(match);
   }, [focusId, data.households, practice.patch, live.households]);
+
+  useEffect(() => {
+    if (!visitId) return;
+    const match = live.households.find((household) => household.id === visitId);
+    if (match) { setVisitEdit(undefined); setVisitFor(match); }
+    // Open once per link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitId]);
 
   useEffect(() => {
     setHistory((current) => {
@@ -340,7 +352,7 @@ export function HouseholdsView({
   return (
     <div className="p-4 sm:p-6">
       <PageHeader
-        title={scopeLabel(live.viewer.role, live.viewer.territory, filters.state)}
+        title={live.viewer.role === "bochur" ? "Contacts" : scopeLabel(live.viewer.role, live.viewer.territory, filters.state)}
         crumb="Contacts"
         action={
           live.viewer.canEdit || live.viewer.canManage ? (
@@ -507,21 +519,22 @@ export function HouseholdsView({
                   <NotePreview notes={notesFor(household, live.viewer.canViewHistory)} compact />
                   <ShareWithBochurimToggle household={household} data={live} />
                   <div className="mt-auto flex gap-2">
-                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" onClick={() => setContact(household)}>Contact</Button>
-                    <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} data-tour={index === 0 ? "visit-log" : undefined} onClick={() => { setVisitEdit(undefined); setVisitFor(household); }}>
-                      <Pencil className="size-3.5" /> Visit
+                    <Button size="sm" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} data-tour={index === 0 ? "visit-log" : undefined} onClick={() => { setVisitEdit(undefined); setVisitFor(household); }}>
+                      <Pencil className="size-3.5" /> Log visit
                     </Button>
-                    {live.viewer.role === "bochur" ? (
-                      <Button size="sm" variant="outline" className="h-10 rounded-full" data-tour={index === 0 ? "contacts-suggest" : undefined} onClick={() => setEditing(household)} disabled={Boolean(live.viewer.preview) && !practice.active}>
-                        Suggest
-                      </Button>
-                    ) : null}
-                    {live.viewer.canEdit || live.viewer.canLogVisit ? (
-                      <Button size="sm" variant="outline" className="h-10 rounded-full" onClick={() => setPreplanFor([household])}>
-                        <CalendarClock className="size-3.5" /> Pre-planner
-                      </Button>
-                    ) : null}
-                    <Button size="sm" variant="outline" className="h-10 rounded-full" onClick={() => setHistory(household)}>History</Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-10 w-10 shrink-0 rounded-full px-0" aria-label={`More actions for ${household.name}`} data-tour={index === 0 ? "contacts-suggest" : undefined}>
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setContact(household)}>Details</DropdownMenuItem>
+                        {live.viewer.canEdit || live.viewer.canLogVisit ? <DropdownMenuItem onClick={() => setPreplanFor([household])}>Pre-planner</DropdownMenuItem> : null}
+                        <DropdownMenuItem onClick={() => setHistory(household)}>History</DropdownMenuItem>
+                        {live.viewer.role === "bochur" ? <DropdownMenuItem disabled={Boolean(live.viewer.preview) && !practice.active} onClick={() => setEditing(household)}>Suggest an edit</DropdownMenuItem> : null}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </article>
               ))}
@@ -543,8 +556,8 @@ export function HouseholdsView({
                   />
                 </th>
                 <th className="px-2 py-2 font-medium">Name</th>
-                <th className="px-2 py-2 font-medium">Contact</th>
-                <th className="px-2 py-2 font-medium">Report</th>
+                <th className="px-2 py-2 font-medium">Details</th>
+                <th className="px-2 py-2 font-medium">Log visit</th>
                 <th className="px-2 py-2 font-medium">History</th>
                 <th className="px-2 py-2 font-medium">Visited</th>
                 <th className="px-2 py-2 font-medium">Reaction</th>
@@ -584,7 +597,7 @@ export function HouseholdsView({
                       </div>
                     </div>
                   </td>
-                  <td className="px-2"><IconAction label="View contact" onClick={() => setContact(household)} icon={MapPin} /></td>
+                  <td className="px-2"><IconAction label="Details" onClick={() => setContact(household)} icon={MapPin} /></td>
                   <td className="px-2">
                     <div className="flex items-center gap-1">
                       <IconAction label="Log visit" onClick={() => { setVisitEdit(undefined); setVisitFor(household); }} icon={Pencil} disabled={!live.viewer.canLogVisit} tour={index === 0 ? "visit-log" : undefined} />
@@ -756,7 +769,8 @@ function ReactionBadge({ reaction }: { reaction: HouseholdReaction | null }) {
 }
 
 function visitChipLabel(visit: HouseholdView["contactVisits"][number]) {
-  const name = visit.visited.trim() ? projectLabel(visit.visited) : "";
+  const label = visit.visited.trim() ? projectLabel(visit.visited) : "";
+  const name = label === UNSORTED_PROJECT ? "" : label;
   const date = visit.visitDate ? formatMedium(visit.visitDate) : "";
   return name || date || "Visit";
 }
@@ -1159,6 +1173,9 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
   const [pending, start] = useTransition();
   const announce = useUndoToast();
   const [extraPhoneRows, setExtraPhoneRows] = useState(1);
+  // A new contact starts short: name plus phone or address. Everything else sits under "More details".
+  const [more, setMore] = useState(false);
+  const showAll = Boolean(household) || more;
   const shliachStates = [...new Set(data.viewer.territory.map((row) => stateLabel(row.state)).filter(Boolean))];
   // Phones work like addresses: one field by default, more added with a button. The first is the primary.
   const phoneList = [form.people[0]?.phone ?? "", form.people[0]?.phone2 ?? "", form.people[0]?.phone3 ?? "", ...(form.people[0]?.extraPhones ?? [])];
@@ -1175,6 +1192,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
   useEffect(() => {
     if (!open) return;
     setError("");
+    setMore(false);
     const next = household ? fromHousehold(household, data) : blankInput(data);
     setForm(next);
     const p = next.people[0];
@@ -1304,15 +1322,17 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
           }}
         >
           <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Name</span><Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
-          <div className="grid gap-3 sm:grid-cols-2">
+          {showAll ? <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-sm"><span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Email</span><Input value={email} onChange={(event) => setContact({ email: event.target.value })} inputMode="email" /></label>
-          </div>
+          </div> : null}
           <div className="grid gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Phone</span>
-              <Button type="button" size="sm" variant="outline" className="min-h-11 rounded-full" onClick={() => setExtraPhoneRows(shownPhones + 1)}>
-                Add another phone number
-              </Button>
+              {showAll ? (
+                <Button type="button" size="sm" variant="outline" className="min-h-11 rounded-full" onClick={() => setExtraPhoneRows(shownPhones + 1)}>
+                  Add another phone number
+                </Button>
+              ) : null}
             </div>
             {Array.from({ length: shownPhones }, (_, index) => (
               <div key={index} className="flex items-center gap-2">
@@ -1369,7 +1389,7 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
           )}
           <datalist id="cora-towns">{TOWNS.map((town) => <option key={`${town.city}-${town.state}`} value={town.city}>{town.city}, {town.state}</option>)}</datalist>
 
-          <div className="grid gap-2">
+          {showAll ? <div className="grid gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">More addresses</span>
               <Button
@@ -1454,8 +1474,8 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                 </Button>
               </div>
             ))}
-          </div>
-          <div className="grid gap-2">
+          </div> : null}
+          {showAll ? <div className="grid gap-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Visits</span>
               <Button
@@ -1554,8 +1574,8 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                 </button>
               </div>
             )) : <p className="text-sm text-muted-foreground">No visits yet. Every field on a visit can stay blank.</p>}
-          </div>
-          <div className="grid gap-1.5 text-sm">
+          </div> : null}
+          {showAll ? <div className="grid gap-1.5 text-sm">
             <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Tags</span>
             <div className="flex flex-wrap gap-1.5">
               {CONTACT_TAGS.map((tag) => {
@@ -1589,9 +1609,9 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                 {SUMMER_TAG}
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">Not Jewish / Probably doesn&apos;t exist / Deceased stay off the main list. Summer home stays active and is only hidden by the Summer homes toggle in the top bar.</p>
-          </div>
-          {data.viewer.role === "shliach" ? (
+            <p className="text-xs text-muted-foreground">Not Jewish / Probably doesn&apos;t exist / Deceased stay off the main list. Summer home stays active and is only hidden by the Summer homes button in the top bar.</p>
+          </div> : null}
+          {showAll && data.viewer.role === "shliach" ? (
             <>
               <label className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm">
                 <span>
@@ -1608,6 +1628,11 @@ function HouseholdDialog({ open, title, data, household, onClose }: { open: bool
                 <input type="checkbox" className="size-5 accent-primary" checked={Boolean(form.sharedWithBochurim)} onChange={(event) => setForm({ ...form, sharedWithBochurim: event.target.checked })} />
               </label>
             </>
+          ) : null}
+          {!showAll ? (
+            <button type="button" className="justify-self-start text-sm font-medium text-link" onClick={() => setMore(true)}>
+              More details (email, more phones or addresses, visits, tags, notes)
+            </button>
           ) : null}
           {error ? <Notice>{error}</Notice> : null}
           <div className="flex justify-end"><Button type="submit" disabled={pending} className="rounded-full">{pending ? "Saving…" : data.viewer.role === "bochur" ? "Send suggestion" : "Save contact"}</Button></div>
@@ -1659,7 +1684,7 @@ function ContactDialog({
           <>
             <DialogHeader>
               <div className="flex items-center justify-between gap-2 pr-8">
-                <DialogTitle className="font-heading text-foreground">Contact</DialogTitle>
+                <DialogTitle className="font-heading text-foreground">Details</DialogTitle>
                 {canEdit ? <Button size="sm" variant="outline" className="rounded-full" onClick={onEdit}><Pencil className="size-3.5" /> Edit</Button> : null}
                 {!canEdit && data.viewer.role === "bochur" ? (
                   <Button size="sm" variant="outline" className="rounded-full" data-tour="contacts-suggest" onClick={onEdit} disabled={Boolean(data.viewer.preview)}>
@@ -1670,7 +1695,7 @@ function ContactDialog({
             </DialogHeader>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" className="rounded-full" onClick={onHistory}><History className="size-4" /> History</Button>
-              <Button type="button" variant="outline" className="rounded-full" onClick={onVisit}><Pencil className="size-4" /> Report</Button>
+              <Button type="button" variant="outline" className="rounded-full" onClick={onVisit}><Pencil className="size-4" /> Log visit</Button>
               {onPreplan && (canEdit || data.viewer.canLogVisit) ? (
                 <Button type="button" variant="outline" className="rounded-full" onClick={onPreplan}><CalendarClock className="size-4" /> Pre-planner</Button>
               ) : null}
