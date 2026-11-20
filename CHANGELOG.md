@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.103
+_Updated Nov 19, 2026, 8:02 PM (New York time)._
+- **Summer homes: All / Exclude / Summer only.** The summer-home control in the map route builder, New route by city, Pick contacts, the route editor and Plan a trip is now a three-way choice with counts: **All**, **Exclude summer homes (N)** or **Summer only (N)**, so both can't be on at once. It shows only households tagged "Summer home" when set to Summer only, and the choice is remembered on this device.
+
 ## 1.8.102
 _Updated Nov 19, 2026, 7:59 PM (New York time)._
 - **Confirm a visit from the Inbox.** In a Pre-planner Inbox conversation, the header now has a **Confirm visit** button (admins, like the rest of messaging). It opens the same date, time and notes form as the Reached out cards and saves through the same confirm step, so the visit lands in **Confirmed visits** (the Pre-planner switches to that tab) and shows in the Daily planner on that day. If the contact isn't on the Reached out list yet, it is added and confirmed in one step (reached by the channel of the conversation). If a visit is already confirmed, the header shows "Visit confirmed Tue, Nov 24 at 3:00 PM" with an **Edit** button instead.
