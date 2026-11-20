@@ -319,7 +319,7 @@ export function PreplannerMessageDialog({
   const skipped = rows.filter((row) => row.skip);
   const chosen = ready.filter((row) => !excluded[row.rid]);
   const sample = chosen[0] ?? ready[0];
-  const preview = sample ? fillPlaceholders(body, varsFor(sample.person, sample.house, manualWa)) : body;
+  const preview = sample ? fillPlaceholders(body, varsFor(sample.person, sample.house, manualWa || mode === "email")) : body;
   const current = queue?.[queueIndex];
   const currentPreview = current ? fillPlaceholders(body, varsFor(current.person, current.house, true)) : "";
   const currentLink = current ? whatsappMeLink(current.address, currentPreview) : null;
@@ -383,7 +383,7 @@ export function PreplannerMessageDialog({
         const slice = chosen.slice(i, i + BATCH);
         const inputs = slice.map((row) => {
           const channel = channelFor(channels, type, row.house.state);
-          const names = varsFor(row.person, row.house);
+          const names = varsFor(row.person, row.house, mode === "email");
           const filled = mode === "whatsapp" && selectedWaApproved && selectedWa
             ? fillWhatsAppContent(selectedWa.body, names.firstName || "friend", waExtraFor(row.house, row.entry))
             : fillPlaceholders(body, names);

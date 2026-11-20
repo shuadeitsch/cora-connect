@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.88
+_Updated Nov 19, 2026, 7:04 PM (New York time)._
+- **New email template: "Chanukah visit"** (subject "A Chanukah visit from Chabad of Maine"), signed Mendel / Chabad of Maine, with paragraph breaks kept. It starts "Hi {first_name}!" and each person's own first name is filled in per recipient, using "there" when there is no usable first name (titles like Mrs. are skipped). It shows in the Template picker of the Message sheet (migration 058, also added to the built-in drafts). Nothing was sent.
+
 ## 1.8.87
 _Updated Nov 19, 2026, 6:57 PM (New York time)._
 - **Unknown senders are no longer dropped.** Texts and WhatsApp messages from a number that matches no contact, and Gmail messages addressed to the Cora mailbox from an address that matches no contact or sent thread, are now kept (migration 057). Gmail skips obvious newsletters, notifications, no-reply and bulk mail (List-Unsubscribe, Precedence, auto-replies, promotions and updates tabs). In the Inbox, admins get an **Unknown sender (N)** tab showing the number or email, channel, time and message, with **Attach to contact** (search a contact; optionally save the number or email on them, then the message moves into their conversation), **Create new contact** (name required, number or email prefilled) and **Dismiss**. Admins only for now; the sender is hidden for anyone who cannot see contact info. Incoming texts and WhatsApp messages now also match a contact's extra (4th and later) phone numbers.

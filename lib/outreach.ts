@@ -44,6 +44,13 @@ export const OUTREACH_TEMPLATES: OutreachTemplate[] = [
     email: "Hi {first name}, we'll have yeshiva students in {state} soon and would love to stop by for a short visit. If there's a day or time that works, please let us know. Looking forward to seeing you.",
     sms: "Hi {first name}, yeshiva students will be in {state} soon and would love to stop by. If a time works for you, please let us know!",
   },
+  {
+    id: "chanukah-visit-email",
+    name: "Chanukah visit",
+    subject: "A Chanukah visit from Chabad of Maine",
+    email: "Hi {first_name}!\n\nWith Chanukah coming up, Chabad of Maine is sending yeshiva students to visit Jewish individuals and families across Maine. We'd love to stop by, share some Chanukah joy, and bring along holiday treats or supplies, such as a menorah, donuts, or Chanukah gelt. Whether you could use help lighting the menorah or would simply enjoy a friendly visit, we'd be glad to meet you. Would you be interested in a visit? Just reply to this email, and we'll be in touch to arrange a time that works for you. If you know someone nearby who might enjoy a visit too, feel free to pass this along. Wishing you a bright and happy Chanukah!\n\nMendel\nChabad of Maine",
+    sms: "Hi {first_name}, with Chanukah coming up, Chabad of Maine is sending yeshiva students to visit. May we stop by with a menorah and treats? Just reply to arrange a time.",
+  },
 ];
 
 export type OutreachPerson = {
