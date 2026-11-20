@@ -1,5 +1,6 @@
 "use client";
 
+import { CallButton } from "@/components/call-provider";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
@@ -19,6 +20,21 @@ import { cn } from "@/lib/utils";
 import { sameState, stateLabel } from "@/lib/constants";
 
 const STATE_KEY = "cora-preplanner-state";
+
+function uniquePhones(household: { name: string; people: { name: string; phone: string; phone2: string; phone3: string; extraPhones?: string[]; whatsapp: string }[] }) {
+  const seen = new Set<string>();
+  const out: { number: string; name: string }[] = [];
+  for (const person of household.people) {
+    for (const raw of [person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? []), person.whatsapp]) {
+      const number = (raw ?? "").trim();
+      const key = number.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+      if (!number || !key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ number, name: person.name || household.name });
+    }
+  }
+  return out;
+}
 
 export function PreplannerView({ data }: { data: AppData }) {
   const announce = useUndoToast();
@@ -182,6 +198,13 @@ export function PreplannerView({ data }: { data: AppData }) {
                     ) : null}
                     {projectName ? <p className="text-[13px] leading-snug text-muted-foreground">{projectName}</p> : null}
                     {household?.address ? <p className="truncate text-[13px] leading-snug text-muted-foreground">{household.address}</p> : null}
+                    {household && data.viewer.canViewContact ? (
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {uniquePhones(household).map((item) => (
+                          <CallButton key={item.number} number={item.number} name={item.name} label={uniquePhones(household).length > 1 ? `Call ${item.number}` : "Call"} className="h-9" />
+                        ))}
+                      </div>
+                    ) : null}
                     {entry.notesLog?.length ? (
                       <ol className="mt-1 grid gap-1">
                         {entry.notesLog.map((item, index) => (

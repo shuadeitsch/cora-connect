@@ -1,6 +1,6 @@
 {
   "name": "cora",
-  "version": "1.8.100",
+  "version": "1.8.101",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 43123",
@@ -17,6 +17,7 @@
     "@hebcal/core": "^6.14.7",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
+    "@twilio/voice-sdk": "^2.19.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cn": "^0.5.0",

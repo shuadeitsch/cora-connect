@@ -26,6 +26,7 @@ import {
   LogOut,
   Map,
   Menu,
+  Phone,
   Route,
   Search,
   Sun,
@@ -38,6 +39,7 @@ import { CommandPalette, type PaletteHousehold } from "@/components/command-pale
 import { FeedbackButton } from "@/components/feedback-button";
 import { PreviewBanner, SandboxBanner } from "@/components/preview-banner";
 import { useGmailSyncPolling } from "@/components/gmail-inbox-sync";
+import { CallProvider } from "@/components/call-provider";
 import { PracticeProvider } from "@/components/practice-provider";
 import { TutorialProvider } from "@/components/tutorial-tour";
 import { ReloadButton } from "@/components/reload-button";
@@ -61,6 +63,7 @@ const PRIMARY: NavItem[] = [
   { href: "/dashboard", label: "Home", short: "Home", icon: LayoutGrid },
   { href: "/households", label: "Contacts", icon: House },
   { href: "/pre-planner", label: "Pre-planner", icon: CalendarClock },
+  { href: "/calls", label: "Calls", icon: Phone, adminOnly: true },
   { href: "/saved-routes", label: "Routes", icon: Route },
   { href: "/planner", label: "Daily planner", short: "Planner", icon: CalendarDays },
 ];
@@ -353,6 +356,7 @@ export function Shell({
   return (
     <PracticeProvider active={Boolean(preview) || Boolean(viewer.sandbox)} sandbox={Boolean(viewer.sandbox)}>
     <TutorialProvider viewer={viewer}>
+    <CallProvider enabled={viewer.canMessage && viewer.canViewContact && !preview && !viewer.sandbox}>
       <div className="safe-page app-frame flex flex-col">
       <header className="glass z-30 mx-2 mt-2 flex min-h-14 shrink-0 items-center justify-between gap-2 rounded-2xl px-2 py-1 sm:mx-3 sm:px-3">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 pl-1">
@@ -544,6 +548,7 @@ export function Shell({
       </Sheet>
       <CommandPalette open={search} onOpenChange={setSearch} households={households} canManage={viewer.canManage && !preview} />
     </div>
+    </CallProvider>
     </TutorialProvider>
     </PracticeProvider>
   );

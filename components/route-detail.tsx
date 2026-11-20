@@ -1,5 +1,6 @@
 "use client";
 
+import { CallButton } from "@/components/call-provider";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useMapPoints } from "@/components/map-points";
@@ -145,7 +146,7 @@ export function RouteDetail({ data, route }: { data: AppData; route: RouteView }
                 <AddressLink address={fullAddress(stop)} lat={stop.lat} lng={stop.lng} label="Navigate" className="inline-flex items-center gap-1 text-xs text-link">
                   <Navigation className="size-3.5" /> Navigate
                 </AddressLink>
-                {stop.phone ? <a className="text-xs text-link" href={`tel:${stop.phone.replace(/\D/g, "")}`}>Call</a> : null}
+                {stop.phone ? <CallButton number={stop.phone} name={stop.name} className="h-8" /> : null}
                 <Link className="text-xs text-link" href={`/reports?new=1&household=${stop.householdId}`}>Log visit</Link>
               </div>
             </li>
