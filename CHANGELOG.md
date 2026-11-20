@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.96
+_Updated Nov 19, 2026, 7:29 PM (New York time)._
+- **Every email path now greets the same way.** The Contacts email wizard, the Outreach dialog (single and group) and the shared name fill in `lib/outreach.ts` use the same greeting as the Message sheet, including their previews: couples ("Hi Adam and Isabelle!"), titles with a surname ("Mr. and Mrs. Smith"), families ("Cohen family"), and "there" only when no name exists. The full-name placeholder now uses the name as saved, titles included.
+
 ## 1.8.95
 _Updated Nov 19, 2026, 7:27 PM (New York time)._
 - **Greetings now always use the name on file.** With first names: "Hi Adam and Isabel!". With only titles and a surname: "Mr. and Mrs. Smith", "Dr. and Dr. Cohen", "Dr. and Mrs. Katz", "Rabbi and Mrs. Levi", "Dr. Cohen". Families: "The Cohen Family" becomes "Hi Cohen family!". "there" is used only when there is no usable name at all. Same greeting in the preview, email, text, WhatsApp, tap-to-send and the WhatsApp template.

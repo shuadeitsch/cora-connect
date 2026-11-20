@@ -1,5 +1,6 @@
 import { stateLabel } from "@/lib/constants";
-import { digitsOnly, firstName as firstWord } from "@/lib/format";
+import { digitsOnly } from "@/lib/format";
+import { greetingFirstName } from "@/lib/whatsapp";
 import type { HouseholdView, Person } from "@/lib/types";
 
 export type OutreachMode = "email" | "text";
@@ -111,7 +112,7 @@ export function groupFillVars(people: OutreachPerson[]): { firstName: string; st
 export function contactFirstName(household: HouseholdView): string {
   const person = household.people[0]?.name.trim();
   const source = person || household.name;
-  return firstWord(source);
+  return greetingFirstName(source);
 }
 
 export function contactStateLabel(household: HouseholdView): string {
@@ -311,12 +312,12 @@ export function personPlaceholderVars(
   household: { name: string; state: string; city?: string; address?: string; zip?: string },
 ): PlaceholderVars {
   const source = person.name.trim() || household.name;
-  const first = firstWord(source);
+  const first = greetingFirstName(source);
   const last = lastNameFrom(source);
   return {
     firstName: first,
     lastName: last,
-    fullName: [first, last].filter(Boolean).join(" ") || source,
+    fullName: source,
     state: contactStateLabel(household as HouseholdView),
     city: (household.city ?? "").trim(),
     address: (household.address ?? "").trim(),
