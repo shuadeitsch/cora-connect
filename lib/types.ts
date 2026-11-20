@@ -37,6 +37,8 @@ export interface Organization {
 }
 
 export interface User {
+  /** Admin on/off switches per role; loaded for the signed-in user. */
+  rolePerms?: import("@/lib/role-permissions").RolePerms;
   id: string;
   orgId: string;
   name: string;
@@ -455,6 +457,10 @@ export interface Viewer {
   /** Messaging (send, Inbox, replies, calls) is allowed for this role (see MESSAGING_ROLES). */
   canMessage: boolean;
   canShare: boolean;
+  /** Admin switches per role (Settings → Permissions). */
+  canPreplanner: boolean;
+  canSeePlanner: boolean;
+  canEditPlanner: boolean;
   leaderId: string | null;
   territory: Territory[];
   avatarUrl: string | null;
@@ -665,6 +671,8 @@ export interface AppNotificationView {
 }
 
 export interface AppData {
+  /** Admin only: saved role switches (Settings → Permissions). */
+  rolePermissions?: import("@/lib/role-permissions").RolePerms;
   mode: "demo" | "supabase";
   viewer: Viewer;
   org: Organization;

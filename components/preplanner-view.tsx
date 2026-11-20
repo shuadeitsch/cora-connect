@@ -3,10 +3,9 @@
 import { CallButton } from "@/components/call-provider";
 import { CallsPanel } from "@/components/calls-panel";
 import { uniquePhones } from "@/lib/voice-shared";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
-import { PageHeader } from "@/components/page-header";
 import { PreplannerDialog } from "@/components/preplanner-dialog";
 import { usePractice } from "@/components/practice-provider";
 import { Button } from "@/components/ui/button";
@@ -20,12 +19,11 @@ import { PreplannerMessageDialog } from "@/components/preplanner-message-dialog"
 import { useGmailSyncOnOpen } from "@/components/gmail-inbox-sync";
 import type { AppData, HouseholdView, PreplannerEntry, PreplannerStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { sameState, stateLabel } from "@/lib/constants";
-
-const STATE_KEY = "cora-preplanner-state";
+import { sameState } from "@/lib/constants";
 
 
-export function PreplannerView({ data }: { data: AppData }) {
+
+export function OutreachView({ data, activeState }: { data: AppData; activeState: string }) {
   const announce = useUndoToast();
   const practice = usePractice();
   const [tabState, setTab] = useState<PreplannerStage | "inbox" | "calls">("reached_out");
@@ -41,29 +39,6 @@ export function PreplannerView({ data }: { data: AppData }) {
   useGmailSyncOnOpen(canMessage && !data.viewer.preview && !data.viewer.sandbox);
   const byId = useMemo(() => new Map(data.households.map((household) => [household.id, household])), [data.households]);
   const allEntries = data.preplannerEntries ?? [];
-  const isAdmin = data.viewer.role === "admin";
-  const stateOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const entry of allEntries) {
-      const st = stateLabel(byId.get(entry.householdId)?.state || "");
-      if (st) set.add(st);
-    }
-    for (const house of data.households) {
-      const st = stateLabel(house.state || "");
-      if (st && isAdmin) set.add(st);
-    }
-    return [...set].sort();
-  }, [allEntries, byId, data.households, isAdmin]);
-  const [stateFilter, setStateFilter] = useState("");
-  useEffect(() => {
-    try { setStateFilter(window.localStorage.getItem(STATE_KEY) ?? ""); } catch { /* ignore */ }
-  }, []);
-  const activeState = isAdmin && stateFilter && stateOptions.includes(stateFilter) ? stateFilter : "";
-  function chooseState(value: string) {
-    setStateFilter(value);
-    setChecked({});
-    try { window.localStorage.setItem(STATE_KEY, value); } catch { /* ignore */ }
-  }
   const entries = activeState ? allEntries.filter((entry) => sameState(byId.get(entry.householdId)?.state || "", activeState)) : allEntries;
   const reached = entries.filter((entry) => entry.stage !== "confirmed");
   const inboxUnread = useUnreadCount(data.unreadMessageCount ?? 0);
@@ -83,12 +58,8 @@ export function PreplannerView({ data }: { data: AppData }) {
   const allChecked = shown.length > 0 && checkedIds.length === shown.length;
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <PageHeader
-        title="Pre-planner"
-        crumb="Pre-planner"
-        description="Log every contact you reached, then confirm a visit when a date and time are set. Confirmed visits also show up on that day in the Daily planner."
-      />
+    <div>
+      <p className="mb-3 text-sm text-muted-foreground">Log every contact you reached, then confirm a visit when a date and time are set. Confirmed visits also show up on that day in the Daily planner.</p>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
       <div className="inline-flex max-w-full flex-wrap gap-1 rounded-full border bg-card p-1" role="tablist" aria-label="Pre-planner stages">
         <button type="button" role="tab" aria-selected={tab === "reached_out"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "reached_out" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("reached_out")}>
@@ -108,22 +79,6 @@ export function PreplannerView({ data }: { data: AppData }) {
         </button>
         ) : null}
       </div>
-      {tab !== "inbox" && tab !== "calls" && isAdmin && stateOptions.length > 1 ? (
-        <label className="flex w-full items-center gap-2 text-sm sm:w-auto">
-          <span className="text-muted-foreground">State</span>
-          <select
-            className="h-11 min-w-0 flex-1 rounded-xl border bg-card px-3 text-sm sm:flex-none"
-            value={activeState}
-            onChange={(event) => chooseState(event.target.value)}
-            aria-label="Filter the Pre-planner by state"
-          >
-            <option value="">All states</option>
-            {stateOptions.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-        </label>
-      ) : null}
       {tab !== "inbox" && tab !== "calls" && canMessage ? (
         <Button type="button" className="min-h-11 rounded-full" onClick={() => setMessaging(true)}>
           Message

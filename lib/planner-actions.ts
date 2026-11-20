@@ -1,5 +1,6 @@
 "use server";
 
+import { roleAllows } from "@/lib/role-permissions";
 import { assertNotPreview } from "@/lib/preview";
 import { parseChavrusa, type Chavrusa } from "@/lib/chavrusa";
 
@@ -13,6 +14,7 @@ async function plannerActor(): Promise<{ orgId: string; id: string } | string> {
   const user = await getCurrentUser();
   if (!user) return "Sign in again.";
   if (!isSupabaseMode()) return "The planner needs the live database.";
+  if (user.role !== "admin" && !roleAllows(user.rolePerms, user.role, "edit_planner")) return "Editing the Daily planner is turned off for your role.";
   if (user.role === "admin" || user.role === "shliach") return { orgId: user.orgId, id: user.id };
   if (user.role === "bochur") {
     // RLS enforces the shliach's bochurim_edit_planner flag.

@@ -2,6 +2,7 @@ import { sameState } from "@/lib/constants";
 import { canMessageRole } from "@/lib/messaging-access";
 import { addDays, monthKey, weekStart } from "@/lib/format";
 import { miles } from "@/lib/geo";
+import { roleAllows } from "@/lib/role-permissions";
 import type {
   Category,
   DueState,
@@ -16,6 +17,7 @@ import type {
 } from "@/lib/types";
 
 export function viewerPermissions(user: User, today: string) {
+  const allow = (key: string) => roleAllows(user.rolePerms, user.role, key);
   const approved = user.status === "approved";
   const expired = approved && Boolean(user.expiresAt && user.expiresAt < today);
   const admin = approved && user.role === "admin" && !expired;
@@ -23,23 +25,26 @@ export function viewerPermissions(user: User, today: string) {
   const bochur = user.role === "bochur";
   const active = approved && !expired;
   // A bochur only ever reaches contacts shared with him (the database enforces it); on those he sees everything.
-  const canEdit = active && !bochur && (admin || shliach || user.canEdit);
+  const canEdit = active && !bochur && (admin || shliach || user.canEdit) && allow("edit_contacts");
   return {
     expired,
-    canViewHistory: active && (admin || shliach || bochur || user.canViewHistory),
-    canViewContact: active && (admin || shliach || bochur || user.canViewContact),
+    canViewHistory: active && (admin || shliach || bochur || user.canViewHistory) && allow("view_history"),
+    canViewContact: active && (admin || shliach || bochur || user.canViewContact) && allow("view_contact"),
     canEdit,
     canManage: admin,
-    canLogVisit: active && (admin || shliach || bochur || user.role === "visitor" || user.canEdit),
-    canCreateRoute: active && (admin || shliach || bochur || user.role === "visitor"),
+    canLogVisit: active && (admin || shliach || bochur || user.role === "visitor" || user.canEdit) && allow("log_visits"),
+    canCreateRoute: active && (admin || shliach || bochur || user.role === "visitor") && allow("edit_routes"),
     canDeleteRoute: admin,
     // Soft-hide for shliach; hard delete stays admin-only in the repo.
-    canDeleteContacts: canEdit && (admin || shliach),
+    canDeleteContacts: canEdit && (admin || shliach) && allow("delete_contacts"),
     canImport: canEdit && !shliach,
-    canExport: active && (admin || shliach),
+    canExport: active && (admin || shliach) && allow("export"),
     canMessage: active && canMessageRole(user.role),
     canOutreach: active && (admin || shliach) && canMessageRole(user.role),
-    canShare: admin || shliach,
+    canShare: (admin || shliach) && allow("share_with_bochurim"),
+    canPreplanner: allow("preplanner"),
+    canSeePlanner: allow("see_planner"),
+    canEditPlanner: allow("edit_planner"),
   };
 }
 

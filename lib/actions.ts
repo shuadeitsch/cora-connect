@@ -1,5 +1,6 @@
 "use server";
 
+import { roleAllows } from "@/lib/role-permissions";
 import { canMessageRole, MESSAGING_BLOCKED_MESSAGE } from "@/lib/messaging-access";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -536,6 +537,7 @@ export async function savePreplannerEntryAction(input: {
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
+  if (!roleAllows(user.rolePerms, user.role, "preplanner")) return { ok: false as const, error: "The Pre-planner is turned off for your role." };
   return refresh(await savePreplannerEntry(user, input));
 }
 
@@ -544,6 +546,7 @@ export async function deletePreplannerEntryAction(id: string) {
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
+  if (!roleAllows(user.rolePerms, user.role, "preplanner")) return { ok: false as const, error: "The Pre-planner is turned off for your role." };
   return refresh(await deletePreplannerEntry(user, id));
 }
 
@@ -552,6 +555,7 @@ export async function deletePreplannerEntriesAction(ids: string[]) {
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
+  if (!roleAllows(user.rolePerms, user.role, "preplanner")) return { ok: false as const, error: "The Pre-planner is turned off for your role." };
   return refresh(await deletePreplannerEntries(user, ids));
 }
 
@@ -560,6 +564,7 @@ export async function markPreplannerScheduledAction(id: string, dayId: string) {
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
+  if (!roleAllows(user.rolePerms, user.role, "preplanner")) return { ok: false as const, error: "The Pre-planner is turned off for your role." };
   return refresh(await markPreplannerScheduled(user, id, dayId));
 }
 
@@ -568,6 +573,7 @@ export async function confirmPreplannerVisitAction(input: { id: string; requeste
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
+  if (!roleAllows(user.rolePerms, user.role, "preplanner")) return { ok: false as const, error: "The Pre-planner is turned off for your role." };
   return refresh(await confirmPreplannerVisit(user, input));
 }
 

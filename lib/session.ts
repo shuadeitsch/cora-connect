@@ -11,6 +11,7 @@ import { applyPreview, readPreview, readSandbox } from "@/lib/preview";
 import { loadDemo } from "@/lib/store";
 import { createClient, isSupabaseMode } from "@/lib/supabase/server";
 import { loadSupabase } from "@/lib/supabase/load";
+import type { RolePerms } from "@/lib/role-permissions";
 import type { AppData, Database, User } from "@/lib/types";
 
 export const getCurrentUser = cache(async (): Promise<User | null> => {
@@ -32,7 +33,14 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   const territory = territoryRes.error
     ? []
     : (territoryRes.data ?? []).map((row) => ({ state: row.state ?? "", area: row.area ?? "" }));
+  const permRes = await supabase.from("role_permissions").select("role, permission, enabled").eq("org_id", profile.org_id);
+  const rolePerms: RolePerms = {};
+  for (const row of permRes.error ? [] : (permRes.data ?? [])) {
+    if (row.role !== "shliach" && row.role !== "bochur") continue;
+    (rolePerms[row.role as "shliach" | "bochur"] ??= {})[String(row.permission)] = Boolean(row.enabled);
+  }
   return {
+    rolePerms,
     id: profile.id,
     orgId: profile.org_id,
     name: profile.name,
@@ -82,8 +90,9 @@ export const getAppDataAll = cache(async (): Promise<AppData | null> => {
   const full = found ?? user;
   const preview = await readPreview();
   const sandbox = await readSandbox();
-  const effective = applyPreview(full, preview);
+  const effective = applyPreview({ ...full, rolePerms: user.rolePerms }, preview);
   const data = present(db, effective, isSupabaseMode() ? "supabase" : "demo", todayIso());
+  if (user.role === "admin") data.rolePermissions = user.rolePerms ?? {};
   if (data.mailSetup?.whatsappApiSendingEnabled) {
     const tpl = await whatsappTemplateState();
     data.mailSetup = {

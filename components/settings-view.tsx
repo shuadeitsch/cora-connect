@@ -13,6 +13,7 @@ import { AccountPassword } from "@/components/account-password";
 import { AvatarPicker } from "@/components/avatar-picker";
 import { ThemePicker } from "@/components/theme-picker";
 import { TeamView } from "@/components/team-view";
+import { PermissionsSettings } from "@/components/permissions-settings";
 import { ProjectSummerSettings } from "@/components/summer-default-ui";
 import { ChannelCard, SyncGmailButton, channelStatuses } from "@/components/messaging-overview";
 import { MessagingChannelsCard } from "@/components/messaging-channels-card";
@@ -107,7 +108,7 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
     "account",
     ...(messaging ? ["messaging", "templates"] : []),
     ...(shliach ? ["team"] : []),
-    ...(summerAdmin ? ["summer"] : []),
+    ...(summerAdmin ? ["summer", "permissions"] : []),
   ];
   const tab = allowed.includes(requestedTab(initialTab)) ? requestedTab(initialTab) : "house";
   return (
@@ -123,6 +124,7 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
           {messaging ? <TabsTrigger value="messaging" className="shrink-0 whitespace-nowrap">Messaging settings</TabsTrigger> : null}
           {shliach ? <TabsTrigger value="team" className="shrink-0 whitespace-nowrap">My Team</TabsTrigger> : null}
           {summerAdmin ? <TabsTrigger value="summer" className="shrink-0 whitespace-nowrap">Summer home settings</TabsTrigger> : null}
+          {summerAdmin ? <TabsTrigger value="permissions" className="shrink-0 whitespace-nowrap">Permissions</TabsTrigger> : null}
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
         <TabsContent value="account">
@@ -136,6 +138,11 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
         {summerAdmin ? (
           <TabsContent value="summer">
             <ProjectSummerSettings data={data} />
+          </TabsContent>
+        ) : null}
+        {summerAdmin ? (
+          <TabsContent value="permissions">
+            <PermissionsSettings data={data} />
           </TabsContent>
         ) : null}
         {shliach ? (

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.14
+_Updated Nov 20, 2026, 3:36 PM (New York time)._
+- **New admin-only "Permissions" tab in Settings** (next to Summer home settings). One on/off switch for each thing a Shliach or a Bochur can do. Everything starts on, exactly like today. Switches (Shliach): edit contacts, log visits, create/edit routes, edit the Daily planner, use the Pre-planner, export contacts, remove contacts, share with his bochurim. Switches (Bochur): log visits, create/edit routes, see the Daily planner, edit the Daily planner (still needs his shliach to allow it too), use the Pre-planner, see visit history/notes, see phone/email. Messaging stays admin-only and is shown as read-only info, along with each shliach's own planner/sharing choices. Saved in a new `role_permissions` table (migration 064); turning one off hides it in the app, is refused by the server, and is blocked in the database for planner, routes, visits and the Pre-planner.
+- **Pre-planner has two sections: Outreach and Tasks.** A State picker sits at the top (admins choose a state or All states; everyone else is locked to their own state). **Outreach** is everything that was in the Pre-planner (Reached out, Confirmed visits, Inbox, Calls), unchanged. **Tasks** is a simple follow-up list: "+ New task" with the task (required), optional phone and email (tap-to-call and mailto links only; nothing is sent from the CRM), "Where it's holding", next follow-up date and state, plus a done checkbox. Sorted by next follow-up with overdue ones highlighted in red; tap a task to edit, mark it done, or delete it (with a confirm). Saved in a new `preplanner_tasks` table (migration 065) with state-based row-level security like contacts. Turning off the Pre-planner switch hides both sections.
+
 ## 1.9.13
 _Updated Nov 20, 2026, 3:36 PM (New York time)._
 - **New replies now alert you right away.** The CRM checks for new texts and WhatsApp replies every few seconds. A small toast appears ("New text reply from …") with a View link, and the Pre-planner menu item, the Inbox tab, the Reached out tab and the contact's card and thread show a count or "New reply".

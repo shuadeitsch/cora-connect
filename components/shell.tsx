@@ -328,7 +328,9 @@ export function Shell({
     writeStoredNavOrder(null);
     if (persistOrder) void saveSidebarOrderAction(null);
   }
-  const catalog = [...PRIMARY, ...SIDEBAR_EXTRA, ...MORE_ITEMS];
+  // Admin switches (Settings → Permissions) hide the Pre-planner and, for a bochur, the Daily planner.
+  const catalog = [...PRIMARY, ...SIDEBAR_EXTRA, ...MORE_ITEMS].filter((item) =>
+    !(item.href === "/pre-planner" && viewer.canPreplanner === false) && !(item.href === "/planner" && viewer.role === "bochur" && viewer.canSeePlanner === false));
   const orderedAll = orderNavItems(catalog, order);
   const navItems = orderedAll.filter((item) => !MORE_NAV_HREFS.has(item.href));
   const moreItems = orderedAll.filter((item) => MORE_NAV_HREFS.has(item.href));

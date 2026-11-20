@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { PreplannerView } from "@/components/preplanner-view";
+import { PreplannerHome } from "@/components/preplanner-home";
+import { loadPreplannerTasks } from "@/lib/preplanner-task-actions";
 import { getAppData } from "@/lib/session";
 
 export const metadata = { title: "Pre-planner" };
@@ -7,5 +8,7 @@ export const metadata = { title: "Pre-planner" };
 export default async function PreplannerPage() {
   const data = await getAppData();
   if (!data) redirect("/login");
-  return <PreplannerView data={data} />;
+  if (data.viewer.canPreplanner === false) redirect("/dashboard");
+  const tasks = await loadPreplannerTasks();
+  return <PreplannerHome data={data} tasks={tasks} />;
 }

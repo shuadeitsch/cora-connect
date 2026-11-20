@@ -92,8 +92,8 @@ export function PlannerView({ data, days, loadError, adminPanel = null }: { data
   // Admin + shliach always edit. Bochur edits only when his shliach's toggle is on (RLS enforces too).
   const canEdit =
     live.viewer.role === "admin" ||
-    live.viewer.role === "shliach" ||
-    (live.viewer.role === "bochur" && Boolean(live.viewer.bochurimEditPlanner));
+    (live.viewer.role === "shliach" && live.viewer.canEditPlanner !== false) ||
+    (live.viewer.role === "bochur" && Boolean(live.viewer.bochurimEditPlanner) && live.viewer.canEditPlanner !== false);
   const manageVisibility = live.viewer.role === "shliach";
   const bochur = live.viewer.role === "bochur";
   const preview = Boolean(live.viewer.preview);
