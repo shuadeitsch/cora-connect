@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteListOptions, OutcomeBadge, useOutcomes } from "@/components/route-outcome";
 import { isSummerHome } from "@/lib/contact-tags";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -52,7 +53,8 @@ export function RouteEditor({
   const [includeTaken, setIncludeTaken] = useState(false);
   const saveIds = includeTaken ? ids : ids.filter((id) => !takenNew.includes(id));
   // Same list rules as New route by city: role access, and contacts with hidden tags left out.
-  const ctl = useContactFilters(data, "");
+  const ctl = useContactFilters(data, "", [], "", true);
+  const outcomes = useOutcomes(data);
   const cities = useMemo(() => {
     const groups = new Map<string, { key: string; label: string; ids: string[] }>();
     for (const household of ctl.beforeCity) {
@@ -176,6 +178,7 @@ export function RouteEditor({
               <span className="min-w-0 flex-1 truncate">
                 <span className="font-medium text-foreground">{stop?.name ?? "Contact"}</span>{" "}
                 <span className="text-xs text-muted-foreground">{stop?.city}</span>
+                <span className="block"><OutcomeBadge outcome={outcomes.get(id)} /></span>
                 {badge(id) ? <span className="block"><OverlapBadge text={badge(id)} /></span> : null}
               </span>
               <button type="button" aria-label={`Move ${stop?.name ?? "stop"} up`} className="inline-flex size-9 items-center justify-center rounded-full hover:bg-accent disabled:opacity-30" disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp className="size-4" /></button>
@@ -186,6 +189,7 @@ export function RouteEditor({
         })}
       </ol>
       <div className="grid gap-1">
+        <RouteListOptions ctl={ctl} data={data} />
         <select
           className="h-10 rounded-lg border bg-card px-2 text-sm max-md:h-11 max-md:text-base"
           value=""
@@ -206,7 +210,7 @@ export function RouteEditor({
                 <li key={household.id}>
                   <button type="button" className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-accent" onClick={() => change([...ids, household.id])}>
                     <Plus className="size-4 shrink-0 text-primary" />
-                    <span className="min-w-0 truncate"><span className="font-medium text-foreground">{household.name}</span> <span className="text-xs text-muted-foreground">{household.street}, {household.city}</span><OverlapBadge text={badge(household.id)} /></span>
+                    <span className="min-w-0 truncate"><span className="font-medium text-foreground">{household.name}</span> <span className="text-xs text-muted-foreground">{household.street}, {household.city}</span><OverlapBadge text={badge(household.id)} /><OutcomeBadge outcome={outcomes.get(household.id)} /></span>
                   </button>
                 </li>
               ))}

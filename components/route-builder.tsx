@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { RouteListOptions, OutcomeBadge, useOutcomes } from "@/components/route-outcome";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -43,7 +44,8 @@ const noop = () => {};
 /** Pick stops on the map: tap pins, or drag a box around several, then name and save the route. */
 export function RouteBuilder({ data }: { data: AppData }) {
   const [query, setQuery] = useState("");
-  const ctl = useContactFilters(data, query);
+  const ctl = useContactFilters(data, query, [], "", true);
+  const outcomes = useOutcomes(data);
   const { pointFor, busy } = useMapPoints(data.households);
   const [picked, setPickedState] = useState<string[]>([]);
   const pickedRef = useRef<string[]>([]);
@@ -116,6 +118,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
             ? "due"
             : "ok",
       schedule: household.scheduleName,
+      outcome: outcomes.get(household.id)?.status,
       taken: overlap.has(household.id) ? overlapBadge(overlap.get(household.id)!, routeProjectName) : undefined,
     };
   });
@@ -195,6 +198,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
                 <span className="block truncate text-xs text-muted-foreground">
                   {household.address}
                 </span>
+                <OutcomeBadge outcome={outcomes.get(household.id)} />
                 <OverlapBadge text={overlap.has(household.id) ? overlapBadge(overlap.get(household.id)!, routeProjectName) : undefined} />
               </span>
             </label>
@@ -393,6 +397,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
                 />
                 <div className="flex flex-wrap items-center gap-2 [&_select]:h-11 [&_[role=tab]]:h-11 [&>button]:h-11">
                   <ContactFilterControls ctl={ctl} />
+                  <RouteListOptions ctl={ctl} data={data} legend />
                   <RouteProjectSelect data={data} />
                   <button
                     type="button"
@@ -485,6 +490,7 @@ export function RouteBuilder({ data }: { data: AppData }) {
             <ArrowLeft className="size-4" />
           </Link>
           <ContactFilterControls ctl={ctl} />
+          <RouteListOptions ctl={ctl} data={data} legend />
                   <RouteProjectSelect data={data} />
           <Input
             value={query}

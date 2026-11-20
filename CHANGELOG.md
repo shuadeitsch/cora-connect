@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.98
+_Updated Nov 19, 2026, 7:49 PM (New York time)._
+- **Exclude summer homes when building routes.** A new "Exclude summer homes (N)" switch in the map route builder, New route by city, Pick contacts, the route editor and Plan a trip leaves households tagged "Summer home" out of the stops and counts. It is off by default and remembered on this device, shared by all of those screens. Only the whole summer-home household is dropped; a contact's main address is always kept.
+- **See past completed and deferred visits.** Every contact in those flows shows its most recent outcome as a badge ("Completed Nov 12" green, "Deferred Oct 3" orange); cities show "N completed / N deferred" counts. A new **Past visits** menu (show all / hide completed / hide deferred / only deferred) is remembered on this device. On the map, completed pins are green with a check and deferred pins dark orange with a D, with a small key beside the filters.
+
 ## 1.8.97
 _Updated Nov 19, 2026, 7:45 PM (New York time)._
 - **Inbox cleaned up.** Message bubbles now wrap long words, links and emails instead of being cut off, have a sensible width (about 80%), and the conversation scrolls inside its own pane (opening at the latest message). The conversation list shows the name, a short time or date, the channel and a clean 1-2 line preview with an ellipsis, with the unread badge on its own so nothing overlaps; the list scrolls on large screens.

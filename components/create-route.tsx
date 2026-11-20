@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteListOptions, OutcomeBadge, OutcomeSummary, useOutcomes } from "@/components/route-outcome";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Notice } from "@/components/page-header";
@@ -121,7 +122,8 @@ const TYPE = "__type__";
 
 /** Pick a city (in the open state tab); the route gets every contact there that shows on the contact list. */
 export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: boolean; onClose: () => void }) {
-  const ctl = useContactFilters(data, "");
+  const ctl = useContactFilters(data, "", [], "", true);
+  const outcomes = useOutcomes(data);
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState<{ key: string; label: string; ids: string[] } | null>(null);
   const cities = useMemo(() => {
@@ -258,6 +260,7 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
         ) : (
           <div className="grid gap-3">
             <ContactStateTabs ctl={ctl} />
+            <RouteListOptions ctl={ctl} data={data} />
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search or type a city" aria-label="Search cities" />
             <div className="flex flex-wrap items-center gap-2">
               <select className="h-9 rounded-full border bg-card px-3 text-sm" value={order} onChange={(event) => setOrder(event.target.value as typeof order)} aria-label="Sort cities">
@@ -324,6 +327,7 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
                     <input type="checkbox" className="size-4 shrink-0 accent-[#0f766e]" checked={checked.includes(city.key)} onChange={() => toggleCity(city.key)} aria-label={city.label} />
                     <span className="min-w-0 flex-1 font-medium text-foreground">
                       {city.label}{miles ? <span className="font-normal text-muted-foreground"> · {miles}</span> : null}
+                      <OutcomeSummary ids={city.ids} outcomes={outcomes} />
                       {(() => {
                         const n = city.ids.filter((id) => cityOverlap.has(id)).length;
                         return n ? <span className="block"><OverlapBadge text={`${n} already on another ${cityProjectName} route`} /></span> : null;
@@ -352,7 +356,8 @@ export function CityRouteDialog({ data, open, onClose}: { data: AppData; open: b
 /** Tick contacts from a filtered list, then name and save the route. */
 export function PickContactsDialog({ data, open, onClose }: { data: AppData; open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState("");
-  const ctl = useContactFilters(data, query);
+  const ctl = useContactFilters(data, query, [], "", true);
+  const outcomes = useOutcomes(data);
   const [picked, setPicked] = useState<string[]>([]);
   const [naming, setNaming] = useState(false);
   const { projectId, projectName } = useRouteProject(data);
@@ -371,6 +376,7 @@ export function PickContactsDialog({ data, open, onClose }: { data: AppData; ope
           <>
             <div className="flex flex-wrap items-center gap-2">
               <ContactFilterControls ctl={ctl} />
+              <RouteListOptions ctl={ctl} data={data} />
               <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search contacts" aria-label="Search contacts" className="h-10 w-44 rounded-full" />
               <RouteProjectSelect data={data} />
             </div>
@@ -383,6 +389,7 @@ export function PickContactsDialog({ data, open, onClose }: { data: AppData; ope
                       <input type="checkbox" className="size-4 accent-[#0f766e]" checked={on} onChange={() => toggle(household.id)} />
                       <span className="min-w-0">
                         <span className="block text-sm font-medium text-foreground">{household.name}</span>
+                        <OutcomeBadge outcome={outcomes.get(household.id)} />
                         <span className="block truncate text-xs text-muted-foreground">{household.address || "No address"}</span>
                         <OverlapBadge text={overlap.has(household.id) ? overlapBadge(overlap.get(household.id)!, projectName) : undefined} />
                       </span>

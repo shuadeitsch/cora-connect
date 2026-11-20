@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { RouteListOptions, OutcomeBadge, OutcomeSummary, useOutcomes } from "@/components/route-outcome";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, Navigation, Plus, Route as RouteIcon, Save, Trash2, X } from "lucide-react";
@@ -52,7 +53,8 @@ const toTime = (minutes: number) => `${String(Math.floor((((minutes % 1440) + 14
 export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: string[] }) {
   const router = useRouter();
   const toast = useToast();
-  const ctl = useContactFilters(data, "");
+  const ctl = useContactFilters(data, "", [], "", true);
+  const outcomes = useOutcomes(data);
   const { pointFor } = useMapPoints(data.households);
   const project = useRouteProject(data);
   const overlap = useOverlap(data, project.projectId);
@@ -114,7 +116,7 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
     }
     return [...groups.values()].map((row) => {
       const center = row.n ? { lat: row.lat / row.n, lng: row.lng / row.n } : null;
-      return { key: row.key, label: row.label, count: row.ids.length, center, away: center && startPlace ? miles(startPlace, center) : null };
+      return { key: row.key, label: row.label, ids: row.ids, count: row.ids.length, center, away: center && startPlace ? miles(startPlace, center) : null };
     }).sort((a, b) => (a.away ?? 1e9) - (b.away ?? 1e9) || a.label.localeCompare(b.label));
   }, [ctl.beforeCity, pointFor, startPlace]);
 
@@ -264,11 +266,12 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
         <section className="panel grid gap-3 rounded-3xl p-4">
           <h2 className="font-heading text-lg font-semibold">1. Cities and areas</h2>
           <ContactStateTabs ctl={ctl} />
+          <RouteListOptions ctl={ctl} data={data} legend />
           <div className="max-h-64 overflow-auto rounded-2xl ring-1 ring-foreground/8">
             {cityRows.map((city) => (
               <label key={city.key} className="flex min-h-11 items-center gap-2 border-b px-3 py-1.5 text-sm last:border-0">
                 <input type="checkbox" className="size-4" checked={picked.includes(city.key)} onChange={(event) => setPicked(event.target.checked ? [...picked, city.key] : picked.filter((key) => key !== city.key))} />
-                <span className="flex-1 font-medium text-foreground">{city.label}</span>
+                <span className="min-w-0 flex-1 font-medium text-foreground">{city.label}<OutcomeSummary ids={city.ids} outcomes={outcomes} /></span>
                 <span className="text-xs text-mutedink">{city.count} · {city.away != null ? `${Math.round(city.away)} mi` : "—"}</span>
               </label>
             ))}
@@ -356,7 +359,7 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
       {plan ? (
         <div className="mt-6 grid gap-4" aria-label="Trip plan">
           {plan.map((day, index) => {
-            const pins: MapPin[] = day.stops.map((stop) => ({ id: stop.id, name: stop.name, address: stop.address, lat: stop.lat, lng: stop.lng, due: "ok", schedule: "", color: stop.kind === "extra" ? "#c026d3" : undefined }));
+            const pins: MapPin[] = day.stops.map((stop) => ({ id: stop.id, name: stop.name, address: stop.address, lat: stop.lat, lng: stop.lng, due: "ok", schedule: "", color: stop.kind === "extra" ? "#c026d3" : undefined, outcome: stop.kind === "contact" ? outcomes.get(stop.id)?.status : undefined }));
             const numbers = Object.fromEntries(day.stops.map((stop, i) => [stop.id, i + 1]));
             const line = [startPlace!, ...day.stops, ...(back ? [startPlace!] : [])].map((p) => ({ lat: p.lat, lng: p.lng }));
             const links = googleParts(startPlace!.label, [...day.stops.map((stop) => stop.address), ...(back ? [startPlace!.label] : [])]);
@@ -377,7 +380,7 @@ export function PlanTrip({ data, plannerDates }: { data: AppData; plannerDates: 
                       <li key={stop.id} className={cn("flex min-w-0 flex-wrap items-center gap-2 rounded-xl sm:flex-nowrap bg-card p-2 ring-1 ring-foreground/8", stop.kind === "extra" && "ring-fuchsia-300 dark:ring-fuchsia-800")}>
                         <span className="w-16 shrink-0 text-xs font-semibold tabular-nums text-foreground" title={day.timed ? "Arrival" : "Drive from the last stop"}>{day.timed ? clock(day.times.arrivals[i]!) : <>{Math.round(day.matrix.minutes[i]?.[i + 1] ?? 0)} min<span className="block text-[10px] font-normal text-mutedink">drive</span></>}</span>
                         <div className="w-[calc(100%-4.5rem)] min-w-0 sm:w-auto sm:flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">{i + 1}. {stop.name}{day.timed && stop.fixed != null ? <span className="ml-1 text-xs font-normal text-fuchsia-700 dark:text-fuchsia-300">fixed {clock(stop.fixed)}</span> : null}</p>
+                          <p className="truncate text-sm font-medium text-foreground">{i + 1}. {stop.name}{stop.kind === "contact" && outcomes.get(stop.id) ? <OutcomeBadge outcome={outcomes.get(stop.id)} className="ml-1.5 mt-0" /> : null}{day.timed && stop.fixed != null ? <span className="ml-1 text-xs font-normal text-fuchsia-700 dark:text-fuchsia-300">fixed {clock(stop.fixed)}</span> : null}</p>
                           <p className="truncate text-xs text-mutedink">{stop.address}</p>
                           {stop.kind === "contact" && overlap.get(stop.id) ? <OverlapBadge text={overlapBadge(overlap.get(stop.id)!, project.projectName)} /> : null}
                         </div>

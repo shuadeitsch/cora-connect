@@ -13,6 +13,7 @@ import { formatMedium } from "@/lib/format";
 import { labeledVisitNotes } from "@/lib/visit-notes";
 import { extraAddressSearchText } from "@/lib/extra-addresses";
 import { compareVisitStatusGroup } from "@/lib/visit-status";
+import { latestOutcome, outcomeAllowed, type OutcomeFilter } from "@/lib/visit-outcome";
 import type { AppData, HouseholdView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ export const emptyFilters = {
   tagsOn: false,
   duplicates: false,
   excludeSummer: false,
+  outcome: "all" as OutcomeFilter,
   shliachDeleted: false,
   hasEmail: false,
   hasPhone: false,
@@ -74,6 +76,7 @@ export function filtersActive(filters: ContactFilters): boolean {
     || filters.tag
     || filters.duplicates
     || filters.excludeSummer
+    || filters.outcome !== "all"
     || filters.shliachDeleted
     || filters.seasons.length
     || filters.cities.length,
@@ -144,12 +147,41 @@ export function initialState(data: AppData) {
   return "";
 }
 
-export function useContactFilters(data: AppData, query: string, gone: string[] = [], initialMode: SortMode | "" = "") {
+const SUMMER_EXCLUDE_KEY = "cora_exclude_summer_routes";
+const OUTCOME_KEY = "cora_route_past_visits";
+
+/**
+ * Route and trip builders pass rememberSummer so "Exclude summer homes" is remembered on this device
+ * (off until someone turns it on, since summer homes are normal stops in the summer).
+ */
+export function useContactFilters(data: AppData, query: string, gone: string[] = [], initialMode: SortMode | "" = "", rememberSummer = false) {
   const [filters, setFilters] = useState<ContactFilters>(() => ({
     ...emptyFilters,
     state: initialState(data),
     ...(initialMode === "duplicates" ? withDerivedFilters({ ...emptyFilters, state: initialState(data), duplicates: true }) : {}),
   }));
+
+  const [summerLoaded, setSummerLoaded] = useState(!rememberSummer);
+  useEffect(() => {
+    if (!rememberSummer) return;
+    try {
+      const storedOutcome = window.localStorage.getItem(OUTCOME_KEY);
+      const outcome: OutcomeFilter = storedOutcome === "hide_completed" || storedOutcome === "hide_deferred" || storedOutcome === "only_deferred" ? storedOutcome : "all";
+      setFilters((current) => withDerivedFilters({ ...current, excludeSummer: window.localStorage.getItem(SUMMER_EXCLUDE_KEY) === "1" || current.excludeSummer, outcome }));
+    } catch {
+      // Storage can be off in private browsing; the toggle still works for this visit.
+    }
+    setSummerLoaded(true);
+  }, [rememberSummer]);
+  useEffect(() => {
+    if (!rememberSummer || !summerLoaded) return;
+    try {
+      window.localStorage.setItem(SUMMER_EXCLUDE_KEY, filters.excludeSummer ? "1" : "0");
+      window.localStorage.setItem(OUTCOME_KEY, filters.outcome);
+    } catch {
+      // ignore
+    }
+  }, [filters.excludeSummer, filters.outcome, rememberSummer, summerLoaded]);
 
   // Everything the filters allow except the city choice, so the Cities counts match what picking a city shows.
   const beforeCity = useMemo(() => {
@@ -184,9 +216,10 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
       })) return false;
       if (filters.duplicates && !household.possibleDuplicate) return false;
       if (filters.excludeSummer && isSummerHome(household.tags)) return false;
+      if (filters.outcome !== "all" && !outcomeAllowed(latestOutcome(household.contactVisits), filters.outcome)) return false;
       return true;
     });
-  }, [data.households, data.viewer.canViewHistory, data.viewer.role, query, filters.tag, filters.tagsOn, filters.shliachDeleted, filters.state, filters.hasEmail, filters.hasPhone, filters.visitCompleted, filters.visitDeferred, filters.visitNotVisited, filters.seasons, filters.duplicates, filters.excludeSummer, gone]);
+  }, [data.households, data.viewer.canViewHistory, data.viewer.role, query, filters.tag, filters.tagsOn, filters.shliachDeleted, filters.state, filters.hasEmail, filters.hasPhone, filters.visitCompleted, filters.visitDeferred, filters.visitNotVisited, filters.seasons, filters.duplicates, filters.excludeSummer, filters.outcome, gone]);
 
   // Every city in the chosen state, alphabetical, with how many contacts each would show.
   const cityChoices = useMemo(() => {
@@ -251,6 +284,24 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
 }
 
 export type ContactFilterState = ReturnType<typeof useContactFilters>;
+
+/** Visible on/off switch for leaving summer homes out of the stops and counts below it. */
+export function SummerExcludeToggle({ ctl, data, className }: { ctl: ContactFilterState; data: AppData; className?: string }) {
+  const total = data.households.filter((household) => isSummerHome(household.tags)).length;
+  if (!total && !ctl.filters.excludeSummer) return null;
+  const on = ctl.filters.excludeSummer;
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      className={cn(pill, on && "border-primary bg-primary text-primary-foreground", className)}
+      onClick={() => ctl.toggle("excludeSummer", !on)}
+    >
+      Exclude summer homes{total ? ` (${total})` : ""}
+    </button>
+  );
+}
 
 export function ContactStateTabs({ ctl, onChange, className }: { ctl: ContactFilterState; onChange?: () => void; className?: string }) {
   const { filters, setFilters, tabs } = ctl;

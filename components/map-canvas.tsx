@@ -12,6 +12,8 @@ export interface MapPin {
   lng: number;
   due: "overdue" | "due" | "ok";
   schedule: string;
+  /** Last past visit outcome: completed pins are green with a check, deferred pins are dark orange with a D. */
+  outcome?: "completed" | "deferred";
   /** Set when the contact is already on another route for the chosen project: drawn with a violet dashed ring. */
   taken?: string;
   /** Color by route: fill color, a short label (stop number) and a "+N" badge for extra routes. */
@@ -139,13 +141,13 @@ export function MapCanvas({
       }
       const showAdd = Boolean(callbacks.current.onAdd);
       for (const pin of pins) {
-        const color = selected.includes(pin.id) ? "#042f2e" : pin.color ? pin.color : pin.due === "overdue" ? "#e11d48" : pin.due === "due" ? "#f59e0b" : "#0f766e";
+        const color = selected.includes(pin.id) ? "#042f2e" : pin.color ? pin.color : pin.outcome === "completed" ? "#16a34a" : pin.outcome === "deferred" ? "#c2410c" : pin.due === "overdue" ? "#e11d48" : pin.due === "due" ? "#f59e0b" : "#0f766e";
         const number = numbers[pin.id] ?? pin.label;
         if (pickMode) {
           const on = selected.includes(pin.id);
           const pickIcon = L.divIcon({
             className: "",
-            html: `<div style="width:28px;height:28px;border-radius:999px;background:${on ? "#042f2e" : color};color:white;border:${on ? "3px solid #fbbf24" : pin.taken ? "3px dashed #7c3aed" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 12px sans-serif;display:flex;align-items:center;justify-content:center">${on ? "&#10003;" : ""}</div>`,
+            html: `<div style="width:28px;height:28px;border-radius:999px;background:${on ? "#042f2e" : color};color:white;border:${on ? "3px solid #fbbf24" : pin.taken ? "3px dashed #7c3aed" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 12px sans-serif;display:flex;align-items:center;justify-content:center">${on ? "&#10003;" : pin.outcome === "completed" ? "&#10003;" : pin.outcome === "deferred" ? "D" : ""}</div>`,
             iconSize: [28, 28],
             iconAnchor: [14, 14],
           });
@@ -158,7 +160,7 @@ export function MapCanvas({
         }
         const icon = L.divIcon({
           className: "",
-          html: `<div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${color};color:white;border:${pin.taken ? "3px dashed #7c3aed" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:600 10px sans-serif;display:flex;align-items:center;justify-content:center;position:relative">${number ?? ""}${pin.extra ? `<span style="position:absolute;top:-8px;right:-10px;background:#111827;color:white;border:1px solid white;border-radius:999px;font:700 8px sans-serif;padding:0 3px;line-height:11px">+${pin.extra}</span>` : ""}</div>`,
+          html: `<div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${color};color:white;border:${pin.taken ? "3px dashed #7c3aed" : "2px solid white"};box-shadow:0 1px 4px rgba(0,0,0,.35);font:600 10px sans-serif;display:flex;align-items:center;justify-content:center;position:relative">${number ?? (pin.outcome === "completed" ? "&#10003;" : pin.outcome === "deferred" ? "D" : "")}${pin.extra ? `<span style="position:absolute;top:-8px;right:-10px;background:#111827;color:white;border:1px solid white;border-radius:999px;font:700 8px sans-serif;padding:0 3px;line-height:11px">+${pin.extra}</span>` : ""}</div>`,
           iconSize: [18, 18],
           iconAnchor: [9, 9],
         });
