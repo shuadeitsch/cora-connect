@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +9,7 @@ import { channelFamily, channelTypeLabel, withinWhatsAppWindow } from "@/lib/mes
 import type { AppData, MessageItem, MessageThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { UnmatchedInbox, useUnmatchedCount } from "@/components/unmatched-inbox";
-import { describeMessageStatus } from "@/lib/message-status";
+import { MessageBubble, ThreadRow } from "@/components/message-bubble";
 import { usePractice } from "@/components/practice-provider";
 import { requestGmailSync, useGmailSyncOnOpen, useRefreshOnGmailSync } from "@/components/gmail-inbox-sync";
 
@@ -31,6 +31,11 @@ export function MessageInbox({
   const [activeId, setActiveId] = useState<string | null>(threads[0]?.id ?? null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [reply, setReply] = useState("");
+  const paneRef = useRef<HTMLOListElement | null>(null);
+  useEffect(() => {
+    const el = paneRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
   const [templateName, setTemplateName] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
@@ -99,43 +104,21 @@ export function MessageInbox({
           </Button>
         </div>
       ) : null}
-    <div className={cn("grid min-w-0 gap-3", compact ? "" : "lg:grid-cols-[16rem_minmax(0,1fr)]", admin && !compact && tabKey === "unknown" ? "hidden" : "")}>
-      <ul className="grid min-w-0 content-start gap-1">
+    <div className={cn("grid min-w-0 gap-3", compact ? "" : "lg:grid-cols-[18rem_minmax(0,1fr)]", admin && !compact && tabKey === "unknown" ? "hidden" : "")}>
+      <ul className="grid min-w-0 content-start gap-1 lg:max-h-[70vh] lg:overflow-y-auto">
         {threads.length ? threads.map((thread) => {
           const house = houses.get(thread.householdId);
           return (
-            <li key={thread.id} className="min-w-0">
-              <button
-                type="button"
-                onClick={() => setActiveId(thread.id)}
-                className={cn(
-                  "flex min-h-12 w-full min-w-0 flex-col items-stretch rounded-2xl px-3 py-2 text-left text-sm",
-                  activeId === thread.id ? "bg-accent text-foreground" : "hover:bg-muted",
-                )}
-              >
-                <span className="flex w-full min-w-0 items-center justify-between gap-2">
-                  <span className="min-w-0 flex-1 truncate font-medium">{house?.name ?? "Contact"}</span>
-                  {thread.unreadCount > 0 ? (
-                    <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">{thread.unreadCount}</span>
-                  ) : null}
-                </span>
-                <span className="block min-w-0 truncate text-xs text-muted-foreground">{channelTypeLabel(thread.channelType)} · {thread.lastPreview || "No preview"}</span>
-              </button>
-            </li>
+            <ThreadRow key={thread.id} thread={thread} name={house?.name ?? "Contact"} active={activeId === thread.id} onPick={() => setActiveId(thread.id)} />
           );
         }) : <li className="text-sm text-muted-foreground">No messages yet.</li>}
       </ul>
       {active ? (
         <div className="grid min-w-0 gap-2 rounded-2xl border bg-card p-3">
-          <p className="min-w-0 text-sm font-medium text-foreground [overflow-wrap:anywhere]">{houses.get(active.householdId)?.name ?? "Contact"} · {channelTypeLabel(active.channelType)}</p>
-          <ol className="grid max-h-80 min-w-0 gap-2 overflow-y-auto overflow-x-hidden">
+          <p className="min-w-0 border-b pb-2 text-sm font-medium text-foreground [overflow-wrap:anywhere]">{houses.get(active.householdId)?.name ?? "Contact"} · {channelTypeLabel(active.channelType)}</p>
+          <ol ref={paneRef} className="grid max-h-[min(60vh,34rem)] min-h-40 min-w-0 content-start gap-2 overflow-y-auto overflow-x-hidden overscroll-contain pr-0.5">
             {messages.map((item) => (
-              <li key={item.id} className={cn("min-w-0 max-w-[90%] rounded-2xl px-3 py-2 text-sm [overflow-wrap:anywhere]", item.direction === "out" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
-                {item.subject ? <p className="text-xs opacity-80">{item.subject}</p> : null}
-                <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{item.body}</p>
-                <p className="mt-1 text-[10px] opacity-70">{new Date(item.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
-                {item.direction === "out" ? <DeliveryStatus status={item.status} error={item.error} /> : null}
-              </li>
+              <MessageBubble key={item.id} item={item} email={channelFamily(item.channelType) === "email"} />
             ))}
           </ol>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -183,19 +166,6 @@ export function MessageInbox({
     </div>
     </div>
   );
-}
-
-function DeliveryStatus({ status, error }: { status: string; error?: string | null }) {
-  const info = describeMessageStatus(status, error);
-  if (!info.label) return null;
-  if (info.tone === "bad") {
-    return (
-      <p className="mt-1 rounded-lg bg-red-600 px-2 py-1 text-[11px] font-semibold text-white [overflow-wrap:anywhere]">
-        Failed{info.reason ? `: ${info.reason}` : ""}
-      </p>
-    );
-  }
-  return <p className="mt-1 text-[10px] font-medium opacity-80" title={info.reason}>{info.label}</p>;
 }
 
 export function inboxUnread(threads: MessageThread[]): number {

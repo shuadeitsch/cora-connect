@@ -8,7 +8,6 @@ import {
   LayoutGrid,
   Mail,
   MapPin,
-  MessageCircle,
   MessageSquare,
   Pencil,
   Phone,
@@ -27,10 +26,6 @@ import {
 import { AddressLink } from "@/components/address-link";
 import { Avatar } from "@/components/avatar";
 import { ImportContacts } from "@/components/import-contacts";
-import { OutreachDialog } from "@/components/outreach-dialog";
-import { MessageCampaignWizard } from "@/components/message-campaign-wizard";
-import { PreplannerMessageDialog } from "@/components/preplanner-message-dialog";
-import { MessageInbox } from "@/components/message-inbox";
 import { useGmailSyncOnOpen } from "@/components/gmail-inbox-sync";
 import { PreplannerDialog } from "@/components/preplanner-dialog";
 import { Pager } from "@/components/pager";
@@ -68,8 +63,7 @@ import { setViewingState } from "@/lib/viewing-state";
 import { isNewContact } from "@/lib/new-contacts";
 import { usePractice } from "@/components/practice-provider";
 import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
-import { formatMedium, smsHref, telHref, whatsAppHref } from "@/lib/format";
-import { bestWhatsAppNumber, greetingFirstName, whatsappMeLink } from "@/lib/whatsapp";
+import { formatMedium, telHref } from "@/lib/format";
 import { blankExtraAddress, formatExtraAddress, parseExtraAddresses } from "@/lib/extra-addresses";
 import { CONTACT_TAGS, SUMMER_TAG, displayTags, isSummerHome, officialTags } from "@/lib/contact-tags";
 import { ContactFilterControls, filtersActive, useContactFilters } from "@/components/contact-filters";
@@ -133,10 +127,6 @@ export function HouseholdsView({
   const [pageSize, setPageSize] = useState(25);
   const [selected, setSelected] = useState<string[]>([]);
   const [preplanFor, setPreplanFor] = useState<HouseholdView[] | null>(null);
-  const [outreach, setOutreach] = useState<"email" | "text" | null>(null);
-  const [campaignOpen, setCampaignOpen] = useState(false);
-  const [massOpen, setMassOpen] = useState(false);
-  const [campaignAudience, setCampaignAudience] = useState<"state" | "selected">("state");
   const [routeFromPicked, setRouteFromPicked] = useState(false);
   const [editing, setEditing] = useState<HouseholdView | null>(null);
   const [creating, setCreating] = useState(openNew);
@@ -449,47 +439,6 @@ export function HouseholdsView({
           <button type="button" className={pill} onClick={() => setSelected([])} disabled={!selected.length}>
             Clear
           </button>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-full"
-            onClick={() => { setCampaignAudience("state"); setCampaignOpen(true); }}
-          >
-            <Mail className="size-3.5" /> Message this state
-          </Button>
-          {live.viewer.canOutreach || live.viewer.canEdit ? (
-            <Button type="button" className="h-10 rounded-full" onClick={() => setMassOpen(true)}>
-              <Mail className="size-3.5" /> Message… (WhatsApp, Text, Email)
-            </Button>
-          ) : null}
-          {selected.length ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 rounded-full"
-              onClick={() => { setCampaignAudience("selected"); setCampaignOpen(true); }}
-            >
-              <Mail className="size-3.5" /> Message selected ({selected.length})
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-full"
-            disabled={!filtered.some((row) => selected.includes(row.id))}
-            onClick={() => setOutreach("email")}
-          >
-            <Mail className="size-3.5" /> Email
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-full"
-            disabled={!filtered.some((row) => selected.includes(row.id))}
-            onClick={() => setOutreach("text")}
-          >
-            <MessageSquare className="size-3.5" /> Text / WhatsApp
-          </Button>
         </div>
       ) : null}
       {filters.list === "tagged" ? <p className="mb-3 text-sm text-muted-foreground">Tagged contacts stay off the main list. Search still finds them from the main list.</p> : null}
@@ -559,7 +508,6 @@ export function HouseholdsView({
                   <ShareWithBochurimToggle household={household} data={live} />
                   <div className="mt-auto flex gap-2">
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" onClick={() => setContact(household)}>Contact</Button>
-                    {live.viewer.canViewContact ? <WaRowButton household={household} label="" /> : null}
                     <Button size="sm" variant="outline" className="h-10 flex-1 rounded-full" disabled={!live.viewer.canLogVisit} data-tour={index === 0 ? "visit-log" : undefined} onClick={() => { setVisitEdit(undefined); setVisitFor(household); }}>
                       <Pencil className="size-3.5" /> Visit
                     </Button>
@@ -640,8 +588,7 @@ export function HouseholdsView({
                   <td className="px-2">
                     <div className="flex items-center gap-1">
                       <IconAction label="Log visit" onClick={() => { setVisitEdit(undefined); setVisitFor(household); }} icon={Pencil} disabled={!live.viewer.canLogVisit} tour={index === 0 ? "visit-log" : undefined} />
-                      {live.viewer.canViewContact ? <WaRowButton household={household} label="" /> : null}
-                      {live.viewer.role === "bochur" ? (
+                        {live.viewer.role === "bochur" ? (
                         <IconAction label="Suggest edit" onClick={() => setEditing(household)} icon={MessageSquare} disabled={Boolean(live.viewer.preview) && !practice.active} tour={index === 0 ? "contacts-suggest" : undefined} />
                       ) : null}
                     </div>
@@ -727,30 +674,6 @@ export function HouseholdsView({
         onClose={() => setPreplanFor(null)}
       />
       <CreateRouteDialog data={live} ids={selected} open={routeFromPicked} onClose={() => setRouteFromPicked(false)} onSaved={() => setSelected([])} />
-      <PreplannerMessageDialog open={massOpen} data={live} entries={[]} scope="contacts" initialState={filters.state} onClose={() => setMassOpen(false)} />
-      <MessageCampaignWizard
-        open={campaignOpen}
-        households={campaignAudience === "selected" ? filtered.filter((row) => selected.includes(row.id)) : filtered}
-        data={live}
-        projectId={initialProject || undefined}
-        state={filters.state}
-        onClose={() => setCampaignOpen(false)}
-      />
-      <OutreachDialog
-        open={Boolean(outreach) && live.viewer.canOutreach}
-        mode={outreach ?? "email"}
-        households={filtered.filter((row) => selected.includes(row.id))}
-        role={live.viewer.role}
-        templates={live.outreachTemplates}
-        senders={live.outreachSenders}
-        loginEmail={live.viewer.email}
-        textSettings={live.outreachText}
-        twilioConnected={twilioConnected}
-        gmailAccounts={live.gmailAccounts ?? []}
-        domainSenders={live.domainSenders ?? []}
-        mailSetup={live.mailSetup ?? { gmail: false, resend: false }}
-        onClose={() => setOutreach(null)}
-      />
       <Dialog open={Boolean(pendingDelete?.length)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1767,12 +1690,6 @@ function ContactDialog({
               <div className="mt-3">
                 <NotePreview notes={notesFor(household, canHistory)} />
               </div>
-              {(data.messageThreads ?? []).some((thread) => thread.householdId === household.id) ? (
-                <div className="mt-4">
-                  <p className="mb-2 text-sm font-medium text-foreground">Messages</p>
-                  <MessageInbox data={data} householdId={household.id} compact />
-                </div>
-              ) : null}
               {canContact ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {household.people.flatMap((person) => {
@@ -1788,13 +1705,11 @@ function ContactDialog({
                     return unique.map((number, index) => (
                       <span key={`${person.id}-${index}`} className="flex flex-wrap gap-2">
                         <ActionLink href={telHref(number)} icon={Phone} label={unique.length > 1 ? `Call (${index + 1})` : "Call"} />
-                        <ActionLink href={smsHref(number)} icon={MessageSquare} label={unique.length > 1 ? `Text (${index + 1})` : "Text"} />
-                        <ActionLink href={whatsappMeLink(number, `Hi ${greetingFirstName(person.name || household.name)},`) ?? whatsAppHref(number)} icon={MessageCircle} label={unique.length > 1 ? `WhatsApp (${index + 1})` : "WhatsApp"} />
                       </span>
                     ));
                   })}
                   {household.people.filter((person) => person.email).map((person) => (
-                    <ActionLink key={`${person.id}-email`} href={`mailto:${person.email}`} icon={Mail} label="Email" />
+                    <span key={`${person.id}-email`} className="inline-flex min-h-10 items-center gap-1 text-xs text-muted-foreground [overflow-wrap:anywhere]"><Mail className="size-3.5" /> {person.email}</span>
                   ))}
                 </div>
               ) : (
@@ -1831,33 +1746,6 @@ function ContactDialog({
         ) : null}
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** Click-to-chat link in the user's own WhatsApp, with "Hi <first name>," filled in. Null when no number or hidden for this viewer. */
-function waChatLink(household: HouseholdView): string | null {
-  for (const person of household.people ?? []) {
-    const number = bestWhatsAppNumber(person);
-    if (!number) continue;
-    return whatsappMeLink(number, `Hi ${greetingFirstName(person.name || household.name)},`);
-  }
-  return null;
-}
-
-function WaRowButton({ household, label = "WhatsApp" }: { household: HouseholdView; label?: string }) {
-  const href = waChatLink(household);
-  if (!href) return null;
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={`WhatsApp ${household.name}`}
-      title={`Open WhatsApp chat with ${household.name}`}
-      className="inline-flex h-10 items-center justify-center gap-1 rounded-full border border-emerald-600/40 px-3 text-xs font-medium text-emerald-700"
-    >
-      <MessageCircle className="size-3.5" /> {label}
-    </a>
   );
 }
 

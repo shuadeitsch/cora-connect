@@ -146,43 +146,43 @@ export function PreplannerView({ data }: { data: AppData }) {
             ) : null}
           </div>
         ) : null}
-        <ul className="grid gap-3">
+        <ul className="grid gap-2">
           {shown.map((entry) => {
             const household = byId.get(entry.householdId);
             const projectName = data.projects.find((project) => project.id === entry.projectId)?.name;
             return (
-              <li key={entry.id} className="panel rounded-3xl p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+              <li key={entry.id} className="panel rounded-2xl p-3">
+                <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
                   {canChange ? (
                     <input
                       type="checkbox"
                       aria-label={`Select ${household?.name ?? "entry"}`}
-                      className="mt-1 size-5 shrink-0"
+                      className="mt-0.5 size-5 shrink-0"
                       checked={Boolean(checked[entry.id])}
                       onChange={(event) => setChecked((current) => ({ ...current, [entry.id]: event.target.checked }))}
                     />
                   ) : null}
                   <div className="min-w-0 flex-1 basis-48">
-                    <p className="font-heading text-lg font-semibold text-foreground">
+                    <p className="font-heading text-base font-semibold leading-tight text-foreground [overflow-wrap:anywhere]">
                       {household ? <Link href={`/households?focus=${household.id}`} className="hover:text-primary">{household.name}</Link> : "Contact no longer on your list"}
                     </p>
                     {entry.reachedDate ? (
-                      <p className="mt-1 text-sm text-foreground">Reached {preplannerWhen(entry.reachedDate, entry.reachedTime)}</p>
+                      <p className="mt-0.5 text-[13px] leading-snug text-foreground">Reached {preplannerWhen(entry.reachedDate, entry.reachedTime)}</p>
                     ) : null}
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-[13px] leading-snug text-muted-foreground">
                       Reached by {reachedHowLabel(entry.reachedHow)}
                       {entry.repliedAt ? <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200">Replied</span> : null}
                       {entry.followUpHow ? ` · Follow up by ${reachedHowLabel(entry.followUpHow)}` : ""}
                     </p>
                     {entry.stage === "confirmed" && entry.requestedDate ? (
-                      <p className="text-sm text-foreground">Visit {preplannerWhen(entry.requestedDate, entry.requestedTime)}</p>
+                      <p className="text-[13px] leading-snug text-foreground">Visit {preplannerWhen(entry.requestedDate, entry.requestedTime)}</p>
                     ) : null}
-                    {projectName ? <p className="text-sm text-muted-foreground">{projectName}</p> : null}
-                    {household?.address ? <p className="text-sm text-muted-foreground">{household.address}</p> : null}
+                    {projectName ? <p className="text-[13px] leading-snug text-muted-foreground">{projectName}</p> : null}
+                    {household?.address ? <p className="truncate text-[13px] leading-snug text-muted-foreground">{household.address}</p> : null}
                     {entry.notesLog?.length ? (
-                      <ol className="mt-2 grid gap-1.5">
+                      <ol className="mt-1 grid gap-1">
                         {entry.notesLog.map((item, index) => (
-                          <li key={`${item.at}-${index}`} className="text-sm">
+                          <li key={`${item.at}-${index}`} className="text-[13px] leading-snug [overflow-wrap:anywhere]">
                             <span className="text-xs text-muted-foreground">
                               {new Date(item.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                               {item.by ? ` · ${item.by}` : ""}
@@ -193,14 +193,14 @@ export function PreplannerView({ data }: { data: AppData }) {
                         ))}
                       </ol>
                     ) : entry.notes ? (
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{entry.notes}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-[13px] leading-snug text-foreground [overflow-wrap:anywhere]">{entry.notes}</p>
                     ) : null}
                     {entry.scheduledAt ? (
-                      <p className="mt-2 inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:text-emerald-200">Scheduled</p>
+                      <p className="mt-1 inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:text-emerald-200">Scheduled</p>
                     ) : null}
                   </div>
                   {canChange ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {entry.stage !== "confirmed" ? (
                         <Button type="button" className="min-h-11 rounded-full" onClick={() => setConfirming(entry)} disabled={pending}>
                           Confirm visit

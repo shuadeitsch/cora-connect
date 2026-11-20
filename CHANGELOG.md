@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.97
+_Updated Nov 19, 2026, 7:45 PM (New York time)._
+- **Inbox cleaned up.** Message bubbles now wrap long words, links and emails instead of being cut off, have a sensible width (about 80%), and the conversation scrolls inside its own pane (opening at the latest message). The conversation list shows the name, a short time or date, the channel and a clean 1-2 line preview with an ellipsis, with the unread badge on its own so nothing overlaps; the list scrolls on large screens.
+- **Email bubbles are tidy.** Quoted reply history ("On ... wrote:", lines starting with ">", Original Message / From: blocks), "Sent from my iPhone" and signature blocks are hidden, with a **Show full message** / **Hide quoted text** toggle. The whole message is always kept and shown if nothing else would be left.
+- **Reached out cards are smaller.** Less padding, smaller headings and tighter spacing so more fit on screen; buttons stay 44px tall for tapping.
+- **Contacts page no longer messages.** Removed from the Contacts page: "Message this state", "Message… (WhatsApp, Text, Email)", "Message selected", the bulk **Email** and **Text / WhatsApp** buttons, the WhatsApp button on every contact row and card (added in 1.8.83), and the three messaging dialogs behind them. In the contact detail: the Messages thread and reply box, and the Text, WhatsApp and Email buttons are gone. The phone **Call** button stays, and emails now show as plain text. Messaging is done from the Pre-planner Message sheet and the Inbox.
+
 ## 1.8.96
 _Updated Nov 19, 2026, 7:29 PM (New York time)._
 - **Every email path now greets the same way.** The Contacts email wizard, the Outreach dialog (single and group) and the shared name fill in `lib/outreach.ts` use the same greeting as the Message sheet, including their previews: couples ("Hi Adam and Isabelle!"), titles with a surname ("Mr. and Mrs. Smith"), families ("Cohen family"), and "there" only when no name exists. The full-name placeholder now uses the name as saved, titles included.
