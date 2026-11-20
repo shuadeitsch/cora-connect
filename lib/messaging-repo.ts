@@ -1,4 +1,5 @@
 import "server-only";
+import { greetingFirstName } from "@/lib/whatsapp";
 import { logOutreachSend, savePreplannerEntry } from "@/lib/repo";
 import { loadDatabase } from "@/lib/session";
 import { isSupabaseMode, createClient } from "@/lib/supabase/server";
@@ -220,7 +221,7 @@ export async function sendCampaignMessage(
       const inWindow = withinWhatsAppWindow(thread?.lastInboundAt);
       const tpl = await whatsappTemplateState();
       const selected = findWhatsAppTemplate(tpl, input.contentSid || twilioWhatsappContentSid());
-      const first = (person?.name ?? "").trim().split(/\s+/)[0] || "friend";
+      const first = greetingFirstName(person?.name || (db.households.find((item) => item.id === input.householdId)?.name ?? ""));
       if (selected?.status === "approved" && !input.freeform) {
         const keys = selected.variables?.length ? selected.variables : templateVarKeys(selected.body || "");
         const house = db.households.find((item) => item.id === input.householdId);

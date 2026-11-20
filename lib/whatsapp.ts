@@ -23,14 +23,54 @@ export function whatsappMeLink(phone: string, text: string): string | null {
 
 const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "rabbi", "rav", "prof", "professor", "mx", "rev", "hon", "judge", "sir"]);
 
-/** First name for a greeting. Skips titles (Mrs. Ruth Gordon -> Ruth); falls back to "there" when there is no usable first name. */
+const CONJUNCTIONS = new Set(["and", "&", "+"]);
+
+function cleanToken(raw: string): string {
+  return raw.replace(/^[^\p{L}&+]+|[^\p{L}&+]+$/gu, "");
+}
+
+function titleCase(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+function isGoodFirst(word: string): boolean {
+  return word.length >= 2 && !TITLES.has(word.toLowerCase());
+}
+
+/**
+ * Name used in a greeting, the same everywhere (email, text, WhatsApp, tap-to-send, WhatsApp template {{1}}).
+ * Skips titles (Mrs. Ruth Gordon -> Ruth), greets couples together (Adam & Isabelle Johnson -> Adam and Isabelle),
+ * keeps one name for "Mr. & Mrs. Eric Lusty" (-> Eric), and falls back to "there" when there is no usable first name.
+ */
 export function greetingFirstName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  while (parts.length > 1 && TITLES.has(parts[0].toLowerCase().replace(/[^a-z]/g, ""))) parts.shift();
-  const first = (parts[0] ?? "").replace(/^[^\p{L}]+|[^\p{L}]+$/gu, "");
-  if (!first || first.length < 2 || TITLES.has(first.toLowerCase())) return "there";
-  if (/\b(the|family|household|and|estate|trust)\b/i.test(parts.join(" ")) || /[&@\d]/.test(parts.join(" "))) return "there";
-  return first.charAt(0).toUpperCase() + first.slice(1);
+  const raw = name.trim();
+  if (!raw || /[@\d]/.test(raw)) return "there";
+  if (/\b(the|family|household|estate|trust)\b/i.test(raw)) return "there";
+  // Drop titles anywhere; keep conjunctions as separators.
+  const tokens = raw.replace(/\s*[&+]\s*/g, " & ").split(/\s+/).map((part) => {
+    const lower = part.toLowerCase().replace(/[^a-z&+]/g, "");
+    if (part === "&" || part === "+" || lower === "and") return "&";
+    // "Adam&Isabelle" style
+    return cleanToken(part);
+  }).filter((part) => part && !TITLES.has(part.toLowerCase().replace(/[^a-z]/g, "")));
+  const groups: string[][] = [[]];
+  for (const token of tokens) {
+    if (CONJUNCTIONS.has(token.toLowerCase())) { if (groups[groups.length - 1].length) groups.push([]); continue; }
+    groups[groups.length - 1].push(token);
+  }
+  const parts = groups.filter((group) => group.length);
+  if (!parts.length) return "there";
+  const firstA = parts[0][0];
+  if (!isGoodFirst(firstA)) return "there";
+  if (parts.length >= 2) {
+    const firstB = parts[1][0];
+    // A couple needs a first name on both sides: "Adam & Isabelle Johnson", "John Smith & Mary Jones".
+    if (isGoodFirst(firstB) && (parts[1].length >= 2 || parts[0].length >= 1)) {
+      const sameSurnameOnly = parts[0].length === 1 && parts[1].length === 1;
+      if (!sameSurnameOnly) return `${titleCase(firstA)} and ${titleCase(firstB)}`;
+    }
+  }
+  return titleCase(firstA);
 }
 
 /** The best mobile-looking WhatsApp number for a contact: the WhatsApp field first, then the first valid phone in order. */

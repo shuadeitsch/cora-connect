@@ -51,10 +51,11 @@ function firstAndLast(name: string) {
   return { firstName: first ?? "", lastName: rest.join(" ") };
 }
 
-function varsFor(person: Person, house: HouseholdView | undefined, greeting = false) {
+// One greeting name everywhere (preview, email, text, WhatsApp, tap-to-send, WhatsApp template {{1}}).
+function varsFor(person: Person, house: HouseholdView | undefined, _greeting = true) { // eslint-disable-line @typescript-eslint/no-unused-vars
   const names = firstAndLast(person.name || house?.name || "");
   return {
-    firstName: greeting ? greetingFirstName(person.name || house?.name || "") : names.firstName,
+    firstName: greetingFirstName(person.name || house?.name || ""),
     lastName: names.lastName,
     fullName: person.name.trim() || house?.name || "",
     state: house?.state ?? "",
@@ -318,7 +319,10 @@ export function PreplannerMessageDialog({
   const ready = rows.filter((row) => !row.skip);
   const skipped = rows.filter((row) => row.skip);
   const chosen = ready.filter((row) => !excluded[row.rid]);
-  const sample = chosen[0] ?? ready[0];
+  const [previewIdx, setPreviewIdx] = useState(0);
+  const previewList = chosen.length ? chosen : ready;
+  const safeIdx = previewList.length ? Math.min(previewIdx, previewList.length - 1) : 0;
+  const sample = previewList[safeIdx];
   const preview = sample ? fillPlaceholders(body, varsFor(sample.person, sample.house, manualWa || mode === "email")) : body;
   const current = queue?.[queueIndex];
   const currentPreview = current ? fillPlaceholders(body, varsFor(current.person, current.house, true)) : "";
@@ -770,9 +774,17 @@ export function PreplannerMessageDialog({
                   ) : null}
                 </label>
                 {sample && body.trim() ? (
+                  <div className="grid gap-1.5">
+                    {previewList.length > 1 ? (
+                      <div className="flex items-center gap-2 text-xs">
+                        <button type="button" className="min-h-9 rounded-full bg-muted px-3 font-medium" onClick={() => setPreviewIdx(Math.max(0, safeIdx - 1))} disabled={safeIdx === 0}>‹ Previous</button>
+                        <button type="button" className="min-h-9 rounded-full bg-muted px-3 font-medium" onClick={() => setPreviewIdx(Math.min(previewList.length - 1, safeIdx + 1))} disabled={safeIdx >= previewList.length - 1}>Next ›</button>
+                      </div>
+                    ) : null}
                   <p className="whitespace-pre-wrap rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
-                    Preview for {sample.person.name || sample.house.name}: {preview}
+                    Preview for {sample.person.name || sample.house.name}{previewList.length > 1 ? ` (${safeIdx + 1} of ${previewList.length})` : ""}: {preview}
                   </p>
+                  </div>
                 ) : null}
               </>
             ) : null}
