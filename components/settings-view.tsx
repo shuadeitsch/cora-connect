@@ -13,6 +13,7 @@ import { AccountPassword } from "@/components/account-password";
 import { AvatarPicker } from "@/components/avatar-picker";
 import { ThemePicker } from "@/components/theme-picker";
 import { TeamView } from "@/components/team-view";
+import { ProjectSummerSettings } from "@/components/summer-default-ui";
 import { TwilioSettingsCard } from "@/components/twilio-settings-card";
 import { MessagingChannelsCard } from "@/components/messaging-channels-card";
 import { EmailTemplatesCard } from "@/components/email-templates-card";
@@ -47,6 +48,7 @@ function MessagingSection({ data, twilioConnected = false, mailStatus }: { data:
         />
       ) : null}
       {data.viewer.canOutreach ? <SenderAddressesCard senders={data.outreachSenders} loginEmail={data.viewer.email} textSettings={data.outreachText} /> : null}
+      <ProjectSummerSettings data={data} />
       {data.viewer.role === "admin" || data.viewer.role === "shliach" ? <TwilioSettingsCard connected={twilioConnected} /> : null}
       {data.viewer.canManage || data.viewer.canOutreach ? <MessagingChannelsCard data={data} /> : null}
       {data.viewer.canManage ? <EmailTemplatesCard templates={data.outreachTemplates} canManage={data.viewer.canManage} /> : null}

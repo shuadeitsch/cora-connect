@@ -99,6 +99,13 @@ export interface Project {
   name: string;
 }
 
+/** Summer-home default for a project in one state (state is a code like ME). No row means show all. */
+export interface ProjectSummerSetting {
+  projectId: string;
+  state: string;
+  includeSummer: boolean;
+}
+
 export interface Category {
   id: string;
   orgId: string;
@@ -395,6 +402,7 @@ export interface Database {
   users: User[];
   invites: Invite[];
   projects: Project[];
+  projectSummerSettings?: ProjectSummerSetting[];
   categories: Category[];
   customFields: CustomFieldDef[];
   outreachTemplates?: OutreachTemplate[];
@@ -657,6 +665,7 @@ export interface AppData {
   org: Organization;
   members: TeamMember[];
   projects: Project[];
+  projectSummerSettings: ProjectSummerSetting[];
   categories: Category[];
   customFields: CustomFieldDef[];
   outreachTemplates: OutreachTemplate[];

@@ -475,6 +475,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
     org: db.organization,
     members: roster,
     projects: listedProjects(db.projects),
+    projectSummerSettings: db.projectSummerSettings ?? [],
     categories: db.categories,
     customFields: db.customFields,
     outreachTemplates: db.outreachTemplates ?? [],

@@ -23,6 +23,7 @@ import { preplannerCounts } from "@/lib/preplanner";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ActivityIcon } from "@/components/activity-icon";
+import { SummerDefaultNote, SummerDefaultPrompt } from "@/components/summer-default-ui";
 import { SummerModeChoice, filterSummer, useSummerMode } from "@/components/summer-mode";
 import { PAGE_SIZE_OPTIONS, Pager } from "@/components/pager";
 
@@ -158,7 +159,7 @@ export function DashboardReports({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const viewer = data.viewer;
-  const [summerMode, setSummerMode] = useSummerMode();
+  const [summerMode, setSummerMode] = useSummerMode(data, projectId, state);
   const summerCount = useMemo(() => data.households.filter((household) => isSummerHome(household.tags ?? [])).length, [data.households]);
 
   useEffect(() => {
@@ -371,6 +372,8 @@ export function DashboardReports({
             <span>Include removed</span>
           </label>
           <SummerModeChoice mode={summerMode} onChange={setSummerMode} summer={summerCount} total={data.households.length} />
+          <SummerDefaultNote data={data} projectId={projectId} state={state} />
+          <SummerDefaultPrompt data={data} projectId={projectId} state={state} />
           {denomHint}
         </div>
       ),

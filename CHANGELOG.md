@@ -2,6 +2,12 @@
 
 _Versioning: the patch number stops at 99 and the middle number stops at 9. After X.Y.99 comes X.(Y+1).0, and after X.9.99 comes (X+1).0.0 (so 1.9.99 is followed by 2.0.0). `node scripts/next-version.mjs` prints the next version._
 
+## 1.9.8
+_Updated Nov 20, 2026, 2:37 PM (New York time)._
+- **Summer-home default per project and state.** New admin-editable setting (Settings: "Summer homes by project and state"). When the project or state changes in the map route builder, New route by city, Pick contacts, the route editor, Plan a trip or the Dashboard, "Exclude summer homes" starts from that setting; no setting means All, as before. A manual flip holds until the project or state changes again.
+- **Seeded for Maine and New Hampshire:** Summer 5786 and Summer Circuit 2026 include summer homes; Chanukah 5787 excludes them. Wisconsin and everything else are unset.
+- **Shows what applies.** Small text near the summer control reads like "Chanukah 5787: excluding summer homes". When an admin uses a project in a state with no setting, a one-time Include / Exclude summer homes question appears and saves the answer (or "Ask later").
+
 ## 1.9.7
 _Updated Nov 20, 2026, 2:33 PM (New York time)._
 - **"Only summer homes" removed everywhere.** The sun toggle in the top bar (and its saved setting) now has just **All contacts** and **Hide summer homes**. Anyone whose browser had "Only summer homes" saved now sees all contacts again. The hide option on every screen stays.

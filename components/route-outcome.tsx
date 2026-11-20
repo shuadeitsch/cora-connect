@@ -5,6 +5,8 @@ import { SummerExcludeToggle, type ContactFilterState } from "@/components/conta
 import { latestOutcome, outcomeText, type OutcomeFilter, type PastOutcome } from "@/lib/visit-outcome";
 import type { AppData } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useRouteProject } from "@/lib/route-overlap";
+import { SummerDefaultNote, SummerDefaultPrompt } from "@/components/summer-default-ui";
 
 /** Most recent Completed/Deferred outcome per contact, from the visit history. */
 export function useOutcomes(data: AppData) {
@@ -70,9 +72,12 @@ const CHOICES: { value: OutcomeFilter; label: string }[] = [
 
 /** Exclude summer homes + past-visit filter, both remembered on this device. */
 export function RouteListOptions({ ctl, data, legend = false }: { ctl: ContactFilterState; data: AppData; legend?: boolean }) {
+  const { projectId } = useRouteProject(data);
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <div className="basis-full"><SummerDefaultPrompt data={data} projectId={projectId} state={ctl.filters.state} /></div>
       <SummerExcludeToggle ctl={ctl} data={data} />
+      <SummerDefaultNote data={data} projectId={projectId} state={ctl.filters.state} />
       <select
         className="h-10 max-w-full rounded-full border border-border bg-card px-3 text-sm"
         value={ctl.filters.outcome}

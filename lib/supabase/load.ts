@@ -126,6 +126,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
   if (!orgRes.data) throw new Error("No organization is attached to this account yet.");
   const org = orgRes.data as unknown as Row;
 
+  const summerDefaultLoad = await optionalTable("project_state_settings", ["project_id", "state"]);
   const contactVisitLoad = await optionalTable("contact_visits");
   const shareLoad = await optionalTable("contact_shares");
   const templateLoad = await optionalTable("outreach_templates");
@@ -429,6 +430,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
     users,
     invites,
     projects: mappedProjects,
+    projectSummerSettings: summerDefaultLoad.rows.map((row) => ({ projectId: text(row, "project_id"), state: text(row, "state").toUpperCase(), includeSummer: row.include_summer_homes === true })),
     categories: mappedCategories,
     customFields,
     preplannerEntries: preplannerLoad.rows.map((row) => ({

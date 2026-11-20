@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { isSummerHome } from "@/lib/contact-tags";
+import { summerContextChanged, summerSettingFor } from "@/lib/summer-default";
+import type { AppData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type SummerMode = "all" | "exclude";
 /** Same per-device setting the route builders use (see contact-filters). "1" = exclude. A legacy "only" value from an earlier release reads as All. */
 const KEY = "cora_exclude_summer_routes";
 
-export function useSummerMode(): [SummerMode, (mode: SummerMode) => void] {
+export function useSummerMode(data?: AppData, projectId = "", state = ""): [SummerMode, (mode: SummerMode) => void] {
   const [mode, setMode] = useState<SummerMode>("all");
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(KEY);
@@ -18,7 +21,17 @@ export function useSummerMode(): [SummerMode, (mode: SummerMode) => void] {
     } catch {
       /* ignore */
     }
+    setReady(true);
   }, []);
+  // A new project or state brings in that project's default; a manual choice holds until then.
+  useEffect(() => {
+    if (!data || !ready) return;
+    if (!summerContextChanged("cora_summer_ctx:dashboard", projectId, state)) return;
+    const setting = summerSettingFor(data.projectSummerSettings, projectId, state);
+    const next: SummerMode = setting && !setting.includeSummer ? "exclude" : "all";
+    setMode(next);
+    try { window.localStorage.setItem(KEY, next === "exclude" ? "1" : "0"); } catch { /* ignore */ }
+  }, [data, projectId, state, ready]);
   return [
     mode,
     (next) => {

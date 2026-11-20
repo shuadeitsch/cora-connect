@@ -13,6 +13,8 @@ import { formatMedium } from "@/lib/format";
 import { labeledVisitNotes } from "@/lib/visit-notes";
 import { extraAddressSearchText } from "@/lib/extra-addresses";
 import { compareVisitStatusGroup } from "@/lib/visit-status";
+import { useRouteProject } from "@/lib/route-overlap";
+import { summerContextChanged, summerSettingFor } from "@/lib/summer-default";
 import { latestOutcome, outcomeAllowed, type OutcomeFilter } from "@/lib/visit-outcome";
 import type { AppData, HouseholdView } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -182,6 +184,16 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
       // ignore
     }
   }, [filters.excludeSummer, filters.outcome, rememberSummer, summerLoaded]);
+
+  // When the project or state changes, "Exclude summer homes" follows that project's setting for the state
+  // (no setting: show all). A manual flip holds until the project or state changes again.
+  const { projectId: activeProject } = useRouteProject(data);
+  useEffect(() => {
+    if (!rememberSummer || !summerLoaded) return;
+    if (!summerContextChanged("cora_summer_ctx:routes", activeProject, filters.state)) return;
+    const setting = summerSettingFor(data.projectSummerSettings, activeProject, filters.state);
+    setFilters((current) => withDerivedFilters({ ...current, excludeSummer: setting ? !setting.includeSummer : false }));
+  }, [rememberSummer, summerLoaded, activeProject, filters.state, data.projectSummerSettings]);
 
   // Everything the filters allow except the city choice, so the Cities counts match what picking a city shows.
   const beforeCity = useMemo(() => {
