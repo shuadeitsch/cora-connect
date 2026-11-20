@@ -10,6 +10,8 @@ import type { AppData, MessageItem, MessageThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { UnmatchedInbox, useUnmatchedCount } from "@/components/unmatched-inbox";
 import { MessageBubble, ThreadRow } from "@/components/message-bubble";
+import { PreplannerDialog } from "@/components/preplanner-dialog";
+import { preplannerWhen } from "@/lib/preplanner";
 import { usePractice } from "@/components/practice-provider";
 import { requestGmailSync, useGmailSyncOnOpen, useRefreshOnGmailSync } from "@/components/gmail-inbox-sync";
 
@@ -17,10 +19,13 @@ export function MessageInbox({
   data,
   householdId,
   compact = false,
+  onConfirmed,
 }: {
   data: AppData;
   householdId?: string;
   compact?: boolean;
+  /** Called after a visit is confirmed here (the Pre-planner switches to its Confirmed visits tab). */
+  onConfirmed?: () => void;
 }) {
   const router = useRouter();
   const practice = usePractice();
@@ -49,6 +54,11 @@ export function MessageInbox({
   }, [live]); // eslint-disable-line react-hooks/exhaustive-deps -- check once when the Inbox opens
   useRefreshOnGmailSync();
   const active = threads.find((thread) => thread.id === activeId) ?? null;
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const canConfirm = !compact && data.viewer.canMessage && (data.viewer.canEdit || data.viewer.canLogVisit);
+  const activeEntries = (data.preplannerEntries ?? []).filter((entry) => active && entry.householdId === active.householdId);
+  const confirmedEntry = activeEntries.find((entry) => entry.stage === "confirmed" && entry.requestedDate);
+  const reachedEntry = activeEntries.find((entry) => entry.stage !== "confirmed");
   const houses = useMemo(() => new Map(data.households.map((house) => [house.id, house])), [data.households]);
 
   useEffect(() => {
@@ -115,7 +125,21 @@ export function MessageInbox({
       </ul>
       {active ? (
         <div className="grid min-w-0 gap-2 rounded-2xl border bg-card p-3">
-          <p className="min-w-0 border-b pb-2 text-sm font-medium text-foreground [overflow-wrap:anywhere]">{houses.get(active.householdId)?.name ?? "Contact"} · {channelTypeLabel(active.channelType)}</p>
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b pb-2">
+            <p className="min-w-0 flex-1 basis-40 text-sm font-medium text-foreground [overflow-wrap:anywhere]">{houses.get(active.householdId)?.name ?? "Contact"} · {channelTypeLabel(active.channelType)}</p>
+            {canConfirm ? (
+              confirmedEntry ? (
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="min-w-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 [overflow-wrap:anywhere]">
+                    Visit confirmed {preplannerWhen(confirmedEntry.requestedDate, confirmedEntry.requestedTime)}
+                  </span>
+                  <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={() => setConfirmOpen(true)}>Edit</Button>
+                </div>
+              ) : (
+                <Button type="button" className="min-h-11 rounded-full" onClick={() => setConfirmOpen(true)}>Confirm visit</Button>
+              )
+            ) : null}
+          </div>
           <ol ref={paneRef} className="grid max-h-[min(60vh,34rem)] min-h-40 min-w-0 content-start gap-2 overflow-y-auto overflow-x-hidden overscroll-contain pr-0.5">
             {messages.map((item) => (
               <MessageBubble key={item.id} item={item} email={channelFamily(item.channelType) === "email"} />
@@ -164,6 +188,18 @@ export function MessageInbox({
         </div>
       ) : null}
     </div>
+    {canConfirm && active && houses.get(active.householdId) ? (
+      <PreplannerDialog
+        open={confirmOpen}
+        households={[houses.get(active.householdId)!]}
+        initial={confirmedEntry ?? reachedEntry ?? null}
+        data={data}
+        mode="confirm"
+        reachedHowDefault={[channelFamily(active.channelType) === "email" ? "email" : channelFamily(active.channelType) === "whatsapp" ? "whatsapp" : "text"]}
+        onSaved={(kind) => { if (kind === "confirmed") onConfirmed?.(); }}
+        onClose={() => setConfirmOpen(false)}
+      />
+    ) : null}
     </div>
   );
 }

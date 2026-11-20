@@ -18,6 +18,8 @@ export function PreplannerDialog({
   initial,
   data,
   mode = "reached",
+  reachedHowDefault,
+  onSaved,
   onClose,
 }: {
   open: boolean;
@@ -25,6 +27,9 @@ export function PreplannerDialog({
   initial?: PreplannerEntry | null;
   data?: AppData;
   mode?: "reached" | "confirm" | "edit";
+  /** How the contact was reached when a confirmed visit is created for someone not yet on the list. */
+  reachedHowDefault?: string[];
+  onSaved?: (kind: "confirmed" | "added" | "updated") => void;
   onClose: () => void;
 }) {
   const announce = useUndoToast();
@@ -110,7 +115,23 @@ export function PreplannerDialog({
                 return;
               }
               let failed = "";
-              if (confirming && initial) {
+              if (confirming && !initial && households.length === 1) {
+                // Not on the Reached out list yet: add and confirm in one step.
+                const now = new Date();
+                const result = await savePreplannerEntryAction({
+                  householdId: households[0]!.id,
+                  reachedDate: now.toISOString().slice(0, 10),
+                  reachedTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+                  reachedHow: reachedHowDefault?.length ? reachedHowDefault : ["phone"],
+                  requestedDate,
+                  requestedTime,
+                  notes,
+                  projectId: projectId || null,
+                  stage: "confirmed",
+                });
+                if (!result.ok) failed = result.error;
+                else announce(result, "Visit confirmed");
+              } else if (confirming && initial) {
                 const result = await confirmPreplannerVisitAction({
                   id: initial.id,
                   requestedDate,
@@ -158,6 +179,7 @@ export function PreplannerDialog({
                 setError(failed);
                 return;
               }
+              onSaved?.(confirming ? "confirmed" : initial ? "updated" : "added");
               onClose();
             });
           }}

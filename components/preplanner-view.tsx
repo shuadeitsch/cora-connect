@@ -135,7 +135,7 @@ export function PreplannerView({ data }: { data: AppData }) {
       </div>
       {tab === "inbox" && canMessage ? (
         <div className="panel rounded-3xl p-4">
-          <MessageInbox data={data} />
+          <MessageInbox data={data} onConfirmed={() => setTab("confirmed")} />
         </div>
       ) : !shown.length ? (
 

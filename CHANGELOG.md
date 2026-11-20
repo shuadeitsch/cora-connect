@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.102
+_Updated Nov 19, 2026, 7:59 PM (New York time)._
+- **Confirm a visit from the Inbox.** In a Pre-planner Inbox conversation, the header now has a **Confirm visit** button (admins, like the rest of messaging). It opens the same date, time and notes form as the Reached out cards and saves through the same confirm step, so the visit lands in **Confirmed visits** (the Pre-planner switches to that tab) and shows in the Daily planner on that day. If the contact isn't on the Reached out list yet, it is added and confirmed in one step (reached by the channel of the conversation). If a visit is already confirmed, the header shows "Visit confirmed Tue, Nov 24 at 3:00 PM" with an **Edit** button instead.
+
 ## 1.8.101
 _Updated Nov 19, 2026, 7:56 PM (New York time)._
 - **Call people from the CRM, in your browser.** A **Call** button now sits next to every phone number on a contact (all numbers, including extra phones), on the Pre-planner Reached out cards and on route stops. It opens a small call panel: Calling, Ringing, Connected with a timer, Mute, Keypad and Hang up. Calls go out one at a time from the Cora number +1 207-977-2968 and only to numbers saved on a contact. The person you call hears "This call may be recorded." before you are connected, and every call is recorded.
