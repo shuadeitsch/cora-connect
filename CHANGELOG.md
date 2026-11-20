@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.13
+_Updated Nov 20, 2026, 3:36 PM (New York time)._
+- **New replies now alert you right away.** The CRM checks for new texts and WhatsApp replies every few seconds. A small toast appears ("New text reply from …") with a View link, and the Pre-planner menu item, the Inbox tab, the Reached out tab and the contact's card and thread show a count or "New reply".
+- **Cause:** nothing refreshed the unread count while the page was open, and opening the Inbox automatically opened (and marked read) the newest conversation, so a reply could be cleared before you saw it. The Inbox now opens with no conversation selected, and a thread is marked read only when you open it.
+
 ## 1.9.12
 _Updated Nov 20, 2026, 3:22 PM (New York time)._
 - **Simpler CRM, ten changes.**

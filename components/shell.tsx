@@ -1,5 +1,6 @@
 "use client";
 
+import { InboxWatcher, UnreadBadge } from "@/components/inbox-unread";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -144,9 +145,7 @@ function NavLinks({
                 <Icon className="size-4" />
               </span>
               <span className="min-w-0 flex-1 truncate">{label}</span>
-              {item.href === "/pre-planner" && unread ? (
-                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">{unread}</span>
-              ) : null}
+              {item.href === "/pre-planner" ? <UnreadBadge initial={unread} /> : null}
             </Link>
             {onReorder ? <NavHandle listeners={listeners} /> : null}
           </div>
@@ -459,6 +458,7 @@ export function Shell({
               Your access expired{viewer.expiresAt ? ` on ${formatMedium(viewer.expiresAt)}` : ""}. You can review records, and editing is turned off.
             </div>
           ) : null}
+          <InboxWatcher enabled={Boolean(viewer.canMessage) && !viewer.preview && !viewer.sandbox} initial={viewer.unreadMessageCount ?? 0} />
           <main className={cn("min-h-0 flex-1", mapPage ? "overflow-hidden" : "overflow-auto")}>
             {mapPage ? children : (
               // Padding lives on an inner block: some browsers drop a scroll container's own bottom padding.
@@ -523,9 +523,7 @@ export function Shell({
                       <Icon className="size-4" />
                     </span>
                     <span className="min-w-0 flex-1 truncate">{label}</span>
-                    {item.href === "/pre-planner" && (viewer.unreadMessageCount ?? 0) ? (
-                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">{viewer.unreadMessageCount}</span>
-                    ) : null}
+                    {item.href === "/pre-planner" ? <UnreadBadge initial={viewer.unreadMessageCount ?? 0} /> : null}
                   </Link>
                   <NavHandle listeners={listeners} />
                 </div>

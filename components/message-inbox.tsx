@@ -8,6 +8,7 @@ import { loadThreadMessagesAction, markThreadReadAction, sendCampaignMessageActi
 import { channelFamily, channelTypeLabel, withinWhatsAppWindow } from "@/lib/messaging";
 import type { AppData, MessageItem, MessageThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { checkInboxNow } from "@/components/inbox-unread";
 import { UnmatchedInbox, useUnmatchedCount } from "@/components/unmatched-inbox";
 import { MessageBubble, ThreadRow } from "@/components/message-bubble";
 import { CallButton } from "@/components/call-provider";
@@ -35,7 +36,7 @@ export function MessageInbox({
     () => (data.messageThreads ?? []).filter((thread) => !householdId || thread.householdId === householdId),
     [data.messageThreads, householdId],
   );
-  const [activeId, setActiveId] = useState<string | null>(threads[0]?.id ?? null);
+  const [activeId, setActiveId] = useState<string | null>(householdId ? (threads[0]?.id ?? null) : null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [reply, setReply] = useState("");
   const paneRef = useRef<HTMLOListElement | null>(null);
@@ -73,8 +74,24 @@ export function MessageInbox({
       if (result.ok) setMessages(result.data ?? []);
       else setError(result.error);
       await markThreadReadAction(activeId);
+      checkInboxNow();
       router.refresh();
     });
+  }, [activeId]);
+
+  // A reply arrived while this thread is open: show it and mark it read (the watcher already refreshed the lists).
+  useEffect(() => {
+    function onInbound(event: Event) {
+      const id = (event as CustomEvent<{ threadId?: string }>).detail?.threadId;
+      if (!id || id !== activeId) return;
+      void loadThreadMessagesAction(id).then(async (result) => {
+        if (result.ok) setMessages(result.data ?? []);
+        await markThreadReadAction(id);
+        checkInboxNow();
+      });
+    }
+    window.addEventListener("cora:inbound", onInbound);
+    return () => window.removeEventListener("cora:inbound", onInbound);
   }, [activeId]);
 
   const needsWhatsAppTemplate = Boolean(active && channelFamily(active.channelType) === "whatsapp" && !withinWhatsAppWindow(active.lastInboundAt));

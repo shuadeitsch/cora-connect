@@ -14,6 +14,7 @@ import { useUndoToast } from "@/components/undo-toast";
 import { deletePreplannerEntriesAction, deletePreplannerEntryAction } from "@/lib/actions";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { preplannerSortKey, preplannerWhen, reachedHowLabel } from "@/lib/preplanner";
+import { useUnreadCount } from "@/components/inbox-unread";
 import { MessageInbox } from "@/components/message-inbox";
 import { PreplannerMessageDialog } from "@/components/preplanner-message-dialog";
 import { useGmailSyncOnOpen } from "@/components/gmail-inbox-sync";
@@ -65,6 +66,9 @@ export function PreplannerView({ data }: { data: AppData }) {
   }
   const entries = activeState ? allEntries.filter((entry) => sameState(byId.get(entry.householdId)?.state || "", activeState)) : allEntries;
   const reached = entries.filter((entry) => entry.stage !== "confirmed");
+  const inboxUnread = useUnreadCount(data.unreadMessageCount ?? 0);
+  const unreadHouseholds = new Set((data.messageThreads ?? []).filter((thread) => thread.unreadCount > 0).map((thread) => thread.householdId));
+  const reachedUnread = reached.filter((entry) => unreadHouseholds.has(entry.householdId)).length;
   const confirmed = entries.filter((entry) => entry.stage === "confirmed");
   const shown = (tab === "confirmed" ? confirmed : reached)
     .slice()
@@ -88,14 +92,14 @@ export function PreplannerView({ data }: { data: AppData }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
       <div className="inline-flex max-w-full flex-wrap gap-1 rounded-full border bg-card p-1" role="tablist" aria-label="Pre-planner stages">
         <button type="button" role="tab" aria-selected={tab === "reached_out"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "reached_out" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("reached_out")}>
-          Reached out ({reached.length})
+          Reached out ({reached.length}){canMessage && reachedUnread ? <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">{reachedUnread} new</span> : null}
         </button>
         <button type="button" role="tab" aria-selected={tab === "confirmed"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "confirmed" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("confirmed")}>
           Confirmed visits ({confirmed.length})
         </button>
 {canMessage ? (
         <button type="button" role="tab" aria-selected={tab === "inbox"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "inbox" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("inbox")}>
-          Inbox{(data.unreadMessageCount ?? 0) ? ` (${data.unreadMessageCount})` : ""}
+          Inbox{inboxUnread ? ` (${inboxUnread})` : ""}
         </button>
         ) : null}
 {canMessage ? (
@@ -185,6 +189,7 @@ export function PreplannerView({ data }: { data: AppData }) {
                     ) : null}
                     <p className="text-[13px] leading-snug text-muted-foreground">
                       Reached by {reachedHowLabel(entry.reachedHow)}
+                      {canMessage && unreadHouseholds.has(entry.householdId) ? <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">New reply</span> : null}
                       {entry.repliedAt ? <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200">Replied</span> : null}
                       {entry.followUpHow ? ` · Follow up by ${reachedHowLabel(entry.followUpHow)}` : ""}
                     </p>
