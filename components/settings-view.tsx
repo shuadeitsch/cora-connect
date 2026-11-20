@@ -117,12 +117,12 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
         <p className="mb-3 text-sm text-mutedink">Organization settings can be changed by an admin. Your password is on the Account tab.</p>
       ) : null}
       <Tabs key={tab} defaultValue={tab}>
-        <TabsList className="mb-4 h-auto w-full flex-wrap justify-start gap-1 bg-card">
-          <TabsTrigger value="house" className="whitespace-nowrap">Chabad House</TabsTrigger>
-          <TabsTrigger value="account" className="whitespace-nowrap">Account</TabsTrigger>
-          {messaging ? <TabsTrigger value="messaging" className="whitespace-nowrap">Messaging settings</TabsTrigger> : null}
-          {shliach ? <TabsTrigger value="team" className="whitespace-nowrap">My Team</TabsTrigger> : null}
-          {summerAdmin ? <TabsTrigger value="summer" className="whitespace-nowrap">Summer home settings</TabsTrigger> : null}
+        <TabsList className="mb-4 h-auto w-full flex-nowrap justify-start overflow-x-auto gap-1 bg-card">
+          <TabsTrigger value="house" className="shrink-0 whitespace-nowrap">Chabad House</TabsTrigger>
+          <TabsTrigger value="account" className="shrink-0 whitespace-nowrap">Account</TabsTrigger>
+          {messaging ? <TabsTrigger value="messaging" className="shrink-0 whitespace-nowrap">Messaging settings</TabsTrigger> : null}
+          {shliach ? <TabsTrigger value="team" className="shrink-0 whitespace-nowrap">My Team</TabsTrigger> : null}
+          {summerAdmin ? <TabsTrigger value="summer" className="shrink-0 whitespace-nowrap">Summer home settings</TabsTrigger> : null}
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
         <TabsContent value="account">

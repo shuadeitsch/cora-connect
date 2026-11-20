@@ -43,11 +43,11 @@ const DOT: Record<Tone, string> = { ok: "bg-emerald-500", wait: "bg-amber-500", 
 export function ChannelCard({ title, status, actions, children }: { title: string; status: { tone: Tone; text: string }; actions?: ReactNode; children?: ReactNode }) {
   return (
     <section className="panel max-w-2xl rounded-3xl p-4" aria-label={title}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <p className="min-w-0 flex-1 text-sm">
           <span className={cn("mr-2 inline-block size-2.5 rounded-full align-middle", DOT[status.tone])} aria-hidden />
           <span className="font-heading text-base font-semibold text-foreground">{title}:</span>{" "}
-          <span className="text-foreground">{status.text}</span>
+          <span className="block text-foreground sm:inline">{status.text}</span>
         </p>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </div>

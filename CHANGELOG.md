@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.11
+_Updated Nov 20, 2026, 2:55 PM (New York time)._
+- **Settings polish on phones.** On the messaging cards the status dot now sits beside the title, the status text gets its own full-width line, and Reconnect Gmail / Sync now sit on a row below it. The Settings tabs now scroll sideways instead of wrapping.
+
 ## 1.9.10
 _Updated Nov 20, 2026, 2:50 PM (New York time)._
 - **New admin-only "Summer home settings" tab in Settings.** The "Summer homes by project and state" card moved there from the messaging section. Same behavior.
