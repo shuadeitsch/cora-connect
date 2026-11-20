@@ -415,7 +415,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         canViewContact: invite.canViewContact,
         canEdit: invite.canEdit,
         assignedRouteIds: invite.assignedRouteIds,
-        leaderId: null,
+        leaderId: invite.leaderId ?? null,
         avatarUrl: null,
         territory: invite.territory ?? [],
         adminApprovedAt: null,

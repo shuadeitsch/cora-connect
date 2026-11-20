@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.9
+_Updated Nov 20, 2026, 2:43 PM (New York time)._
+- **Invite someone directly as a bochur.** The invite screen now offers **Bochur** next to Cora Connect admin and Shliach. Picking it requires choosing his shliach. When he signs up with that invite he is created as a bochur under that shliach (view-only, no editing) and stays **pending until that shliach approves him in My Team**; admin approval does not skip that. After inviting, a note says "Invited as bochur under <shliach>. He'll show as pending until <shliach> approves him in My Team." (migration 063 adds the shliach to invites and teaches the signup function about bochur invites; an invite without a shliach is refused.) To turn an existing account into a bochur, use approval and pick his shliach as before.
+- **Clearer pending label.** In Participating bochurim, a bochur waiting on his shliach now says "Pending <shliach name>'s approval" (e.g. "Pending Rabbi Wilansky's approval") when an admin or another shliach is looking. It says "Pending your approval" only when you are his shliach.
+
 _Versioning: the patch number stops at 99 and the middle number stops at 9. After X.Y.99 comes X.(Y+1).0, and after X.9.99 comes (X+1).0.0 (so 1.9.99 is followed by 2.0.0). `node scripts/next-version.mjs` prints the next version._
 
 ## 1.9.8

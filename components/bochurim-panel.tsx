@@ -22,10 +22,15 @@ function todayIso() {
 
 type Badge = { label: string; className: string };
 
-function badgeOf(member: TeamMember, today: string): Badge {
+function possessive(name: string) {
+  return /s$/i.test(name) ? `${name}'` : `${name}'s`;
+}
+
+function badgeOf(member: TeamMember, today: string, viewerId: string, leaderName?: string): Badge {
   if (member.status === "pending") {
+    const mine = member.leaderId === viewerId;
     return {
-      label: member.adminApprovedAt ? "Pending your approval" : "Pending",
+      label: !member.adminApprovedAt ? "Pending" : mine || !leaderName ? "Pending your approval" : `Pending ${possessive(leaderName)} approval`,
       className: "bg-amber-500/15 text-amber-900 ring-amber-500/30 dark:text-amber-100",
     };
   }
@@ -80,7 +85,7 @@ export function BochurimPanel({ data }: { data: AppData }) {
             const leader = data.members.find((item) => item.id === member.leaderId);
             const waiting = member.status === "pending" && Boolean(member.adminApprovedAt);
             const canAct = admin || member.leaderId === data.viewer.id;
-            const badge = badgeOf(member, today);
+            const badge = badgeOf(member, today, data.viewer.id, leader?.name);
             return (
               <li key={member.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div className="flex min-w-0 items-start gap-3">

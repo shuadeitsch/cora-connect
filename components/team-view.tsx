@@ -48,6 +48,7 @@ function blankMember(): MemberInput {
     assignedRouteIds: [],
     territoryStates: "",
     territoryAreas: "",
+    leaderId: null,
   };
 }
 
@@ -66,6 +67,7 @@ function fromMember(member: TeamMember): MemberInput {
     assignedRouteIds: member.assignedRouteIds,
     territoryStates: territory.states,
     territoryAreas: territory.areas,
+    leaderId: member.leaderId,
   };
 }
 
@@ -115,7 +117,12 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
         setError(result.error);
         return;
       }
-      if (result.warning) {
+      if (form.role === "bochur" && !form.id) {
+        const leaderName = data.members.find((member) => member.id === form.leaderId)?.name ?? "his shliach";
+        const message = `Invited as bochur under ${leaderName}. He'll show as pending until ${leaderName} approves him in My Team.`;
+        setInfo(message);
+        toast({ title: message, tone: "ok" });
+      } else if (result.warning) {
         setInfo(result.warning);
         toast({ title: result.warning, tone: "ok" });
       }
@@ -155,9 +162,10 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
     setForm({
       ...form,
       role,
-      canViewHistory: role === "admin" || role === "shliach" ? true : form.canViewHistory,
-      canViewContact: role === "admin" || role === "shliach" ? true : form.canViewContact,
-      canEdit: role === "admin" || role === "shliach" ? true : form.canEdit,
+      canViewHistory: role === "admin" || role === "shliach" || role === "bochur" ? true : form.canViewHistory,
+      canViewContact: role === "admin" || role === "shliach" || role === "bochur" ? true : form.canViewContact,
+      canEdit: role === "admin" || role === "shliach" ? true : role === "bochur" ? false : form.canEdit,
+      leaderId: role === "bochur" ? form.leaderId : null,
     });
   }
 
@@ -205,7 +213,7 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
         {volunteers.length ? (
           <p className="text-sm text-mutedink">{volunteers.length} teammate{volunteers.length === 1 ? "" : "s"} besides Cora Connect admins.</p>
         ) : (
-          <p className="text-sm text-mutedink">Invite a Cora Connect admin or a shliach by email. They are approved automatically when they create their account.</p>
+          <p className="text-sm text-mutedink">Invite a Cora Connect admin or a shliach by email; they are approved automatically when they create their account. A bochur invite needs his shliach, and he stays pending until that shliach approves him in My Team.</p>
         )}
       </section>
       ) : null}
@@ -322,6 +330,7 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
                 {([
                   ["admin", "Cora Connect admin"],
                   ["shliach", "Shliach"],
+                  ["bochur", "Bochur"],
                 ] as const).map(([value, label]) => (
                   <button
                     key={value}
@@ -342,18 +351,38 @@ export function TeamView({ data, startInvite, embedded = false }: { data: AppDat
                 <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">Or visitor access</span>
                 <select
                   className={field}
-                  value={form.role === "admin" || form.role === "shliach" ? "" : form.role}
+                  value={form.role === "admin" || form.role === "shliach" || form.role === "bochur" ? "" : form.role}
                   onChange={(event) => {
                     const value = event.target.value as Role | "";
                     if (value) setRole(value);
                   }}
                 >
-                  <option value="">Keep Cora Connect admin / Shliach above</option>
+                  <option value="">Keep Cora Connect admin / Shliach / Bochur above</option>
                   <option value="visitor">Visitor</option>
                   <option value="limited">Limited</option>
                 </select>
               </label>
             </div>
+            {form.role === "bochur" ? (
+              <div className="grid gap-2 rounded-xl bg-background p-3">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-[11px] font-medium tracking-wide text-mutedink uppercase">His shliach (required)</span>
+                  <select
+                    className={field}
+                    value={form.leaderId ?? ""}
+                    disabled={Boolean(form.id)}
+                    onChange={(event) => setForm({ ...form, leaderId: event.target.value || null })}
+                    aria-label="Shliach for this bochur"
+                  >
+                    <option value="">Pick a shliach</option>
+                    {data.members.filter((member) => member.role === "shliach" && member.kind === "member").map((member) => (
+                      <option key={member.id} value={member.id}>{member.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <p className="text-xs text-mutedink">He can sign up with this invite, but he stays pending until this shliach approves him in My Team.</p>
+              </div>
+            ) : null}
             {form.role === "shliach" ? (
               <div className="grid gap-2 rounded-xl bg-background p-3">
                 <p className="text-xs text-mutedink">Pick the states this shliach covers. Areas are optional.</p>

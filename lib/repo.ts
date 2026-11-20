@@ -858,9 +858,18 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
       ? territoryRows(split(input.territoryStates), split(input.territoryAreas))
       : [];
     const fullAccess = input.role === "admin" || input.role === "shliach";
-    const canViewHistory = fullAccess ? true : input.canViewHistory;
-    const canViewContact = fullAccess ? true : input.canViewContact;
-    const canEdit = fullAccess ? true : input.canEdit;
+    const isBochur = input.role === "bochur";
+    let bochurLeaderId: string | null = null;
+    if (isBochur) {
+      assert(!existingUser || existingUser.role === "bochur", "To make an existing account a bochur, approve it as a bochur and pick his shliach.");
+      const leader = db.users.find((user) => user.id === input.leaderId);
+      assert(leader && leader.role === "shliach", "Pick the shliach for this bochur.");
+      bochurLeaderId = leader.id;
+    }
+    // A bochur sees history and contacts but cannot edit; he stays pending until his shliach approves him in My Team.
+    const canViewHistory = fullAccess || isBochur ? true : input.canViewHistory;
+    const canViewContact = fullAccess || isBochur ? true : input.canViewContact;
+    const canEdit = fullAccess ? true : isBochur ? false : input.canEdit;
 
     if (existingUser) {
       const emailChanged = existingUser.email.toLowerCase() !== email;
@@ -907,6 +916,7 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
         canEdit,
         assignedRouteIds: assigned,
         territory,
+        leaderId: bochurLeaderId,
         acceptedAt: null,
         createdAt: existingInvite?.createdAt ?? new Date().toISOString(),
       };
@@ -937,7 +947,7 @@ export async function saveMember(actor: User, input: MemberInput): Promise<Actio
       canViewContact,
       canEdit,
       assignedRouteIds: assigned,
-      leaderId: null,
+      leaderId: bochurLeaderId,
       territory,
     };
     applyDemo((draft) => draft.users.push(user));

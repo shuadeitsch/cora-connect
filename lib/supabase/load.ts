@@ -392,6 +392,7 @@ export async function loadSupabase(actor: User): Promise<Database> {
       canEdit: Boolean(row.can_edit),
       assignedRouteIds: list(row.assigned_route_ids),
       territory,
+      leaderId: nullableText(row, "leader_id"),
       acceptedAt: nullableText(row, "accepted_at"),
       createdAt: text(row, "created_at"),
       lastInvitedAt: nullableText(row, "last_invited_at"),

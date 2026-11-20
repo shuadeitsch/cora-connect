@@ -88,6 +88,8 @@ export interface Invite {
   canEdit: boolean;
   assignedRouteIds: string[];
   territory: Territory[];
+  /** For a bochur invite: the shliach he works under (he stays pending until that shliach approves him). */
+  leaderId?: string | null;
   acceptedAt: string | null;
   createdAt: string;
   lastInvitedAt?: string | null;
@@ -817,6 +819,8 @@ export interface MemberInput {
   assignedRouteIds: string[];
   territoryStates: string;
   territoryAreas: string;
+  /** Required when role is bochur: the shliach he works under. */
+  leaderId?: string | null;
 }
 
 export interface OrgInput {
