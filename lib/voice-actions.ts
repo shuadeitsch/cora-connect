@@ -1,5 +1,6 @@
 "use server";
 
+import { canMessageRole } from "@/lib/messaging-access";
 import { createClient } from "@/lib/supabase/server";
 import { CALL_OUTCOMES, type CallRow } from "@/lib/voice-shared";
 
@@ -8,6 +9,13 @@ type Row = {
   duration_seconds: number | null; recording_sid: string | null; voicemail: boolean; outcome: string | null; notes: string; twilio_call_sid: string;
 };
 const COLS = "id, household_id, direction, contact_number, status, started_at, duration_seconds, recording_sid, voicemail, outcome, notes, twilio_call_sid";
+
+async function allowed(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return false;
+  const prof = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+  return canMessageRole(prof.data?.role);
+}
 
 function map(row: Row): CallRow {
   return {
@@ -20,12 +28,14 @@ function map(row: Row): CallRow {
 export async function listCallsAction(householdId: string): Promise<CallRow[]> {
   if (!/^[0-9a-f-]{36}$/i.test(householdId)) return [];
   const supabase = await createClient();
+  if (!(await allowed(supabase))) return [];
   const { data } = await supabase.from("calls").select(COLS).eq("household_id", householdId).order("started_at", { ascending: false }).limit(50);
   return ((data ?? []) as Row[]).map(map);
 }
 
 export async function listRecentCallsAction(): Promise<CallRow[]> {
   const supabase = await createClient();
+  if (!(await allowed(supabase))) return [];
   const { data } = await supabase.from("calls").select(COLS).order("started_at", { ascending: false }).limit(100);
   const rows = ((data ?? []) as Row[]).map(map);
   const ids = [...new Set(rows.map((row) => row.householdId).filter((id): id is string => Boolean(id)))];
@@ -40,6 +50,7 @@ export async function listRecentCallsAction(): Promise<CallRow[]> {
 export async function getCallStatusAction(sid: string): Promise<{ status: string; durationSeconds: number | null } | null> {
   if (!/^CA[0-9a-f]{32}$/i.test(sid)) return null;
   const supabase = await createClient();
+  if (!(await allowed(supabase))) return null;
   const { data } = await supabase.from("calls").select("status, duration_seconds").eq("twilio_call_sid", sid).maybeSingle();
   return data ? { status: data.status as string, durationSeconds: (data.duration_seconds as number | null) ?? null } : null;
 }
@@ -48,6 +59,7 @@ export async function saveCallOutcomeAction(sid: string, outcome: string, notes:
   if (!/^CA[0-9a-f]{32}$/i.test(sid)) return { ok: false, error: "That call was not found." };
   if (!CALL_OUTCOMES.some((item) => item.value === outcome)) return { ok: false, error: "Pick what happened on the call." };
   const supabase = await createClient();
+  if (!(await allowed(supabase))) return { ok: false, error: "Calling is only available to admins for now." };
   const { data, error } = await supabase.from("calls").update({ outcome, notes: notes.trim().slice(0, 2000) }).eq("twilio_call_sid", sid).select("id");
   if (error) return { ok: false, error: "Could not save the call. Please try again." };
   if (!data?.length) return { ok: false, error: "That call is not in the log yet. Wait a few seconds and try again." };
