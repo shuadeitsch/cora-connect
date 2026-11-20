@@ -2,6 +2,10 @@
 
 _Versioning: the patch number stops at 99 and the middle number stops at 9. After X.Y.99 comes X.(Y+1).0, and after X.9.99 comes (X+1).0.0 (so 1.9.99 is followed by 2.0.0). `node scripts/next-version.mjs` prints the next version._
 
+## 1.9.7
+_Updated Nov 20, 2026, 2:33 PM (New York time)._
+- **"Only summer homes" removed everywhere.** The sun toggle in the top bar (and its saved setting) now has just **All contacts** and **Hide summer homes**. Anyone whose browser had "Only summer homes" saved now sees all contacts again. The hide option on every screen stays.
+
 ## 1.9.6
 _Updated Nov 20, 2026, 2:31 PM (New York time)._
 - **"Summer only" removed.** The summer-home control in the map route builder, New route by city, Pick contacts, the route editor, Plan a trip and the Dashboard visit progress box is back to two choices: **All** or **Exclude summer homes (N)**, remembered per device. Devices that had "Summer only" saved fall back to All.

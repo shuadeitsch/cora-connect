@@ -74,16 +74,17 @@ export function isSummerHome(tags: string[] | undefined | null): boolean {
   return (tags ?? []).some(isSummerTag);
 }
 
-export type SummerMode = "all" | "hide" | "only";
+export type SummerMode = "all" | "hide";
 
 export function parseSummerMode(value: string | undefined | null): SummerMode {
-  return value === "hide" || value === "only" ? value : "all";
+  // A saved "only" from an earlier release now reads as all.
+  return value === "hide" ? "hide" : "all";
 }
 
-/** Applies the global Summer homes toggle: all, hide summer homes, or only summer homes. */
+/** Applies the global Summer homes toggle: all or hide summer homes. */
 export function summerVisible(tags: string[] | undefined | null, mode: SummerMode): boolean {
   if (mode === "all") return true;
-  return mode === "only" ? isSummerHome(tags) : !isSummerHome(tags);
+  return !isSummerHome(tags);
 }
 
 /** Tags to show as badges and to keep when saving: the hidden tags plus Summer home. */

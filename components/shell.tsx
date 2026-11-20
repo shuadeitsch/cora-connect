@@ -231,7 +231,7 @@ function MoreGroup({
   );
 }
 
-const SUMMER_LABELS: Record<SummerMode, string> = { all: "All contacts", hide: "Hiding summer homes", only: "Only summer homes" };
+const SUMMER_LABELS: Record<SummerMode, string> = { all: "All contacts", hide: "Hiding summer homes" };
 
 /** Global Summer homes toggle. Saved in a cookie, so every page (contacts, pre-planner, messages, map, reports, search) follows it. */
 function SummerToggle({ mode }: { mode: SummerMode }) {
@@ -248,7 +248,7 @@ function SummerToggle({ mode }: { mode: SummerMode }) {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-1.5">
         <p className="px-2.5 py-1.5 text-xs text-muted-foreground">Summer homes (everywhere in the CRM){pending ? " · saving…" : ""}</p>
-        {([["all", "All contacts"], ["hide", "Hide summer homes"], ["only", "Only summer homes"]] as const).map(([value, label]) => (
+        {([["all", "All contacts"], ["hide", "Hide summer homes"]] as const).map(([value, label]) => (
           <button key={value} type="button" aria-pressed={mode === value} onClick={() => choose(value)} className={`flex min-h-11 w-full items-center justify-between rounded-xl px-2.5 text-sm hover:bg-muted ${mode === value ? "font-semibold text-foreground" : "text-foreground"}`}>
             {label}{mode === value ? <Check className="size-4" /> : null}
           </button>

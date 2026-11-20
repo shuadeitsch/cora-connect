@@ -724,10 +724,10 @@ export async function searchContactsAction(query: string): Promise<ContactSearch
   }));
 }
 
-/** Global Summer homes toggle: all, hide summer homes, or only summer homes. Saved in a cookie so it follows him across pages. */
+/** Global Summer homes toggle: all or hide summer homes. Saved in a cookie so it follows him across pages. */
 export async function setSummerModeAction(mode: string) {
   const { cookies } = await import("next/headers");
-  const value = mode === "hide" || mode === "only" ? mode : "all";
+  const value = mode === "hide" ? "hide" : "all";
   (await cookies()).set("cora_summer", value, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   revalidatePath("/", "layout");
   return { ok: true as const, mode: value };
