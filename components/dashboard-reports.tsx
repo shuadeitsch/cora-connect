@@ -15,7 +15,7 @@ import {
 import Link from "next/link";
 import { reactionMeta, sameState, statusMeta, VISIT_ACTIVITIES } from "@/lib/constants";
 import { isNewContact } from "@/lib/new-contacts";
-import { countRemovedTagged, isTaggedContact } from "@/lib/contact-tags";
+import { countRemovedTagged, isSummerHome, isTaggedContact } from "@/lib/contact-tags";
 import { downloadCsvFile } from "@/lib/download-csv";
 import { formatMedium } from "@/lib/format";
 import { activityCountsFor, visitCoverage } from "@/lib/visit-activities";
@@ -23,6 +23,7 @@ import { preplannerCounts } from "@/lib/preplanner";
 import type { AppData, Reaction, VisitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ActivityIcon } from "@/components/activity-icon";
+import { SummerModeChoice, filterSummer, useSummerMode } from "@/components/summer-mode";
 import { PAGE_SIZE_OPTIONS, Pager } from "@/components/pager";
 
 type SortMode = "recent" | "name";
@@ -157,6 +158,8 @@ export function DashboardReports({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const viewer = data.viewer;
+  const [summerMode, setSummerMode] = useSummerMode();
+  const summerCount = useMemo(() => data.households.filter((household) => isSummerHome(household.tags ?? [])).length, [data.households]);
 
   useEffect(() => {
     try {
@@ -208,14 +211,14 @@ export function DashboardReports({
 
   const coverage = useMemo(
     () =>
-      visitCoverage(data.households, {
+      visitCoverage(filterSummer(data.households, summerMode), {
         state,
         projectId,
         projectName,
         includeDeferred,
         includeRemoved,
       }),
-    [data.households, includeDeferred, includeRemoved, projectId, projectName, state],
+    [data.households, includeDeferred, includeRemoved, projectId, projectName, state, summerMode],
   );
 
   const newContactsFound = useMemo(() => {
@@ -367,6 +370,7 @@ export function DashboardReports({
             />
             <span>Include removed</span>
           </label>
+          <SummerModeChoice mode={summerMode} onChange={setSummerMode} summer={summerCount} total={data.households.length} />
           {denomHint}
         </div>
       ),

@@ -1,20 +1,27 @@
 # Changelog
 
-## 1.8.103
+_Versioning: the patch number stops at 99 and the middle number stops at 9. After X.Y.99 comes X.(Y+1).0, and after X.9.99 comes (X+1).0.0 (so 1.9.99 is followed by 2.0.0). `node scripts/next-version.mjs` prints the next version._
+
+## 1.9.4
+_Updated Nov 19, 2026, 8:07 PM (New York time)._
+- **Summer choice on the visit progress box.** The Dashboard's "X of Y contacts visited" box now has the same **All / Exclude summer homes / Summer only** choice, using the same remembered per-device setting as the route screens. Both the visited count and the total respect it.
+- **Version numbering.** Patch stops at .99 and the middle number at 9: 1.8.100 to 1.8.103 are now 1.9.0 to 1.9.3, this release is 1.9.4, and after 1.9.99 comes 2.0.0. `scripts/next-version.mjs` encodes the rule.
+
+## 1.9.3 (1.8.103)
 _Updated Nov 19, 2026, 8:02 PM (New York time)._
 - **Summer homes: All / Exclude / Summer only.** The summer-home control in the map route builder, New route by city, Pick contacts, the route editor and Plan a trip is now a three-way choice with counts: **All**, **Exclude summer homes (N)** or **Summer only (N)**, so both can't be on at once. It shows only households tagged "Summer home" when set to Summer only, and the choice is remembered on this device.
 
-## 1.8.102
+## 1.9.2 (1.8.102)
 _Updated Nov 19, 2026, 7:59 PM (New York time)._
 - **Confirm a visit from the Inbox.** In a Pre-planner Inbox conversation, the header now has a **Confirm visit** button (admins, like the rest of messaging). It opens the same date, time and notes form as the Reached out cards and saves through the same confirm step, so the visit lands in **Confirmed visits** (the Pre-planner switches to that tab) and shows in the Daily planner on that day. If the contact isn't on the Reached out list yet, it is added and confirmed in one step (reached by the channel of the conversation). If a visit is already confirmed, the header shows "Visit confirmed Tue, Nov 24 at 3:00 PM" with an **Edit** button instead.
 
-## 1.8.101
+## 1.9.1 (1.8.101)
 _Updated Nov 19, 2026, 7:56 PM (New York time)._
 - **Call people from the CRM, in your browser.** A **Call** button now sits next to every phone number on a contact (all numbers, including extra phones), on the Pre-planner Reached out cards and on route stops. It opens a small call panel: Calling, Ringing, Connected with a timer, Mute, Keypad and Hang up. Calls go out one at a time from the Cora number +1 207-977-2968 and only to numbers saved on a contact. The person you call hears "This call may be recorded." before you are connected, and every call is recorded.
 - **Every call is logged.** After hang up, pick what happened (Answered, No answer, Left voicemail, Wrong number, Busy, Not interested, Call back later) and add notes; No answer and Busy are pre-filled from the phone network. Each contact shows a **Calls** history with date, length, outcome, notes and a player for the recording (streamed only to signed-in people who can see that contact). A new **Calls** page lists everything, including unknown callers.
 - **Incoming calls.** Calls to +1 207-977-2968 ring the browsers of admins who have the CRM open and offer Answer / Decline; if nobody picks up, the caller can leave a voicemail, which is saved in the Calls log. Calling is limited to the same roles as messaging (MESSAGING_ROLES; admins by default). If the microphone is blocked, the panel explains how to allow it. Where browser calling is off, the button opens the phone's dialer instead.
 
-## 1.8.100
+## 1.9.0 (1.8.100)
 _Updated Nov 19, 2026, 7:55 PM (New York time)._
 - **Messaging is admin-only for now.** Shluchim and bochurim no longer see or can use any messaging: the Pre-planner **Message** button and sheet (email, text, WhatsApp, tap-to-send), the **Inbox** tab and unread counts, replies, Gmail connect and sync, and the messaging channel list are hidden for them (not just disabled), and the server refuses their sends, replies, thread reads and Inbox actions. The rest of the Pre-planner (list, state filter, select and remove, confirm visit) works as before.
 - **One switch to turn it on later:** set the `MESSAGING_ROLES` environment variable (default `admin`), for example `admin,shliach,bochur`, then redeploy. All messaging (and the upcoming in-browser calling) checks `viewer.canMessage` on screen and `canMessageRole(role)` in `lib/messaging-access.ts` on the server.
