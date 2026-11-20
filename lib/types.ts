@@ -327,6 +327,9 @@ export interface MailSetup {
   sms?: boolean;
   whatsapp?: boolean;
   smsSendingEnabled?: boolean;
+  smsFrom?: string;
+  whatsappFrom?: string;
+  voice?: boolean;
   whatsappApiSendingEnabled?: boolean;
   whatsappTemplateStatus?: WhatsAppTemplateStatus;
   whatsappTemplateBody?: string;

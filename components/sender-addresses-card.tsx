@@ -11,7 +11,7 @@ import { deleteOutreachSenderAction, saveOutreachSenderAction, saveOutreachTextS
 import { isGoogleSender, isValidSenderEmail, normalizeSenderEmail, ORG_SUGGESTED_SENDERS } from "@/lib/outreach";
 import type { OutreachSender, OutreachTextSettings, TextFromMode } from "@/lib/types";
 
-export function SenderAddressesCard({ senders, loginEmail, textSettings }: { senders: OutreachSender[]; loginEmail?: string; textSettings?: OutreachTextSettings | null }) {
+export function SenderAddressesCard({ senders, loginEmail, textSettings, only }: { senders: OutreachSender[]; loginEmail?: string; textSettings?: OutreachTextSettings | null; only?: "text" | "email" }) {
   const announce = useUndoToast();
   const practice = usePractice();
   const [email, setEmail] = useState("");
@@ -41,6 +41,7 @@ export function SenderAddressesCard({ senders, loginEmail, textSettings }: { sen
 
   return (
     <section className="mt-4 grid max-w-2xl gap-3 panel rounded-3xl p-4">
+      {only !== "email" ? (<>
       <div>
         <h2 className="font-heading text-lg font-semibold text-foreground">Text from</h2>
         <p className="text-sm text-muted-foreground">
@@ -72,6 +73,8 @@ export function SenderAddressesCard({ senders, loginEmail, textSettings }: { sen
         </label>
       ) : null}
 
+      </>) : null}
+      {only !== "text" ? (<>
       <div>
         <h2 className="font-heading text-lg font-semibold text-foreground">Send email from</h2>
         <p className="text-sm text-muted-foreground">
@@ -185,6 +188,7 @@ export function SenderAddressesCard({ senders, loginEmail, textSettings }: { sen
         </label>
         {error ? <div className="sm:col-span-2"><Notice>{error}</Notice></div> : null}
       </form>
+      </>) : null}
     </section>
   );
 }

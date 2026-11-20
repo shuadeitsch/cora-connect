@@ -45,9 +45,7 @@ export function MailSettingsCard({
     <section className="mt-4 grid max-w-2xl gap-4 panel rounded-3xl p-4">
       <div>
         <h2 className="font-heading text-lg font-semibold text-foreground">Send from CRM</h2>
-        <p className="text-sm text-muted-foreground">
-          Connect one or more Google accounts to send through Gmail (it lands in that account&apos;s Sent folder), or send from a chabadora.com address. Beta and Tutorial never send.
-        </p>
+        <p className="text-sm text-muted-foreground">Gmail accounts and chabadora.com addresses the CRM can send from.</p>
       </div>
 
       <div className="grid gap-2">

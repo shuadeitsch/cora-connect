@@ -14,7 +14,7 @@ import { AvatarPicker } from "@/components/avatar-picker";
 import { ThemePicker } from "@/components/theme-picker";
 import { TeamView } from "@/components/team-view";
 import { ProjectSummerSettings } from "@/components/summer-default-ui";
-import { TwilioSettingsCard } from "@/components/twilio-settings-card";
+import { ChannelCard, SyncGmailButton, channelStatuses } from "@/components/messaging-overview";
 import { MessagingChannelsCard } from "@/components/messaging-channels-card";
 import { EmailTemplatesCard } from "@/components/email-templates-card";
 import { SenderAddressesCard } from "@/components/sender-addresses-card";
@@ -35,24 +35,46 @@ function AccountSection({ data, recovery }: { data: AppData; recovery: boolean }
   );
 }
 
-function MessagingSection({ data, twilioConnected = false, mailStatus }: { data: AppData; twilioConnected?: boolean; mailStatus?: string }) {
+function MessagingSection({ data, mailStatus }: { data: AppData; mailStatus?: string }) {
+  const status = channelStatuses(data);
+  const admin = data.viewer.role === "admin" && !data.viewer.preview;
   return (
-    <>
-      {data.viewer.canOutreach ? (
-        <MailSettingsCard
-          gmailAccounts={data.gmailAccounts ?? []}
-          domainSenders={data.domainSenders ?? []}
-          mailSetup={data.mailSetup ?? { gmail: false, resend: false }}
-          canManage={data.viewer.canManage}
-          mailStatus={mailStatus}
-        />
+    <div className="grid gap-3">
+      <ChannelCard
+        title="Email"
+        status={status.email}
+        actions={data.viewer.canOutreach ? (
+          <>
+            {data.mailSetup.gmail ? (
+              <Button type="button" className="h-9 rounded-full" asChild><a href="/api/gmail/connect">{data.gmailAccounts?.length ? "Reconnect Gmail" : "Connect Gmail"}</a></Button>
+            ) : null}
+            {admin && data.gmailAccounts?.length ? <SyncGmailButton /> : null}
+          </>
+        ) : null}
+      >
+        {data.viewer.canOutreach ? (
+          <MailSettingsCard
+            gmailAccounts={data.gmailAccounts ?? []}
+            domainSenders={data.domainSenders ?? []}
+            mailSetup={data.mailSetup ?? { gmail: false, resend: false }}
+            canManage={data.viewer.canManage}
+            mailStatus={mailStatus}
+          />
+        ) : null}
+        {data.viewer.canOutreach ? <SenderAddressesCard only="email" senders={data.outreachSenders} loginEmail={data.viewer.email} textSettings={data.outreachText} /> : null}
+        {data.viewer.canManage ? <EmailTemplatesCard templates={data.outreachTemplates} canManage={data.viewer.canManage} /> : null}
+      </ChannelCard>
+      <ChannelCard title="WhatsApp" status={status.whatsapp} />
+      <ChannelCard title="Texts" status={status.texts}>
+        {data.viewer.canOutreach ? <SenderAddressesCard only="text" senders={data.outreachSenders} loginEmail={data.viewer.email} textSettings={data.outreachText} /> : null}
+      </ChannelCard>
+      <ChannelCard title="Calls" status={status.calls} />
+      {data.viewer.canManage || data.viewer.canOutreach ? (
+        <ChannelCard title="Channels and numbers" status={{ tone: "off", text: "Connect, swap or disconnect what the CRM sends from" }}>
+          <MessagingChannelsCard data={data} />
+        </ChannelCard>
       ) : null}
-      {data.viewer.canOutreach ? <SenderAddressesCard senders={data.outreachSenders} loginEmail={data.viewer.email} textSettings={data.outreachText} /> : null}
-      <ProjectSummerSettings data={data} />
-      {data.viewer.role === "admin" || data.viewer.role === "shliach" ? <TwilioSettingsCard connected={twilioConnected} /> : null}
-      {data.viewer.canManage || data.viewer.canOutreach ? <MessagingChannelsCard data={data} /> : null}
-      {data.viewer.canManage ? <EmailTemplatesCard templates={data.outreachTemplates} canManage={data.viewer.canManage} /> : null}
-    </>
+    </div>
   );
 }
 
@@ -69,6 +91,7 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
   const bochur = data.viewer.role === "bochur";
   const shliach = data.viewer.role === "shliach";
   const messaging = canSeeMessaging(data);
+  const summerAdmin = data.viewer.role === "admin" && !data.viewer.preview;
   // Bochur: Account only (name, picture, theme, password). No Chabad house / org settings.
   if (bochur) {
     return (
@@ -84,6 +107,7 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
     "account",
     ...(messaging ? ["messaging", "templates"] : []),
     ...(shliach ? ["team"] : []),
+    ...(summerAdmin ? ["summer"] : []),
   ];
   const tab = allowed.includes(requestedTab(initialTab)) ? requestedTab(initialTab) : "house";
   return (
@@ -98,6 +122,7 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
           <TabsTrigger value="account" className="whitespace-nowrap">Account</TabsTrigger>
           {messaging ? <TabsTrigger value="messaging" className="whitespace-nowrap">Messaging settings</TabsTrigger> : null}
           {shliach ? <TabsTrigger value="team" className="whitespace-nowrap">My Team</TabsTrigger> : null}
+          {summerAdmin ? <TabsTrigger value="summer" className="whitespace-nowrap">Summer home settings</TabsTrigger> : null}
         </TabsList>
         <TabsContent value="house"><HouseForm data={data} /></TabsContent>
         <TabsContent value="account">
@@ -105,7 +130,12 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
         </TabsContent>
         {messaging ? (
           <TabsContent value="messaging">
-            <MessagingSection data={data} twilioConnected={twilioConnected} mailStatus={mailStatus} />
+            <MessagingSection data={data} mailStatus={mailStatus} />
+          </TabsContent>
+        ) : null}
+        {summerAdmin ? (
+          <TabsContent value="summer">
+            <ProjectSummerSettings data={data} />
           </TabsContent>
         ) : null}
         {shliach ? (

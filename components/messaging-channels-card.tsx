@@ -42,9 +42,7 @@ export function MessagingChannelsCard({ data }: { data: AppData }) {
   return (
     <section className="panel mt-4 max-w-xl rounded-3xl p-4" aria-label="Messaging channels">
       <h2 className="font-heading text-lg font-semibold text-foreground">Messaging channels</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Start with one dedicated email (maine@chabadora.com) and one dedicated phone number. Admins can connect, disconnect, or swap them, set a default per state, and later add more for other shluchim.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">Connect, swap or disconnect the email and phone numbers the CRM sends from.</p>
       {error ? <div className="mt-2"><Notice>{error}</Notice></div> : null}
       {admin ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -74,7 +72,6 @@ export function MessagingChannelsCard({ data }: { data: AppData }) {
           >
             {syncing ? "Syncing…" : "Sync now"}
           </Button>
-          <p className="text-xs text-muted-foreground">Pulls new Gmail replies for this organization. The app also syncs when Inbox, the Pre-planner, or a contact card opens, and about every two minutes while the app is open.</p>
         </div>
       ) : null}
       <ul className="mt-3 grid gap-2">
@@ -191,14 +188,6 @@ export function MessagingChannelsCard({ data }: { data: AppData }) {
             {pending ? "Saving…" : "Save channel"}
           </Button>
         </form>
-      ) : null}
-      {admin ? (
-        <details className="mt-4 rounded-2xl border bg-card px-3 py-2 text-sm">
-          <summary className="cursor-pointer font-medium text-foreground">Optional: Gmail push (not required)</summary>
-          <p className="mt-2 text-muted-foreground">
-            Replies already arrive through the in-app sync above and the daily backup cron. Google Pub/Sub push is optional, if you later want Gmail to wake the CRM the moment a message arrives. Saturday&apos;s checklist: create topic <code className="text-xs">cora-connect-gmail-push</code> (full name <code className="text-xs">projects/YOUR_GOOGLE_CLOUD_PROJECT_ID/topics/cora-connect-gmail-push</code>), grant Pub/Sub Publisher to <code className="text-xs">gmail-api-push@system.gserviceaccount.com</code>, and point a push subscription at <code className="text-xs">https://outreach-crm-brown.vercel.app/api/webhooks/gmail/push</code> (same path on a custom domain). Details are in <code className="text-xs">docs/gmail-pubsub.md</code>.
-          </p>
-        </details>
       ) : null}
     </section>
   );

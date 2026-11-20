@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.10
+_Updated Nov 20, 2026, 2:50 PM (New York time)._
+- **New admin-only "Summer home settings" tab in Settings.** The "Summer homes by project and state" card moved there from the messaging section. Same behavior.
+- **Messaging settings simplified.** One compact card each for Email, WhatsApp, Texts and Calls with a plain status line (for example "Email: Connected as maine@chabadora.com", "Texts: Waiting for carrier approval"). Reconnect Gmail and Sync now sit on the Email card. Sender lists, domain addresses, email templates, the text-from choice and the channel list are behind a collapsed Details on each card.
+- **Removed:** the Twilio signup box and its A2P note, the optional Gmail Pub/Sub push instructions, and the long intro paragraphs.
+
 ## 1.9.9
 _Updated Nov 20, 2026, 2:43 PM (New York time)._
 - **Invite someone directly as a bochur.** The invite screen now offers **Bochur** next to Cora Connect admin and Shliach. Picking it requires choosing his shliach. When he signs up with that invite he is created as a bochur under that shliach (view-only, no editing) and stays **pending until that shliach approves him in My Team**; admin approval does not skip that. After inviting, a note says "Invited as bochur under <shliach>. He'll show as pending until <shliach> approves him in My Team." (migration 063 adds the shliach to invites and teaches the signup function about bochur invites; an invite without a shliach is refused.) To turn an existing account into a bochur, use approval and pick his shliach as before.
