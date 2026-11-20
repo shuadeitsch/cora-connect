@@ -2,6 +2,10 @@
 
 _Versioning: the patch number stops at 99 and the middle number stops at 9. After X.Y.99 comes X.(Y+1).0, and after X.9.99 comes (X+1).0.0 (so 1.9.99 is followed by 2.0.0). `node scripts/next-version.mjs` prints the next version._
 
+## 1.9.6
+_Updated Nov 20, 2026, 2:31 PM (New York time)._
+- **"Summer only" removed.** The summer-home control in the map route builder, New route by city, Pick contacts, the route editor, Plan a trip and the Dashboard visit progress box is back to two choices: **All** or **Exclude summer homes (N)**, remembered per device. Devices that had "Summer only" saved fall back to All.
+
 ## 1.9.5
 _Updated Nov 19, 2026, 8:06 PM (New York time)._
 - **Calling now lives in the Pre-planner.** The Calls page and its menu item are gone. The Pre-planner has a new **Calls** tab (next to Reached out, Confirmed visits and Inbox) listing every call with date, length, outcome, notes and the recording player. **Call** buttons stay on the Reached out cards, and the Inbox conversation header now has one next to Confirm visit. Like messaging, calling is admin-only.

@@ -43,7 +43,6 @@ export const emptyFilters = {
   tagsOn: false,
   duplicates: false,
   excludeSummer: false,
-  onlySummer: false,
   outcome: "all" as OutcomeFilter,
   shliachDeleted: false,
   hasEmail: false,
@@ -77,7 +76,6 @@ export function filtersActive(filters: ContactFilters): boolean {
     || filters.tag
     || filters.duplicates
     || filters.excludeSummer
-    || filters.onlySummer
     || filters.outcome !== "all"
     || filters.shliachDeleted
     || filters.seasons.length
@@ -109,7 +107,6 @@ export function activeFilterChips(filters: ContactFilters, isAdmin: boolean, tab
   if (filters.tagsOn) chips.push({ key: "tagsOn", label: filters.tag || "Tags" });
   if (filters.duplicates) chips.push({ key: "duplicates", label: "Possible duplicates" });
   if (filters.excludeSummer) chips.push({ key: "excludeSummer", label: "Excluding summer homes" });
-  if (filters.onlySummer) chips.push({ key: "onlySummer", label: "Summer homes only" });
   if (isAdmin && filters.shliachDeleted) chips.push({ key: "shliachDeleted", label: "Deleted by shliach" });
   if (filters.cities.length) chips.push({ key: "cities", label: filters.cities.length === 1 ? "1 city" : `${filters.cities.length} cities` });
   return chips;
@@ -123,7 +120,6 @@ export function clearActiveFilter(filters: ContactFilters, key: string): Contact
   if (key === "visitNotVisited") return withDerivedFilters({ ...filters, visitNotVisited: false });
   if (key === "tagsOn") return withDerivedFilters({ ...filters, tagsOn: false, tag: "" });
   if (key === "excludeSummer") return withDerivedFilters({ ...filters, excludeSummer: false });
-  if (key === "onlySummer") return withDerivedFilters({ ...filters, onlySummer: false });
   if (key === "duplicates") return withDerivedFilters({ ...filters, duplicates: false });
   if (key === "shliachDeleted") return withDerivedFilters({ ...filters, shliachDeleted: false });
   if (key === "cities") return withDerivedFilters({ ...filters, cities: [] });
@@ -171,7 +167,7 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
     try {
       const storedOutcome = window.localStorage.getItem(OUTCOME_KEY);
       const outcome: OutcomeFilter = storedOutcome === "hide_completed" || storedOutcome === "hide_deferred" || storedOutcome === "only_deferred" ? storedOutcome : "all";
-      setFilters((current) => withDerivedFilters({ ...current, excludeSummer: (window.localStorage.getItem(SUMMER_EXCLUDE_KEY) === "1" || current.excludeSummer) && !current.onlySummer && window.localStorage.getItem(SUMMER_EXCLUDE_KEY) !== "only", onlySummer: window.localStorage.getItem(SUMMER_EXCLUDE_KEY) === "only", outcome }));
+      setFilters((current) => withDerivedFilters({ ...current, excludeSummer: window.localStorage.getItem(SUMMER_EXCLUDE_KEY) === "1" || current.excludeSummer, outcome }));
     } catch {
       // Storage can be off in private browsing; the toggle still works for this visit.
     }
@@ -180,12 +176,12 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
   useEffect(() => {
     if (!rememberSummer || !summerLoaded) return;
     try {
-      window.localStorage.setItem(SUMMER_EXCLUDE_KEY, filters.onlySummer ? "only" : filters.excludeSummer ? "1" : "0");
+      window.localStorage.setItem(SUMMER_EXCLUDE_KEY, filters.excludeSummer ? "1" : "0");
       window.localStorage.setItem(OUTCOME_KEY, filters.outcome);
     } catch {
       // ignore
     }
-  }, [filters.excludeSummer, filters.onlySummer, filters.outcome, rememberSummer, summerLoaded]);
+  }, [filters.excludeSummer, filters.outcome, rememberSummer, summerLoaded]);
 
   // Everything the filters allow except the city choice, so the Cities counts match what picking a city shows.
   const beforeCity = useMemo(() => {
@@ -220,11 +216,10 @@ export function useContactFilters(data: AppData, query: string, gone: string[] =
       })) return false;
       if (filters.duplicates && !household.possibleDuplicate) return false;
       if (filters.excludeSummer && isSummerHome(household.tags)) return false;
-      if (filters.onlySummer && !isSummerHome(household.tags)) return false;
       if (filters.outcome !== "all" && !outcomeAllowed(latestOutcome(household.contactVisits), filters.outcome)) return false;
       return true;
     });
-  }, [data.households, data.viewer.canViewHistory, data.viewer.role, query, filters.tag, filters.tagsOn, filters.shliachDeleted, filters.state, filters.hasEmail, filters.hasPhone, filters.visitCompleted, filters.visitDeferred, filters.visitNotVisited, filters.seasons, filters.duplicates, filters.excludeSummer, filters.onlySummer, filters.outcome, gone]);
+  }, [data.households, data.viewer.canViewHistory, data.viewer.role, query, filters.tag, filters.tagsOn, filters.shliachDeleted, filters.state, filters.hasEmail, filters.hasPhone, filters.visitCompleted, filters.visitDeferred, filters.visitNotVisited, filters.seasons, filters.duplicates, filters.excludeSummer, filters.outcome, gone]);
 
   // Every city in the chosen state, alphabetical, with how many contacts each would show.
   const cityChoices = useMemo(() => {
@@ -293,26 +288,22 @@ export type ContactFilterState = ReturnType<typeof useContactFilters>;
 /** Visible on/off switch for leaving summer homes out of the stops and counts below it. */
 export function SummerExcludeToggle({ ctl, data, className }: { ctl: ContactFilterState; data: AppData; className?: string }) {
   const summer = data.households.filter((household) => isSummerHome(household.tags)).length;
-  const { excludeSummer, onlySummer } = ctl.filters;
-  if (!summer && !excludeSummer && !onlySummer) return null;
-  const mode = onlySummer ? "only" : excludeSummer ? "exclude" : "all";
-  const choose = (next: "all" | "exclude" | "only") =>
-    ctl.setFilters((current) => withDerivedFilters({ ...current, excludeSummer: next === "exclude", onlySummer: next === "only" }));
-  const options: { id: "all" | "exclude" | "only"; label: string }[] = [
-    { id: "all", label: `All (${data.households.length})` },
-    { id: "exclude", label: `Exclude summer homes (${summer})` },
-    { id: "only", label: `Summer only (${summer})` },
+  const { excludeSummer } = ctl.filters;
+  if (!summer && !excludeSummer) return null;
+  const options: { exclude: boolean; label: string }[] = [
+    { exclude: false, label: `All (${data.households.length})` },
+    { exclude: true, label: `Exclude summer homes (${summer})` },
   ];
   return (
     <div role="radiogroup" aria-label="Summer homes" className={cn("inline-flex max-w-full flex-wrap gap-1 rounded-full border border-border bg-card p-1", className)}>
       {options.map((option) => (
         <button
-          key={option.id}
+          key={option.label}
           type="button"
           role="radio"
-          aria-checked={mode === option.id}
-          className={cn("min-h-9 rounded-full px-3 text-sm", mode === option.id ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")}
-          onClick={() => choose(option.id)}
+          aria-checked={excludeSummer === option.exclude}
+          className={cn("min-h-9 rounded-full px-3 text-sm", excludeSummer === option.exclude ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")}
+          onClick={() => ctl.setFilters((current) => withDerivedFilters({ ...current, excludeSummer: option.exclude }))}
         >
           {option.label}
         </button>
@@ -452,7 +443,7 @@ function FilterPanelBody({ ctl, onChange, onDone }: { ctl: ContactFilterState; o
         </fieldset>
         <fieldset className="grid gap-0.5">
           <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Other</legend>
-          <FilterCheck checked={filters.excludeSummer} label="Exclude summer homes" onChange={(on) => set({ excludeSummer: on, ...(on ? { onlySummer: false } : {}) })} />
+          <FilterCheck checked={filters.excludeSummer} label="Exclude summer homes" onChange={(on) => set({ excludeSummer: on })} />
           <FilterCheck checked={filters.duplicates} label="Possible duplicates" onChange={(on) => set({ duplicates: on })} />
           {ctl.isAdmin ? (
             <FilterCheck checked={filters.shliachDeleted} label="Deleted by shliach" onChange={(on) => set({ shliachDeleted: on })} />

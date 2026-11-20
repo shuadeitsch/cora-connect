@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { isSummerHome } from "@/lib/contact-tags";
 import { cn } from "@/lib/utils";
 
-export type SummerMode = "all" | "exclude" | "only";
-/** Same per-device setting the route builders use (see contact-filters). "1" = exclude, "only" = summer only. */
+export type SummerMode = "all" | "exclude";
+/** Same per-device setting the route builders use (see contact-filters). "1" = exclude. A legacy "only" value from an earlier release reads as All. */
 const KEY = "cora_exclude_summer_routes";
 
 export function useSummerMode(): [SummerMode, (mode: SummerMode) => void] {
@@ -13,7 +13,8 @@ export function useSummerMode(): [SummerMode, (mode: SummerMode) => void] {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(KEY);
-      setMode(raw === "only" ? "only" : raw === "1" ? "exclude" : "all");
+      setMode(raw === "1" ? "exclude" : "all");
+      if (raw === "only") window.localStorage.setItem(KEY, "0");
     } catch {
       /* ignore */
     }
@@ -22,14 +23,14 @@ export function useSummerMode(): [SummerMode, (mode: SummerMode) => void] {
     mode,
     (next) => {
       setMode(next);
-      try { window.localStorage.setItem(KEY, next === "only" ? "only" : next === "exclude" ? "1" : "0"); } catch { /* ignore */ }
+      try { window.localStorage.setItem(KEY, next === "exclude" ? "1" : "0"); } catch { /* ignore */ }
     },
   ];
 }
 
 export function filterSummer<T extends { tags?: string[] | null }>(households: T[], mode: SummerMode): T[] {
   if (mode === "all") return households;
-  return households.filter((household) => isSummerHome(household.tags ?? []) === (mode === "only"));
+  return households.filter((household) => !isSummerHome(household.tags ?? []));
 }
 
 export function SummerModeChoice({ mode, onChange, summer, total, className }: { mode: SummerMode; onChange: (mode: SummerMode) => void; summer: number; total: number; className?: string }) {
@@ -37,7 +38,6 @@ export function SummerModeChoice({ mode, onChange, summer, total, className }: {
   const options: { id: SummerMode; label: string }[] = [
     { id: "all", label: `All (${total})` },
     { id: "exclude", label: `Exclude summer homes (${summer})` },
-    { id: "only", label: `Summer only (${summer})` },
   ];
   return (
     <div role="radiogroup" aria-label="Summer homes" className={cn("inline-flex max-w-full flex-wrap gap-1 rounded-full border border-border bg-card p-0.5", className)}>
