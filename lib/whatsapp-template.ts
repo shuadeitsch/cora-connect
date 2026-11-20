@@ -16,7 +16,7 @@ let cache: { at: number; value: WhatsAppTemplateState } | null = null;
 const LABELS: Record<string, string> = {
   cora_maine_chanukah: "Chanukah visit",
   cora_maine_visit: "Visit",
-  cora_maine_visit_students_utility: "Visit with date and town",
+  cora_maine_visit_date_town: "Visit with date and town",
 };
 
 type TwilioContentTypes = Record<string, { body?: string } | undefined>;

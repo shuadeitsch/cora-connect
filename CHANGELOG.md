@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.92
+_Updated Nov 19, 2026, 7:19 PM (New York time)._
+- **WhatsApp visit template swapped.** The earlier draft (cora_maine_visit_students_utility) had gone to Meta as Marketing, so it was deleted and replaced by **cora_maine_visit_date_town** (Utility, "Visit with date and town"), which is waiting for Meta approval. The template list uses the new name; nothing else changed.
+
 ## 1.8.91
 _Updated Nov 19, 2026, 7:19 PM (New York time)._
 - **Fixed: saving any inbound message failed** (texts, WhatsApp and email replies). The database function that stores an incoming message referred to itself incorrectly and, when starting a Reached out row, wrote the time as text into a time column (migration 059). Together with the email-matching fix in 1.8.90 this is why no reply ever reached the Inbox. The six Nov 19 test replies from info@chabadora.com and mendelgreisman@gmail.com were recovered and are in the Inbox now. Removed the temporary Gmail diagnostic.
