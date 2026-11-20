@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -16,6 +16,9 @@ import { PreplannerMessageDialog } from "@/components/preplanner-message-dialog"
 import { useGmailSyncOnOpen } from "@/components/gmail-inbox-sync";
 import type { AppData, HouseholdView, PreplannerEntry, PreplannerStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { sameState, stateLabel } from "@/lib/constants";
+
+const STATE_KEY = "cora-preplanner-state";
 
 export function PreplannerView({ data }: { data: AppData }) {
   const announce = useUndoToast();
@@ -31,7 +34,31 @@ export function PreplannerView({ data }: { data: AppData }) {
   const canMessage = data.viewer.canOutreach || data.viewer.canEdit;
   useGmailSyncOnOpen(!data.viewer.preview && !data.viewer.sandbox);
   const byId = useMemo(() => new Map(data.households.map((household) => [household.id, household])), [data.households]);
-  const entries = data.preplannerEntries ?? [];
+  const allEntries = data.preplannerEntries ?? [];
+  const isAdmin = data.viewer.role === "admin";
+  const stateOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const entry of allEntries) {
+      const st = stateLabel(byId.get(entry.householdId)?.state || "");
+      if (st) set.add(st);
+    }
+    for (const house of data.households) {
+      const st = stateLabel(house.state || "");
+      if (st && isAdmin) set.add(st);
+    }
+    return [...set].sort();
+  }, [allEntries, byId, data.households, isAdmin]);
+  const [stateFilter, setStateFilter] = useState("");
+  useEffect(() => {
+    try { setStateFilter(window.localStorage.getItem(STATE_KEY) ?? ""); } catch { /* ignore */ }
+  }, []);
+  const activeState = isAdmin && stateFilter && stateOptions.includes(stateFilter) ? stateFilter : "";
+  function chooseState(value: string) {
+    setStateFilter(value);
+    setChecked({});
+    try { window.localStorage.setItem(STATE_KEY, value); } catch { /* ignore */ }
+  }
+  const entries = activeState ? allEntries.filter((entry) => sameState(byId.get(entry.householdId)?.state || "", activeState)) : allEntries;
   const reached = entries.filter((entry) => entry.stage !== "confirmed");
   const confirmed = entries.filter((entry) => entry.stage === "confirmed");
   const shown = (tab === "confirmed" ? confirmed : reached)
@@ -65,6 +92,22 @@ export function PreplannerView({ data }: { data: AppData }) {
           Inbox{(data.unreadMessageCount ?? 0) ? ` (${data.unreadMessageCount})` : ""}
         </button>
       </div>
+      {tab !== "inbox" && isAdmin && stateOptions.length > 1 ? (
+        <label className="flex w-full items-center gap-2 text-sm sm:w-auto">
+          <span className="text-muted-foreground">State</span>
+          <select
+            className="h-11 min-w-0 flex-1 rounded-xl border bg-card px-3 text-sm sm:flex-none"
+            value={activeState}
+            onChange={(event) => chooseState(event.target.value)}
+            aria-label="Filter the Pre-planner by state"
+          >
+            <option value="">All states</option>
+            {stateOptions.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {tab !== "inbox" && canMessage ? (
         <Button type="button" className="min-h-11 rounded-full" onClick={() => setMessaging(true)}>
           Message
@@ -245,6 +288,7 @@ export function PreplannerView({ data }: { data: AppData }) {
         open={messaging}
         data={data}
         entries={shown}
+        initialState={activeState || undefined}
         onClose={() => setMessaging(false)}
       />
     </div>

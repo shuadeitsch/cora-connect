@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.93
+_Updated Nov 19, 2026, 7:23 PM (New York time)._
+- **Pre-planner state filter.** A **State** selector (All states plus each state that has contacts) sits at the top of the Pre-planner. It filters the list, the tab counts and Select all, and the chosen state becomes the default state when you open **Message**. The choice is remembered on that device. Shluchim who only see one state don't get the selector (they stay locked to their state). It takes the full width on phones.
+
 ## 1.8.92
 _Updated Nov 19, 2026, 7:19 PM (New York time)._
 - **WhatsApp visit template swapped.** The earlier draft (cora_maine_visit_students_utility) had gone to Meta as Marketing, so it was deleted and replaced by **cora_maine_visit_date_town** (Utility, "Visit with date and town"), which is waiting for Meta approval. The template list uses the new name; nothing else changed.
