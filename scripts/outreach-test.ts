@@ -147,7 +147,7 @@ if (sms !== "sms:+12075550100&body=Hi%20Sarah") fail(sms);
 const wa = whatsappHrefWithText("2075550100", "Hi Sarah");
 if (wa !== "https://wa.me/12075550100?text=Hi%20Sarah") fail(wa);
 
-const announcement = OUTREACH_TEMPLATES.find((item) => item.id === "visit-announcement")!;
+const announcement = OUTREACH_TEMPLATES.find((item) => item.id === "thank-you")!;
 const draft = draftFromTemplate(announcement, "email", { firstName: "Sarah", state: "Maine" });
 if (!draft.subject.includes("Maine") || draft.subject.includes("{state}")) fail(`subject not filled: ${draft.subject}`);
 if (!draft.body.includes("Hi Sarah") || draft.body.includes("{first name}")) fail(`body not filled: ${draft.body}`);

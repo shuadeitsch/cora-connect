@@ -17,32 +17,11 @@ export type OutreachTemplate = {
 /** Pre-made drafts. {first name} and {state} are filled per contact, or with a group-safe fallback. */
 export const OUTREACH_TEMPLATES: OutreachTemplate[] = [
   {
-    id: "visit-announcement",
-    name: "Visit announcement",
-    subject: "Yeshiva students visiting {state}",
-    email: "Hi {first name}, Chabad of {state} is sending yeshiva students to visit {state}. Please let us know if you're interested!",
-    sms: "Hi {first name}, Chabad of {state} is sending yeshiva students to visit {state}. Please let us know if you're interested!",
-  },
-  {
-    id: "chanukah",
-    name: "Chanukah / holiday visit",
-    subject: "Chanukah visit from Chabad of {state}",
-    email: "Hi {first name}, Chabad of {state} would love to visit you this Chanukah. May we stop by with a menorah, candles, and a little holiday cheer?",
-    sms: "Hi {first name}, Chabad of {state} would love to visit for Chanukah. May we stop by with a menorah and candles?",
-  },
-  {
     id: "thank-you",
     name: "Follow-up thank you",
     subject: "Thank you from Chabad of {state}",
     email: "Hi {first name}, thank you for welcoming us. It was a pleasure to visit. If you'd like us to come again, or if we can help with anything, just reply to this message. Wishing you all the best from Chabad of {state}.",
     sms: "Hi {first name}, thank you for welcoming us. If you'd like another visit, or if we can help with anything, just reply. — Chabad of {state}",
-  },
-  {
-    id: "in-the-area",
-    name: "We're in the area",
-    subject: "A visit from Chabad of {state}",
-    email: "Hi {first name}, we'll have yeshiva students in {state} soon and would love to stop by for a short visit. If there's a day or time that works, please let us know. Looking forward to seeing you.",
-    sms: "Hi {first name}, yeshiva students will be in {state} soon and would love to stop by. If a time works for you, please let us know!",
   },
   {
     id: "chanukah-visit-email",

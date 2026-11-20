@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.89
+_Updated Nov 19, 2026, 7:05 PM (New York time)._
+- **Email templates trimmed.** The saved email templates are now just **Follow-up thank you** and **Chanukah visit**. Removed: Visit announcement, Chanukah / holiday visit, and We're in the area (also removed from the built-in drafts so they don't come back; migration 059). Their full rows are saved on the box for recovery. WhatsApp (Twilio) templates are untouched.
+
 ## 1.8.88
 _Updated Nov 19, 2026, 7:04 PM (New York time)._
 - **New email template: "Chanukah visit"** (subject "A Chanukah visit from Chabad of Maine"), signed Mendel / Chabad of Maine, with paragraph breaks kept. It starts "Hi {first_name}!" and each person's own first name is filled in per recipient, using "there" when there is no usable first name (titles like Mrs. are skipped). It shows in the Template picker of the Message sheet (migration 058, also added to the built-in drafts). Nothing was sent.
