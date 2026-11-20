@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { assertNotPreview } from "@/lib/preview";
+import { canMessageRole, MESSAGING_BLOCKED_MESSAGE } from "@/lib/messaging-access";
 import { getCurrentUser } from "@/lib/session";
 import { requestOrigin } from "@/lib/site";
 import { mailSetupStatus } from "@/lib/mail-status";
@@ -20,6 +21,7 @@ export async function GET() {
   if (!gate.ok) return NextResponse.redirect(new URL("/settings?tab=messaging&mail=preview", origin));
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", origin));
+  if (!canMessageRole(user.role)) return NextResponse.json({ ok: false, error: MESSAGING_BLOCKED_MESSAGE }, { status: 403 });
   if (!mailSetupStatus().gmail) return NextResponse.redirect(new URL("/settings?tab=messaging&mail=setup", origin));
   const state = randomBytes(24).toString("base64url");
   const url = gmailAuthUrl({

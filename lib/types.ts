@@ -439,6 +439,8 @@ export interface Viewer {
   canImport: boolean;
   canExport: boolean;
   canOutreach: boolean;
+  /** Messaging (send, Inbox, replies, calls) is allowed for this role (see MESSAGING_ROLES). */
+  canMessage: boolean;
   canShare: boolean;
   leaderId: string | null;
   territory: Territory[];

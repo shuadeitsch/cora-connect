@@ -23,7 +23,8 @@ const STATE_KEY = "cora-preplanner-state";
 export function PreplannerView({ data }: { data: AppData }) {
   const announce = useUndoToast();
   const practice = usePractice();
-  const [tab, setTab] = useState<PreplannerStage | "inbox">("reached_out");
+  const [tabState, setTab] = useState<PreplannerStage | "inbox">("reached_out");
+  const tab = tabState === "inbox" && !data.viewer.canMessage ? "reached_out" : tabState;
   const [editing, setEditing] = useState<PreplannerEntry | null>(null);
   const [confirming, setConfirming] = useState<PreplannerEntry | null>(null);
   const [messaging, setMessaging] = useState(false);
@@ -31,8 +32,8 @@ export function PreplannerView({ data }: { data: AppData }) {
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [pending, start] = useTransition();
   const canChange = data.viewer.canEdit || data.viewer.canLogVisit;
-  const canMessage = data.viewer.canOutreach || data.viewer.canEdit;
-  useGmailSyncOnOpen(!data.viewer.preview && !data.viewer.sandbox);
+  const canMessage = data.viewer.canMessage;
+  useGmailSyncOnOpen(canMessage && !data.viewer.preview && !data.viewer.sandbox);
   const byId = useMemo(() => new Map(data.households.map((household) => [household.id, household])), [data.households]);
   const allEntries = data.preplannerEntries ?? [];
   const isAdmin = data.viewer.role === "admin";
@@ -88,9 +89,11 @@ export function PreplannerView({ data }: { data: AppData }) {
         <button type="button" role="tab" aria-selected={tab === "confirmed"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "confirmed" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("confirmed")}>
           Confirmed visits ({confirmed.length})
         </button>
+{canMessage ? (
         <button type="button" role="tab" aria-selected={tab === "inbox"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "inbox" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("inbox")}>
           Inbox{(data.unreadMessageCount ?? 0) ? ` (${data.unreadMessageCount})` : ""}
         </button>
+        ) : null}
       </div>
       {tab !== "inbox" && isAdmin && stateOptions.length > 1 ? (
         <label className="flex w-full items-center gap-2 text-sm sm:w-auto">
@@ -114,7 +117,7 @@ export function PreplannerView({ data }: { data: AppData }) {
         </Button>
       ) : null}
       </div>
-      {tab === "inbox" ? (
+      {tab === "inbox" && canMessage ? (
         <div className="panel rounded-3xl p-4">
           <MessageInbox data={data} />
         </div>
@@ -284,6 +287,7 @@ export function PreplannerView({ data }: { data: AppData }) {
         mode="confirm"
         onClose={() => setConfirming(null)}
       />
+      {canMessage ? (
       <PreplannerMessageDialog
         open={messaging}
         data={data}
@@ -291,6 +295,7 @@ export function PreplannerView({ data }: { data: AppData }) {
         initialState={activeState || undefined}
         onClose={() => setMessaging(false)}
       />
+      ) : null}
     </div>
   );
 }

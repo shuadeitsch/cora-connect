@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.100
+_Updated Nov 19, 2026, 7:55 PM (New York time)._
+- **Messaging is admin-only for now.** Shluchim and bochurim no longer see or can use any messaging: the Pre-planner **Message** button and sheet (email, text, WhatsApp, tap-to-send), the **Inbox** tab and unread counts, replies, Gmail connect and sync, and the messaging channel list are hidden for them (not just disabled), and the server refuses their sends, replies, thread reads and Inbox actions. The rest of the Pre-planner (list, state filter, select and remove, confirm visit) works as before.
+- **One switch to turn it on later:** set the `MESSAGING_ROLES` environment variable (default `admin`), for example `admin,shliach,bochur`, then redeploy. All messaging (and the upcoming in-browser calling) checks `viewer.canMessage` on screen and `canMessageRole(role)` in `lib/messaging-access.ts` on the server.
+
 ## 1.8.99
 _Updated Nov 19, 2026, 7:55 PM (New York time)._
 - **Admin-only Twilio panel on the Daily planner.** Shows the live Twilio balance, this month's and all-time usage with costs (voice minutes, texts, WhatsApp, recordings, phone numbers, total charged) and a rough "balance should last about X" estimate from this month's pace. Twilio's own numbers are cached about 5 minutes and marked "Live from Twilio".

@@ -1,5 +1,6 @@
 "use server";
 
+import { canMessageRole, MESSAGING_BLOCKED_MESSAGE } from "@/lib/messaging-access";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -100,6 +101,20 @@ async function requireWritable() {
   if (!gate.ok) return gate;
   const user = await getCurrentUser();
   if (!user) return { ok: false as const, error: "Sign in again." };
+  return { ok: true as const, user };
+}
+
+async function requireMessaging() {
+  const gate = await requireWritable();
+  if (!gate.ok) return gate;
+  if (!canMessageRole(gate.user.role)) return { ok: false as const, error: MESSAGING_BLOCKED_MESSAGE };
+  return gate;
+}
+
+async function messagingActor() {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, error: "Sign in again." };
+  if (!canMessageRole(user.role)) return { ok: false as const, error: MESSAGING_BLOCKED_MESSAGE };
   return { ok: true as const, user };
 }
 
@@ -473,7 +488,7 @@ export async function logOutreachSendAction(input: {
   recipientCount: number;
   fromAddress?: string;
 }) {
-  const writable = await requireWritable();
+  const writable = await requireMessaging();
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
@@ -593,7 +608,7 @@ export async function sendOutreachEmailAction(input: {
   templateId?: string;
   templateName?: string;
 }) {
-  const writable = await requireWritable();
+  const writable = await requireMessaging();
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
@@ -617,7 +632,7 @@ export async function disconnectMessagingChannelAction(id: string) {
 }
 
 export async function sendCampaignMessageAction(input: Parameters<typeof sendCampaignMessage>[1]) {
-  const writable = await requireWritable();
+  const writable = await requireMessaging();
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
@@ -625,7 +640,7 @@ export async function sendCampaignMessageAction(input: Parameters<typeof sendCam
 }
 
 export async function sendCampaignBatchAction(inputs: Parameters<typeof sendCampaignMessage>[1][]) {
-  const writable = await requireWritable();
+  const writable = await requireMessaging();
   if (!writable.ok) return { ok: false as const, error: writable.error };
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
@@ -635,7 +650,7 @@ export async function sendCampaignBatchAction(inputs: Parameters<typeof sendCamp
 }
 
 export async function recordExternalMessageAction(input: Parameters<typeof recordExternalMessage>[1]) {
-  const writable = await requireWritable();
+  const writable = await requireMessaging();
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };
@@ -643,37 +658,39 @@ export async function recordExternalMessageAction(input: Parameters<typeof recor
 }
 
 export async function listUnmatchedAction() {
-  const user = await actor();
-  if (!user) return { ok: false as const, error: "Sign in again." };
+  const gate = await messagingActor();
+  if (!gate.ok) return gate;
+  const user = gate.user;
   return listUnmatched(user);
 }
 
 export async function attachUnmatchedAction(input: { id: string; householdId: string; addToContact: boolean }) {
-  const writable = await requireWritable();
+  const writable = await requireMessaging();
   if (!writable.ok) return writable;
   return refresh(await attachUnmatched(writable.user, input));
 }
 
 export async function createFromUnmatchedAction(input: { id: string; name: string; projectId: string; state: string; city: string }) {
-  const writable = await requireWritable();
+  const writable = await requireMessaging();
   if (!writable.ok) return writable;
   return refresh(await createFromUnmatched(writable.user, input));
 }
 
 export async function dismissUnmatchedAction(id: string) {
-  const writable = await requireWritable();
+  const writable = await requireMessaging();
   if (!writable.ok) return writable;
   return refresh(await dismissUnmatched(writable.user, id));
 }
 
 export async function loadThreadMessagesAction(threadId: string) {
-  const user = await actor();
-  if (!user) return { ok: false as const, error: "Sign in again." };
+  const gate = await messagingActor();
+  if (!gate.ok) return gate;
+  const user = gate.user;
   return loadThreadMessages(user, threadId);
 }
 
 export async function markThreadReadAction(threadId: string) {
-  const writable = await requireWritable();
+  const writable = await requireMessaging();
   if (!writable.ok) return writable;
   const user = await actor();
   if (!user) return { ok: false as const, error: "Sign in again." };

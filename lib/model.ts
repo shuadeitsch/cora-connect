@@ -1,4 +1,5 @@
 import { sameState } from "@/lib/constants";
+import { canMessageRole } from "@/lib/messaging-access";
 import { addDays, monthKey, weekStart } from "@/lib/format";
 import { miles } from "@/lib/geo";
 import type {
@@ -36,7 +37,8 @@ export function viewerPermissions(user: User, today: string) {
     canDeleteContacts: canEdit && (admin || shliach),
     canImport: canEdit && !shliach,
     canExport: active && (admin || shliach),
-    canOutreach: active && (admin || shliach),
+    canMessage: active && canMessageRole(user.role),
+    canOutreach: active && (admin || shliach) && canMessageRole(user.role),
     canShare: admin || shliach,
   };
 }

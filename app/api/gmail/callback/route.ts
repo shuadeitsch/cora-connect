@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { assertNotPreview } from "@/lib/preview";
+import { canMessageRole, MESSAGING_BLOCKED_MESSAGE } from "@/lib/messaging-access";
 import { getCurrentUser } from "@/lib/session";
 import { requestOrigin } from "@/lib/site";
 import { exchangeGmailCode, gmailAddressFromAccessToken, gmailRedirectUri } from "@/lib/mail-send";
@@ -29,6 +30,7 @@ export async function GET(request: Request) {
     console.error("Gmail connect: signed-out callback; account was not saved.");
     return clearCookie(NextResponse.redirect(new URL("/login", origin)));
   }
+  if (!canMessageRole(user.role)) return clearCookie(NextResponse.json({ ok: false, error: MESSAGING_BLOCKED_MESSAGE }, { status: 403 }));
   const url = new URL(request.url);
   const error = url.searchParams.get("error");
   if (error) {

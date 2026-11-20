@@ -1876,7 +1876,7 @@ export async function sendOutreachEmail(
     });
   };
   try {
-    assert(perms(actor).canOutreach || perms(actor).canEdit, "You don't have permission to send email from the CRM.");
+    assert(perms(actor).canMessage, "You don't have permission to send email from the CRM.");
     assert(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to), "That recipient address is not valid.");
     assert(subject, "Give the email a subject.");
     const db = await loadDatabase();

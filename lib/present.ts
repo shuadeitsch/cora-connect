@@ -465,7 +465,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       tutorialStep: user.tutorialStep ?? 0,
       tutorialDone: Boolean(user.tutorialDone),
       chavrusa: user.chavrusa === "A" || user.chavrusa === "B" ? user.chavrusa : null,
-      unreadMessageCount: (db.messageThreads ?? []).filter((thread) => visibleIds.has(thread.householdId)).reduce((sum, thread) => sum + (thread.unreadCount || 0), 0),
+      unreadMessageCount: !perms.canMessage ? 0 : (db.messageThreads ?? []).filter((thread) => visibleIds.has(thread.householdId)).reduce((sum, thread) => sum + (thread.unreadCount || 0), 0),
       territory: user.territory ?? [],
       preview: user.previewing
         ? { role: user.role === "bochur" ? "bochur" as const : "shliach" as const, state: user.territory?.[0]?.state ?? null }
@@ -486,8 +486,8 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
       .sort((a, b) => `${a.reachedDate || a.requestedDate}T${a.reachedTime || a.requestedTime}`.localeCompare(`${b.reachedDate || b.requestedDate}T${b.reachedTime || b.requestedTime}`) || a.createdAt.localeCompare(b.createdAt)),
     gmailAccounts: (db.gmailAccounts ?? []).filter((item) => item.userId === user.id),
     domainSenders: (db.domainSenders ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder || a.email.localeCompare(b.email)),
-    messagingChannels: db.messagingChannels ?? [],
-    messageThreads: (db.messageThreads ?? [])
+    messagingChannels: perms.canMessage ? (db.messagingChannels ?? []) : [],
+    messageThreads: (perms.canMessage ? (db.messageThreads ?? []) : [])
       .filter((thread) => visibleIds.has(thread.householdId))
       .slice()
       .sort((a, b) => b.lastAt.localeCompare(a.lastAt)),
@@ -502,7 +502,7 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
         })),
       ),
     ],
-    unreadMessageCount: (db.messageThreads ?? [])
+    unreadMessageCount: (perms.canMessage ? (db.messageThreads ?? []) : [])
       .filter((thread) => visibleIds.has(thread.householdId))
       .reduce((sum, thread) => sum + (thread.unreadCount || 0), 0),
     mailSetup: mailSetupStatus(),

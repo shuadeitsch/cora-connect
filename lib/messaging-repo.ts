@@ -183,7 +183,7 @@ export async function sendCampaignMessage(
     });
   };
   try {
-    assert(perms(actor).canOutreach || perms(actor).canEdit, "You don't have permission to send from the CRM.");
+    assert(perms(actor).canMessage, "You don't have permission to send from the CRM.");
     const db = await loadDatabase();
     const person = input.personId ? db.people.find((item) => item.id === input.personId) : undefined;
     if (person && optedOut(person, family)) {
@@ -402,7 +402,7 @@ export async function recordExternalMessage(
   const family = channelFamily(input.type);
   const mode = family === "email" ? "email" : family === "whatsapp" ? "whatsapp" : "sms";
   try {
-    assert(perms(actor).canOutreach || perms(actor).canEdit, "You don't have permission to send from the CRM.");
+    assert(perms(actor).canMessage, "You don't have permission to send from the CRM.");
     if (!isSupabaseMode()) return { ok: false, error: "Messaging needs the live CRM." };
     const db = await loadDatabase();
     const person = input.personId ? db.people.find((item) => item.id === input.personId) : undefined;
