@@ -1,6 +1,8 @@
 "use client";
 
 import { CallButton } from "@/components/call-provider";
+import { CallsPanel } from "@/components/calls-panel";
+import { uniquePhones } from "@/lib/voice-shared";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
@@ -21,26 +23,12 @@ import { sameState, stateLabel } from "@/lib/constants";
 
 const STATE_KEY = "cora-preplanner-state";
 
-function uniquePhones(household: { name: string; people: { name: string; phone: string; phone2: string; phone3: string; extraPhones?: string[]; whatsapp: string }[] }) {
-  const seen = new Set<string>();
-  const out: { number: string; name: string }[] = [];
-  for (const person of household.people) {
-    for (const raw of [person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? []), person.whatsapp]) {
-      const number = (raw ?? "").trim();
-      const key = number.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
-      if (!number || !key || seen.has(key)) continue;
-      seen.add(key);
-      out.push({ number, name: person.name || household.name });
-    }
-  }
-  return out;
-}
 
 export function PreplannerView({ data }: { data: AppData }) {
   const announce = useUndoToast();
   const practice = usePractice();
-  const [tabState, setTab] = useState<PreplannerStage | "inbox">("reached_out");
-  const tab = tabState === "inbox" && !data.viewer.canMessage ? "reached_out" : tabState;
+  const [tabState, setTab] = useState<PreplannerStage | "inbox" | "calls">("reached_out");
+  const tab = (tabState === "inbox" || tabState === "calls") && !data.viewer.canMessage ? "reached_out" : tabState;
   const [editing, setEditing] = useState<PreplannerEntry | null>(null);
   const [confirming, setConfirming] = useState<PreplannerEntry | null>(null);
   const [messaging, setMessaging] = useState(false);
@@ -110,8 +98,13 @@ export function PreplannerView({ data }: { data: AppData }) {
           Inbox{(data.unreadMessageCount ?? 0) ? ` (${data.unreadMessageCount})` : ""}
         </button>
         ) : null}
+{canMessage ? (
+        <button type="button" role="tab" aria-selected={tab === "calls"} className={cn("h-10 rounded-full px-3.5 text-sm font-medium", tab === "calls" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted")} onClick={() => setTab("calls")}>
+          Calls
+        </button>
+        ) : null}
       </div>
-      {tab !== "inbox" && isAdmin && stateOptions.length > 1 ? (
+      {tab !== "inbox" && tab !== "calls" && isAdmin && stateOptions.length > 1 ? (
         <label className="flex w-full items-center gap-2 text-sm sm:w-auto">
           <span className="text-muted-foreground">State</span>
           <select
@@ -127,13 +120,15 @@ export function PreplannerView({ data }: { data: AppData }) {
           </select>
         </label>
       ) : null}
-      {tab !== "inbox" && canMessage ? (
+      {tab !== "inbox" && tab !== "calls" && canMessage ? (
         <Button type="button" className="min-h-11 rounded-full" onClick={() => setMessaging(true)}>
           Message
         </Button>
       ) : null}
       </div>
-      {tab === "inbox" && canMessage ? (
+      {tab === "calls" && canMessage ? (
+        <div className="panel rounded-3xl p-4"><CallsPanel /></div>
+      ) : tab === "inbox" && canMessage ? (
         <div className="panel rounded-3xl p-4">
           <MessageInbox data={data} onConfirmed={() => setTab("confirmed")} />
         </div>
@@ -198,7 +193,7 @@ export function PreplannerView({ data }: { data: AppData }) {
                     ) : null}
                     {projectName ? <p className="text-[13px] leading-snug text-muted-foreground">{projectName}</p> : null}
                     {household?.address ? <p className="truncate text-[13px] leading-snug text-muted-foreground">{household.address}</p> : null}
-                    {household && data.viewer.canViewContact ? (
+                    {household && canMessage && data.viewer.canViewContact ? (
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {uniquePhones(household).map((item) => (
                           <CallButton key={item.number} number={item.number} name={item.name} label={uniquePhones(household).length > 1 ? `Call ${item.number}` : "Call"} className="h-9" />

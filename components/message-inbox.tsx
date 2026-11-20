@@ -10,6 +10,8 @@ import type { AppData, MessageItem, MessageThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { UnmatchedInbox, useUnmatchedCount } from "@/components/unmatched-inbox";
 import { MessageBubble, ThreadRow } from "@/components/message-bubble";
+import { CallButton } from "@/components/call-provider";
+import { uniquePhones } from "@/lib/voice-shared";
 import { PreplannerDialog } from "@/components/preplanner-dialog";
 import { preplannerWhen } from "@/lib/preplanner";
 import { usePractice } from "@/components/practice-provider";
@@ -127,6 +129,11 @@ export function MessageInbox({
         <div className="grid min-w-0 gap-2 rounded-2xl border bg-card p-3">
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b pb-2">
             <p className="min-w-0 flex-1 basis-40 text-sm font-medium text-foreground [overflow-wrap:anywhere]">{houses.get(active.householdId)?.name ?? "Contact"} · {channelTypeLabel(active.channelType)}</p>
+            {(() => { const h = houses.get(active.householdId); const phones = h ? uniquePhones(h) : []; return phones.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {phones.map((item) => <CallButton key={item.number} number={item.number} name={item.name} label={phones.length > 1 ? `Call ${item.number}` : "Call"} className="h-11" />)}
+              </div>
+            ) : null; })()}
             {canConfirm ? (
               confirmedEntry ? (
                 <div className="flex min-w-0 flex-wrap items-center gap-2">

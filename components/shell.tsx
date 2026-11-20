@@ -26,7 +26,6 @@ import {
   LogOut,
   Map,
   Menu,
-  Phone,
   Route,
   Search,
   Sun,
@@ -63,7 +62,6 @@ const PRIMARY: NavItem[] = [
   { href: "/dashboard", label: "Home", short: "Home", icon: LayoutGrid },
   { href: "/households", label: "Contacts", icon: House },
   { href: "/pre-planner", label: "Pre-planner", icon: CalendarClock },
-  { href: "/calls", label: "Calls", icon: Phone, adminOnly: true },
   { href: "/saved-routes", label: "Routes", icon: Route },
   { href: "/planner", label: "Daily planner", short: "Planner", icon: CalendarDays },
 ];

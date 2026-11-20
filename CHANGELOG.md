@@ -2,6 +2,11 @@
 
 _Versioning: the patch number stops at 99 and the middle number stops at 9. After X.Y.99 comes X.(Y+1).0, and after X.9.99 comes (X+1).0.0 (so 1.9.99 is followed by 2.0.0). `node scripts/next-version.mjs` prints the next version._
 
+## 1.9.5
+_Updated Nov 19, 2026, 8:06 PM (New York time)._
+- **Calling now lives in the Pre-planner.** The Calls page and its menu item are gone. The Pre-planner has a new **Calls** tab (next to Reached out, Confirmed visits and Inbox) listing every call with date, length, outcome, notes and the recording player. **Call** buttons stay on the Reached out cards, and the Inbox conversation header now has one next to Confirm visit. Like messaging, calling is admin-only.
+- **Contacts page is back to plain phone info.** The Calls history and CRM Call button are removed from the contact detail, which has its simple phone link again, and route stops go back to a plain phone link too.
+
 ## 1.9.4
 _Updated Nov 19, 2026, 8:07 PM (New York time)._
 - **Summer choice on the visit progress box.** The Dashboard's "X of Y contacts visited" box now has the same **All / Exclude summer homes / Summer only** choice, using the same remembered per-device setting as the route screens. Both the visited count and the total respect it.

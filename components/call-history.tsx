@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { PhoneIncoming, PhoneOutgoing } from "lucide-react";
-import { useCall } from "@/components/call-provider";
-import { listCallsAction } from "@/lib/voice-actions";
 import { formatDuration, outcomeLabel, type CallRow } from "@/lib/voice-shared";
 
 export function CallRowView({ row }: { row: CallRow }) {
@@ -23,22 +20,3 @@ export function CallRowView({ row }: { row: CallRow }) {
   );
 }
 
-export function CallHistory({ householdId }: { householdId: string }) {
-  const { enabled, version } = useCall();
-  const [rows, setRows] = useState<CallRow[] | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    setRows(null);
-    void listCallsAction(householdId).then((list) => { if (!cancelled) setRows(list); }).catch(() => { if (!cancelled) setRows([]); });
-    return () => { cancelled = true; };
-  }, [householdId, version]);
-  if (!enabled && !rows?.length) return null;
-  return (
-    <section aria-label="Calls">
-      <p className="font-heading text-sm font-semibold text-foreground">Calls</p>
-      {rows === null ? <p className="mt-1 text-sm text-muted-foreground">Loading…</p> : rows.length ? (
-        <ul className="mt-1.5 grid gap-1.5">{rows.map((row) => <CallRowView key={row.id} row={row} />)}</ul>
-      ) : <p className="mt-1 text-sm text-muted-foreground">No calls yet.</p>}
-    </section>
-  );
-}

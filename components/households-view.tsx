@@ -63,9 +63,7 @@ import { setViewingState } from "@/lib/viewing-state";
 import { isNewContact } from "@/lib/new-contacts";
 import { usePractice } from "@/components/practice-provider";
 import { FOCUS_STATES, projectLabel, sameState, scopeLabel, stateLabel, visitReactionMeta, VISIT_REACTIONS } from "@/lib/constants";
-import { formatMedium } from "@/lib/format";
-import { CallButton } from "@/components/call-provider";
-import { CallHistory } from "@/components/call-history";
+import { formatMedium, telHref } from "@/lib/format";
 import { blankExtraAddress, formatExtraAddress, parseExtraAddresses } from "@/lib/extra-addresses";
 import { CONTACT_TAGS, SUMMER_TAG, displayTags, isSummerHome, officialTags } from "@/lib/contact-tags";
 import { ContactFilterControls, filtersActive, useContactFilters } from "@/components/contact-filters";
@@ -1706,7 +1704,7 @@ function ContactDialog({
                     }
                     return unique.map((number, index) => (
                       <span key={`${person.id}-${index}`} className="flex flex-wrap gap-2">
-                        <CallButton number={number} name={person.name || household.name} label={unique.length > 1 ? `Call ${number}` : "Call"} />
+                        <ActionLink href={telHref(number)} icon={Phone} label={unique.length > 1 ? `Call (${index + 1})` : "Call"} />
                       </span>
                     ));
                   })}
@@ -1719,7 +1717,6 @@ function ContactDialog({
               )}
               <ContactAddresses household={household} />
             </section>
-            {canContact ? <CallHistory householdId={household.id} /> : null}
             {household.possibleDuplicate && canEdit ? (
               <section className="grid gap-2 border-t pt-3 text-sm">
                 <label className="grid gap-1">
@@ -1749,6 +1746,14 @@ function ContactDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ActionLink({ href, icon: Icon, label }: { href: string; icon: typeof Phone; label: string }) {
+  return (
+    <a href={href} className="inline-flex h-10 items-center gap-1 rounded-full bg-accent px-3 text-xs font-medium text-accent-foreground">
+      <Icon className="size-3.5" /> {label}
+    </a>
   );
 }
 

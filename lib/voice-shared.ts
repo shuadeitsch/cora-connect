@@ -51,3 +51,18 @@ export function formatDuration(seconds: number | null | undefined): string {
   const s = Math.max(0, Math.round(seconds ?? 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
+
+export function uniquePhones(household: { name: string; people: { name: string; phone: string; phone2: string; phone3: string; extraPhones?: string[]; whatsapp: string }[] }) {
+  const seen = new Set<string>();
+  const out: { number: string; name: string }[] = [];
+  for (const person of household.people) {
+    for (const raw of [person.phone, person.phone2, person.phone3, ...(person.extraPhones ?? []), person.whatsapp]) {
+      const number = (raw ?? "").trim();
+      const key = number.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+      if (!number || !key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ number, name: person.name || household.name });
+    }
+  }
+  return out;
+}
