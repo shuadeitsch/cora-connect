@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.91
+_Updated Nov 19, 2026, 7:19 PM (New York time)._
+- **Fixed: saving any inbound message failed** (texts, WhatsApp and email replies). The database function that stores an incoming message referred to itself incorrectly and, when starting a Reached out row, wrote the time as text into a time column (migration 059). Together with the email-matching fix in 1.8.90 this is why no reply ever reached the Inbox. The six Nov 19 test replies from info@chabadora.com and mendelgreisman@gmail.com were recovered and are in the Inbox now. Removed the temporary Gmail diagnostic.
+
 ## 1.8.90
 _Updated Nov 19, 2026, 7:17 PM (New York time)._
 - **Fixed: email replies never matched a contact.** The database lookup that matches a sender's email address to a contact failed on every call ("column reference email is ambiguous"), and the Gmail sync swallowed the error, so no email reply was ever attached to a contact (migration 058). It also now skips deleted contacts and prefers live ones when a test address exists twice.
