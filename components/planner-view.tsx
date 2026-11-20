@@ -84,7 +84,7 @@ function timeLabel(time: string | null) {
   return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(new Date(Date.UTC(2000, 0, 1, h, m)));
 }
 
-export function PlannerView({ data, days, loadError }: { data: AppData; days: PlannerDay[]; loadError: string }) {
+export function PlannerView({ data, days, loadError, adminPanel = null }: { data: AppData; days: PlannerDay[]; loadError: string; adminPanel?: React.ReactNode }) {
   const router = useRouter();
   const practice = usePractice();
   const live = practice.mergeData(data);
@@ -160,6 +160,7 @@ export function PlannerView({ data, days, loadError }: { data: AppData; days: Pl
         title={bochur ? "Daily schedule" : "Daily planner"}
         crumb={bochur ? "Daily schedule" : "Daily planner"}
       />
+      {adminPanel}
       {bochur && !canEdit ? (
         <p className="mb-3 rounded-2xl bg-muted/60 px-3 py-2 text-sm text-muted-foreground">View only — ask your shliach if you need to edit the schedule.</p>
       ) : null}

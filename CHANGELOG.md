@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.99
+_Updated Nov 19, 2026, 7:55 PM (New York time)._
+- **Admin-only Twilio panel on the Daily planner.** Shows the live Twilio balance, this month's and all-time usage with costs (voice minutes, texts, WhatsApp, recordings, phone numbers, total charged) and a rough "balance should last about X" estimate from this month's pace. Twilio's own numbers are cached about 5 minutes and marked "Live from Twilio".
+- **Top-up settings and Payments log (entered by hand).** Twilio doesn't share auto-recharge settings or payment history, so admins note the threshold and recharge amount and log each payment themselves; these are marked "Entered by hand" and stored in new admin-only tables (RLS). Nothing here changes Twilio billing.
+- **Strictly admins.** The panel is only rendered for real admins (not Beta View), the data comes from `/api/admin/twilio`, which checks the admin role on the server and answers 403 to everyone else without calling Twilio, and the Twilio keys never leave the server.
+
 ## 1.8.98
 _Updated Nov 19, 2026, 7:49 PM (New York time)._
 - **Exclude summer homes when building routes.** A new "Exclude summer homes (N)" switch in the map route builder, New route by city, Pick contacts, the route editor and Plan a trip leaves households tagged "Summer home" out of the stops and counts. It is off by default and remembered on this device, shared by all of those screens. Only the whole summer-home household is dropped; a contact's main address is always kept.
