@@ -13,5 +13,5 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ ok: false, error: "Sign in again." }, { status: 401 });
   const force = new URL(req.url).searchParams.get("force") === "1";
   const result = await syncGmailAccountsForCaller({ force });
-  return NextResponse.json({ ok: true, ...result });
+  return NextResponse.json({ ok: true, ...result, error: result.errors ? result.lastError : undefined });
 }

@@ -37,6 +37,11 @@ export function MessageInbox({
   const [syncing, setSyncing] = useState(false);
   const live = !data.viewer.preview && !data.viewer.sandbox;
   useGmailSyncOnOpen(live);
+  const [syncProblem, setSyncProblem] = useState("");
+  useEffect(() => {
+    if (!live || data.viewer.role !== "admin") return;
+    void requestGmailSync().then((result) => setSyncProblem(result.error ? result.error : ""));
+  }, [live]); // eslint-disable-line react-hooks/exhaustive-deps -- check once when the Inbox opens
   useRefreshOnGmailSync();
   const active = threads.find((thread) => thread.id === activeId) ?? null;
   const houses = useMemo(() => new Map(data.households.map((house) => [house.id, house])), [data.households]);
@@ -68,6 +73,7 @@ export function MessageInbox({
           <button type="button" role="tab" aria-selected={tabKey === "unknown"} className={cn("min-h-10 rounded-full px-3.5 text-sm font-medium", tabKey === "unknown" ? "bg-primary text-primary-foreground" : "")} onClick={() => setTabKey("unknown")}>Unknown sender{unknownCount ? ` (${unknownCount})` : ""}</button>
         </div>
       ) : null}
+      {syncProblem && admin ? <p className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white [overflow-wrap:anywhere]">Gmail sync failed: {syncProblem}</p> : null}
       {admin && !compact && tabKey === "unknown" ? <UnmatchedInbox data={data} onCount={setUnknownCount} /> : null}
       {admin && !compact ? (
         <div className="flex flex-wrap items-center justify-end gap-2">

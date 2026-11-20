@@ -19,11 +19,14 @@ export type GmailSyncAccount = {
   can_read: boolean;
 };
 
-export type GmailSyncResult = { accounts: number; ingested: number; errors: number; skipped: number };
+export type GmailSyncResult = { accounts: number; ingested: number; errors: number; skipped: number; lastError?: string };
 
 type SaveHistory = (accountId: string, historyId: string) => Promise<void>;
 
-const inflight = new Map<string, Promise<{ ingested: number; error: boolean; skipped: boolean }>>();
+type OneResult = { ingested: number; error: boolean; skipped: boolean; reason?: string };
+const inflight = new Map<string, Promise<OneResult>>();
+const lastListed = new Map<string, number>();
+const LIST_GAP_MS = 5 * 60_000;
 const lastDone = new Map<string, number>();
 
 async function gmailGet(access: string, path: string) {
@@ -80,7 +83,7 @@ async function syncOneAccount(
   account: GmailSyncAccount,
   saveHistory: SaveHistory,
   force: boolean,
-): Promise<{ ingested: number; error: boolean; skipped: boolean }> {
+): Promise<OneResult> {
   const existing = inflight.get(account.id);
   if (existing) return existing;
   if (!force && Date.now() - (lastDone.get(account.id) ?? 0) < MIN_GAP_MS) {
@@ -128,6 +131,21 @@ async function syncOneAccount(
         pageToken = payload.nextPageToken ?? "";
       } while (pageToken);
 
+      // Safety net: the history API can miss mail (stale pointer, gaps). Every few minutes also look at the last
+      // 3 days of inbox mail and handle anything we have not stored yet. Ingest is deduped by Gmail message id.
+      if (force || Date.now() - (lastListed.get(account.id) ?? 0) >= LIST_GAP_MS) {
+        lastListed.set(account.id, Date.now());
+        const recent = await gmailGet(access, `/messages?q=${encodeURIComponent("in:inbox newer_than:3d")}&maxResults=40`);
+        if (!recent.ok) throw new Error(`Gmail list failed (${recent.status}).`);
+        const found = ((recent.json as { messages?: { id: string }[] }).messages ?? []).map((item) => item.id).filter((item) => !ids.has(item));
+        const ingestKey = messagingIngestKey();
+        if (found.length && ingestKey) {
+          const known = await createEphemeralClient().rpc("gmail_known_ids", { p_key: ingestKey, p_ids: found });
+          const have = new Set<string>(Array.isArray(known.data) ? (known.data as string[]) : []);
+          for (const item of found) if (!have.has(item)) ids.add(item);
+        }
+      }
+      let firstIssue = "";
       for (const id of ids) {
         const message = await gmailGet(access, `/messages/${encodeURIComponent(id)}?format=full`);
         if (!message.ok) continue;
@@ -175,11 +193,12 @@ async function syncOneAccount(
           providerMessageId: id,
         });
         if ("id" in result) ingested += 1;
+        else if (!firstIssue) firstIssue = `Could not save a reply: ${String(result.error).slice(0, 100)}`;
       }
       if (newHistory) await saveHistory(account.id, newHistory);
-      return { ingested, error: false, skipped: false };
-    } catch {
-      return { ingested: 0, error: true, skipped: false };
+      return { ingested, error: Boolean(firstIssue), skipped: false, reason: firstIssue || undefined };
+    } catch (error) {
+      return { ingested: 0, error: true, skipped: false, reason: (error instanceof Error ? error.message : "Gmail sync failed.").slice(0, 140) };
     }
   })().finally(() => {
     inflight.delete(account.id);
@@ -197,13 +216,17 @@ async function syncAccountList(
   let ingested = 0;
   let errors = 0;
   let skipped = 0;
+  let lastError: string | undefined;
   for (const account of accounts) {
     const result = await syncOneAccount(account, saveHistory, force);
     ingested += result.ingested;
-    if (result.error) errors += 1;
+    if (result.error) {
+      errors += 1;
+      lastError = result.reason ?? "Gmail sync failed.";
+    }
     if (result.skipped) skipped += 1;
   }
-  return { accounts: accounts.length, ingested, errors, skipped };
+  return { accounts: accounts.length, ingested, errors, skipped, lastError };
 }
 
 /** Cron / ingest-key path: every connected readable account, all orgs. */
@@ -268,7 +291,7 @@ export async function diagnoseGmail() {
           inReplyTo: Boolean(header(heads, "In-Reply-To")),
           toHere,
           automated: looksAutomated(heads, payload.labelIds ?? [], from),
-          alreadyInCrm: known.error ? `err:${known.error.message.slice(0, 40)}` : known.data,
+          alreadyInCrm: known.error ? `err:${known.error.message.slice(0, 40)}` : Array.isArray(known.data) && known.data.length > 0,
         });
       }
       info.messages = rows;

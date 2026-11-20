@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.90
+_Updated Nov 19, 2026, 7:17 PM (New York time)._
+- **Fixed: email replies never matched a contact.** The database lookup that matches a sender's email address to a contact failed on every call ("column reference email is ambiguous"), and the Gmail sync swallowed the error, so no email reply was ever attached to a contact (migration 058). It also now skips deleted contacts and prefers live ones when a test address exists twice.
+- The Gmail sync no longer relies only on Gmail's change history: every few minutes it also checks the last 3 days of Inbox mail and picks up anything not yet stored (deduped by Gmail message id), so a stale or skipped sync pointer cannot lose replies.
+- If the Gmail sync fails (expired sign-in, missing permission, Gmail error), admins now see a red **Gmail sync failed: reason** line at the top of the Inbox instead of nothing.
+
 ## 1.8.89
 _Updated Nov 19, 2026, 7:05 PM (New York time)._
 - **Email templates trimmed.** The saved email templates are now just **Follow-up thank you** and **Chanukah visit**. Removed: Visit announcement, Chanukah / holiday visit, and We're in the area (also removed from the built-in drafts so they don't come back; migration 059). Their full rows are saved on the box for recovery. WhatsApp (Twilio) templates are untouched.
