@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.17
+_Updated Nov 25, 2026, 4:20 PM (New York time)._
+- **Pre-planner "Message contacts" sends one text per person.** Texts go to each person's best mobile number (same rule as "Message this state"): known mobile first, then mobile VoIP, then a number not looked up yet. Before, it texted every number on a contact (so some people got 2–3 copies) and tried landlines. WhatsApp also goes to one number per person.
+- **Counts show people, not phone numbers.** Both bulk tools now say, for example, "120 people selected (84 texts will go out)". Before, the Pre-planner said "165 selected", which was counting phone numbers.
+- **New "Don't send to landlines" checkbox** (on by default) in both "Message this state" and Pre-planner "Message contacts". Unticking it lets someone with only a landline or home number get one text to their first number.
+- **No closing mid-send.** While a bulk send is running, the Done/Cancel button is greyed out with "Still sending… keep this open", and the window can't be closed until it finishes.
+- **Inbox: newest on top, replies pinned.** Conversations with an unread reply sit at the top (newest reply first), then everything else by most recent message. A new reply jumps to the top on its own within about 7 seconds. The Pre-planner "Reached out" list also puts new replies first, then the most recent activity. Before, a reply (for example Greg & Patty Garson's) could be buried under 100+ newer outgoing texts, so the badge said 1 but the thread was hard to find.
+- **Inbox search box** to find a conversation by name, town, or number.
+- **Saved template "Chanukah 2026 (Maine)"** (the long approved Chanukah text) is available in the Template list.
+
 ## 1.9.16
 _Updated Nov 25, 2026, 10:35 AM (New York time)._
 - **Greeting for two initials:** a contact like "S. & G. Wayne-Workman" is now greeted "Hi S. and G. Wayne-Workman" instead of "Hi S.". Applies everywhere the CRM builds a greeting.

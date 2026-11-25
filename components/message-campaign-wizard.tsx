@@ -45,6 +45,7 @@ export function MessageCampaignWizard({
   const [bodies, setBodies] = useState<Record<string, string>>({});
   const [waTemplate, setWaTemplate] = useState("");
   const [skipAlready, setSkipAlready] = useState(true);
+  const [skipLandlines, setSkipLandlines] = useState(true);
   const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
   const [results, setResults] = useState<{ name: string; ok: boolean; error?: string }[]>([]);
@@ -89,8 +90,9 @@ export function MessageCampaignWizard({
       skipAlready,
       projectId: project,
       facts: data.contactedFacts ?? [],
+      allowLandlines: !skipLandlines,
     }),
-    [people, families, skipAlready, project, data.contactedFacts],
+    [people, families, skipAlready, project, data.contactedFacts, skipLandlines],
   );
   // People the sender chose to leave out in the preview stay visible there but are not sent.
   const plan = useMemo(() => ({
@@ -114,6 +116,7 @@ export function MessageCampaignWizard({
       whatsapp: tmpl?.sms ?? "",
     });
     setSkipAlready(true);
+    setSkipLandlines(true);
     setExcludeSummer(summerSetting ? !summerSetting.includeSummer : false);
     setSkipIds(new Set());
     setIndex(0);
@@ -124,6 +127,15 @@ export function MessageCampaignWizard({
   }, [open]);
 
   const current = fullPlan.ready[index];
+
+  // Count people (never phone numbers); the parentheses show how many messages will really go out, one per person per channel.
+  const selectedPeople = new Set(people.map((person) => person.id)).size;
+  const sendCounts = families.map((family) => {
+    const count = plan.ready.filter((item) => item.family === family).length;
+    const noun = family === "sms" ? (count === 1 ? "text" : "texts") : family === "email" ? (count === 1 ? "email" : "emails") : (count === 1 ? "WhatsApp message" : "WhatsApp messages");
+    return `${count} ${noun}`;
+  });
+  const audienceLine = `${selectedPeople} ${selectedPeople === 1 ? "person" : "people"} selected${state && state !== "ALL" ? ` in ${state}` : ""} (${sendCounts.length ? `${sendCounts.join(" and ")} will go out` : "pick a channel"}).`;
 
   function toggleType(type: MessagingChannelType) {
     setSelectedTypes((current) => (current.includes(type) ? current.filter((item) => item !== type) : [...current, type]));
@@ -146,14 +158,14 @@ export function MessageCampaignWizard({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next && step !== "sending") onClose(); }}>
       <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-heading text-foreground">
             {step === "done" ? "Send results" : step === "sending" ? "Sending…" : step === "confirm" ? "Confirm send" : step === "preview" ? "Preview each message" : "Message this state"}
           </DialogTitle>
         </DialogHeader>
-        {state && state !== "ALL" ? <p className="text-sm text-muted-foreground">Audience: {audience.length} contacts in {state}{project ? ", this project" : ""}.</p> : <p className="text-sm text-muted-foreground">Audience: {audience.length} contacts.</p>}
+        <p className="text-sm text-muted-foreground">{audienceLine}</p>
         {error ? <Notice>{error}</Notice> : null}
 
         {step === "setup" ? (
@@ -224,6 +236,12 @@ export function MessageCampaignWizard({
               <label className="flex items-start gap-2 text-sm">
                 <input type="checkbox" className="mt-1" checked={excludeSummer} onChange={(event) => setExcludeSummer(event.target.checked)} />
                 <span>Exclude summer homes ({summerCount})</span>
+              </label>
+            ) : null}
+            {families.includes("sms") ? (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-1" checked={skipLandlines} onChange={(event) => setSkipLandlines(event.target.checked)} />
+                <span>Don’t send to landlines (on by default). Texts go to each person’s mobile number; people with only a landline or home line are skipped.</span>
               </label>
             ) : null}
             <label className="flex items-start gap-2 text-sm">
@@ -322,6 +340,7 @@ export function MessageCampaignWizard({
                         personId: item.person.id,
                         projectId: project,
                         templateName: needsTemplate ? waTemplate || undefined : undefined,
+                        allowLandline: item.family === "sms" && !skipLandlines ? true : undefined,
                       });
                       next.push({ name: `${item.person.householdName} (${item.family})`, ok: result.ok, error: result.ok ? undefined : result.error });
                       setResults([...next]);
@@ -332,7 +351,7 @@ export function MessageCampaignWizard({
                   Send
                 </Button>
               ) : null}
-              <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={onClose}>{step === "done" ? "Close" : "Cancel"}</Button>
+              <Button type="button" variant="outline" className="min-h-11 rounded-full" disabled={step === "sending"} onClick={onClose}>{step === "done" ? "Close" : step === "sending" ? "Still sending — keep this open" : "Cancel"}</Button>
             </div>
           </div>
         ) : null}

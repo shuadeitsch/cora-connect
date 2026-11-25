@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { preplannerSortKey, preplannerWhen, reachedHowLabel } from "@/lib/preplanner";
 import { useUnreadCount } from "@/components/inbox-unread";
 import { MessageInbox } from "@/components/message-inbox";
+import { latestMessageByHousehold } from "@/lib/messaging";
 import { PreplannerMessageDialog } from "@/components/preplanner-message-dialog";
 import { useGmailSyncOnOpen } from "@/components/gmail-inbox-sync";
 import type { AppData, HouseholdView, PreplannerEntry, PreplannerStage } from "@/lib/types";
@@ -44,6 +45,11 @@ export function OutreachView({ data, activeState }: { data: AppData; activeState
   const inboxUnread = useUnreadCount(data.unreadMessageCount ?? 0);
   const unreadHouseholds = new Set((data.messageThreads ?? []).filter((thread) => thread.unreadCount > 0).map((thread) => thread.householdId));
   const reachedUnread = reached.filter((entry) => unreadHouseholds.has(entry.householdId)).length;
+  const latestByHouse = latestMessageByHousehold(data.messageThreads ?? []);
+  const activityOf = (entry: { householdId: string; reachedDate: string; reachedTime: string; createdAt: string }) => {
+    const reachedAt = Date.parse(entry.reachedDate ? `${entry.reachedDate}T${entry.reachedTime || "00:00"}` : entry.createdAt);
+    return Math.max(latestByHouse.get(entry.householdId) ?? 0, Number.isFinite(reachedAt) ? reachedAt : 0);
+  };
   const confirmed = entries.filter((entry) => entry.stage === "confirmed");
   const shown = (tab === "confirmed" ? confirmed : reached)
     .slice()
@@ -51,7 +57,10 @@ export function OutreachView({ data, activeState }: { data: AppData; activeState
       if (tab === "confirmed") {
         return preplannerSortKey(a.requestedDate, a.requestedTime).localeCompare(preplannerSortKey(b.requestedDate, b.requestedTime)) || a.createdAt.localeCompare(b.createdAt);
       }
-      return preplannerSortKey(a.reachedDate, a.reachedTime).localeCompare(preplannerSortKey(b.reachedDate, b.reachedTime)) || a.createdAt.localeCompare(b.createdAt);
+      // Reached out: new replies on top, then the most recent message (or reach-out) first.
+      const unread = Number(unreadHouseholds.has(b.householdId)) - Number(unreadHouseholds.has(a.householdId));
+      if (unread) return unread;
+      return activityOf(b) - activityOf(a) || b.createdAt.localeCompare(a.createdAt);
     });
 
   const checkedIds = shown.filter((entry) => checked[entry.id]).map((entry) => entry.id);

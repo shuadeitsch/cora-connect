@@ -1,4 +1,5 @@
 import { mailSetupStatus } from "@/lib/mail-status";
+import { sortThreadsForInbox } from "@/lib/messaging";
 import { activityCountsFor } from "@/lib/visit-activities";
 import { findLiveDuplicates } from "@/lib/duplicate-reason";
 import { isListedProject, listedProjects, parseHouseholdReaction, projectLabel } from "@/lib/constants";
@@ -488,10 +489,8 @@ export function present(source: Database, user: User, mode: AppData["mode"], tod
     gmailAccounts: (db.gmailAccounts ?? []).filter((item) => item.userId === user.id),
     domainSenders: (db.domainSenders ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder || a.email.localeCompare(b.email)),
     messagingChannels: perms.canMessage ? (db.messagingChannels ?? []) : [],
-    messageThreads: (perms.canMessage ? (db.messageThreads ?? []) : [])
-      .filter((thread) => visibleIds.has(thread.householdId))
-      .slice()
-      .sort((a, b) => b.lastAt.localeCompare(a.lastAt)),
+    messageThreads: sortThreadsForInbox((perms.canMessage ? (db.messageThreads ?? []) : [])
+      .filter((thread) => visibleIds.has(thread.householdId))),
     contactedFacts: [
       ...(db.contactedFacts ?? []),
       ...(db.preplannerEntries ?? []).flatMap((entry) =>

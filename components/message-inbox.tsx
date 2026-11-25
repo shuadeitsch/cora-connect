@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { loadThreadMessagesAction, markThreadReadAction, sendCampaignMessageAction } from "@/lib/actions";
-import { channelFamily, channelTypeLabel, withinWhatsAppWindow } from "@/lib/messaging";
+import { channelFamily, channelTypeLabel, sortThreadsForInbox, withinWhatsAppWindow } from "@/lib/messaging";
 import type { AppData, MessageItem, MessageThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { checkInboxNow } from "@/components/inbox-unread";
@@ -32,11 +32,12 @@ export function MessageInbox({
 }) {
   const router = useRouter();
   const practice = usePractice();
-  const threads = useMemo(
-    () => (data.messageThreads ?? []).filter((thread) => !householdId || thread.householdId === householdId),
+  const [search, setSearch] = useState("");
+  const allThreads = useMemo(
+    () => sortThreadsForInbox((data.messageThreads ?? []).filter((thread) => !householdId || thread.householdId === householdId)),
     [data.messageThreads, householdId],
   );
-  const [activeId, setActiveId] = useState<string | null>(householdId ? (threads[0]?.id ?? null) : null);
+  const [activeId, setActiveId] = useState<string | null>(householdId ? (allThreads[0]?.id ?? null) : null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [reply, setReply] = useState("");
   const paneRef = useRef<HTMLOListElement | null>(null);
@@ -56,13 +57,24 @@ export function MessageInbox({
     void requestGmailSync().then((result) => setSyncProblem(result.error ? result.error : ""));
   }, [live]); // eslint-disable-line react-hooks/exhaustive-deps -- check once when the Inbox opens
   useRefreshOnGmailSync();
-  const active = threads.find((thread) => thread.id === activeId) ?? null;
+  const active = allThreads.find((thread) => thread.id === activeId) ?? null;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const canConfirm = !compact && data.viewer.canMessage && (data.viewer.canEdit || data.viewer.canLogVisit);
   const activeEntries = (data.preplannerEntries ?? []).filter((entry) => active && entry.householdId === active.householdId);
   const confirmedEntry = activeEntries.find((entry) => entry.stage === "confirmed" && entry.requestedDate);
   const reachedEntry = activeEntries.find((entry) => entry.stage !== "confirmed");
   const houses = useMemo(() => new Map(data.households.map((house) => [house.id, house])), [data.households]);
+  // Find a conversation by contact name, town, or number.
+  const threads = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const digits = q.replace(/\D/g, "");
+    if (!q) return allThreads;
+    return allThreads.filter((thread) => {
+      const house = houses.get(thread.householdId);
+      if (`${house?.name ?? ""} ${house?.city ?? ""} ${thread.lastPreview}`.toLowerCase().includes(q)) return true;
+      return digits.length >= 4 && thread.contactAddress.replace(/\D/g, "").includes(digits);
+    });
+  }, [allThreads, houses, search]);
 
   useEffect(() => {
     if (!activeId) {
@@ -135,12 +147,17 @@ export function MessageInbox({
       ) : null}
     <div className={cn("grid min-w-0 gap-3", compact ? "" : "lg:grid-cols-[18rem_minmax(0,1fr)]", admin && !compact && tabKey === "unknown" ? "hidden" : "")}>
       <ul className="grid min-w-0 content-start gap-1 lg:max-h-[70vh] lg:overflow-y-auto">
+        {!householdId && allThreads.length > 5 ? (
+          <li className="min-w-0">
+            <input type="search" className="h-11 w-full rounded-xl border bg-card px-3 text-sm" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or town" aria-label="Search conversations" />
+          </li>
+        ) : null}
         {threads.length ? threads.map((thread) => {
           const house = houses.get(thread.householdId);
           return (
             <ThreadRow key={thread.id} thread={thread} name={house?.name ?? "Contact"} active={activeId === thread.id} onPick={() => setActiveId(thread.id)} />
           );
-        }) : <li className="text-sm text-muted-foreground">No messages yet.</li>}
+        }) : <li className="text-sm text-muted-foreground">{search.trim() ? "No conversations match." : "No messages yet."}</li>}
       </ul>
       {active ? (
         <div className="grid min-w-0 gap-2 rounded-2xl border bg-card p-3">

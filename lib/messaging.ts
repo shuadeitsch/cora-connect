@@ -170,6 +170,8 @@ export function planCampaignAudience(input: {
   skipAlready: boolean;
   projectId?: string | null;
   facts: ContactedFact[];
+  /** "Don't send to landlines" unticked: someone with no mobile-capable number gets one text to their first number. */
+  allowLandlines?: boolean;
 }): {
   ready: { person: ContactablePerson & { householdName: string }; family: MessageFamily; address: string }[];
   skipped: CampaignSkip[];
@@ -183,9 +185,9 @@ export function planCampaignAudience(input: {
       if (seen.has(key)) continue;
       seen.add(key);
       const all = addressesForFamily(person, family);
-      // Texts go to one number only: the best mobile-capable one.
-      const best = family === "sms" ? bestTextNumber(person) : null;
-      const addresses = family === "sms" ? (best ? [best] : []) : all;
+      // One message per person per channel: texts go to the best mobile-capable number, WhatsApp to the first number, email to the first address.
+      const best = family === "sms" ? (bestTextNumber(person) ?? (input.allowLandlines ? all[0] ?? null : null)) : all[0] ?? null;
+      const addresses = best ? [best] : [];
       if (!addresses.length) {
         const detail = family === "sms" && all.length
           ? `Only landline / home phone numbers for ${person.name || "this person"}`
@@ -219,4 +221,29 @@ export function defaultStatesOverlap(channelStates: string[] | null | undefined,
   const list = (channelStates ?? []).map((item) => item.trim().toUpperCase()).filter(Boolean);
   if (!wanted || wanted === "ALL" || !list.length) return true;
   return list.includes(wanted);
+}
+
+function timeOf(value: string | null | undefined): number {
+  const at = value ? Date.parse(value.replace(" ", "T").replace(/\+00$/, "Z")) : NaN;
+  return Number.isFinite(at) ? at : 0;
+}
+
+/** Inbox order: threads with an unread reply first (newest reply on top), then everything else by most recent message. */
+export function sortThreadsForInbox<T extends { lastAt: string; unreadCount: number; lastInboundAt?: string | null }>(threads: T[]): T[] {
+  return threads.slice().sort((a, b) => {
+    const unread = Number(b.unreadCount > 0) - Number(a.unreadCount > 0);
+    if (unread) return unread;
+    if (a.unreadCount > 0) return timeOf(b.lastInboundAt ?? b.lastAt) - timeOf(a.lastInboundAt ?? a.lastAt);
+    return timeOf(b.lastAt) - timeOf(a.lastAt);
+  });
+}
+
+/** Most recent message time (ms) per household, for sorting reply lists. */
+export function latestMessageByHousehold(threads: { householdId: string; lastAt: string }[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const thread of threads) {
+    const at = timeOf(thread.lastAt);
+    if (at > (out.get(thread.householdId) ?? 0)) out.set(thread.householdId, at);
+  }
+  return out;
 }

@@ -162,6 +162,8 @@ export async function sendCampaignMessage(
     contentSid?: string;
     /** When true, send a free-form WhatsApp body (only allowed inside the 24-hour reply window). */
     freeform?: boolean;
+    /** Only when the sender unticked "Don't send to landlines": allow a number saved as a landline / home line. */
+    allowLandline?: boolean;
   },
 ): Promise<ActionResult> {
   const family = channelFamily(input.type);
@@ -196,7 +198,7 @@ export async function sendCampaignMessage(
       await log("skipped", "Removed contact");
       return { ok: false, error: "This contact was removed (Not Jewish, Deceased or Probably doesn't exist)." };
     }
-    if (family === "sms" && person && !canReceiveTexts(lineTypeOf(person, input.to))) {
+    if (family === "sms" && person && !input.allowLandline && !canReceiveTexts(lineTypeOf(person, input.to))) {
       await log("skipped", "Landline or home phone");
       return { ok: false, error: "That number is a landline or home phone line and can't get texts." };
     }

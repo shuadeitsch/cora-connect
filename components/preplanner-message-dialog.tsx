@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useUndoToast } from "@/components/undo-toast";
 import { recordExternalMessageAction, sendCampaignBatchAction } from "@/lib/actions";
 import { stateLabel } from "@/lib/constants";
-import { addressesForFamily, channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
+import { addressesForFamily, bestTextNumber, channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
 import { isTaggedContact } from "@/lib/contact-tags";
 import { fillPlaceholders, templatesOrDefault } from "@/lib/outreach";
 import { greetingFirstName, whatsappMeDigits, whatsappMeLink, whatsappNumberFor } from "@/lib/whatsapp";
@@ -67,9 +67,15 @@ function varsFor(person: Person, house: HouseholdView | undefined, _greeting = t
   };
 }
 
-function addressesFor(mode: Mode, person: Person): string[] {
-  if (mode === "email") return person.email.trim() ? [person.email.trim()] : [];
-  return addressesForFamily(person, mode === "whatsapp" ? "whatsapp" : "sms");
+/** One address per person: texts go to the best mobile-capable number (same rule as "Message this state"), WhatsApp to the first number, email to the first address. */
+function addressesFor(mode: Mode, person: Person, allowLandlines = false): { address: string; landlineOnly: boolean } {
+  if (mode === "email") return { address: person.email.trim(), landlineOnly: false };
+  const all = addressesForFamily(person, mode === "whatsapp" ? "whatsapp" : "sms");
+  if (mode === "whatsapp") return { address: all[0] ?? "", landlineOnly: false };
+  const best = bestTextNumber(person);
+  if (best) return { address: best, landlineOnly: false };
+  if (all.length && allowLandlines) return { address: all[0]!, landlineOnly: false };
+  return { address: "", landlineOnly: all.length > 0 };
 }
 
 function optedFor(mode: Mode, person: Person) {
@@ -176,6 +182,7 @@ export function PreplannerMessageDialog({
   const [pickQuery, setPickQuery] = useState("");
   const [excluded, setExcluded] = useState<Record<string, boolean>>({});
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [skipLandlines, setSkipLandlines] = useState(true);
   const stateHouses = useMemo(() => (stateSel ? baseHouses.filter((house) => stateLabel(house.state || "") === stateSel) : baseHouses), [baseHouses, stateSel]);
   const cityOptions = useMemo(() => {
     const counts = new Map<string, { label: string; n: number }>();
@@ -246,6 +253,7 @@ export function PreplannerMessageDialog({
     setSaved(readSavedQueue());
     setExcluded({});
     setProgress(null);
+    setSkipLandlines(true);
     setCities([]);
     setCityQuery("");
     setPicked({});
@@ -295,11 +303,11 @@ export function PreplannerMessageDialog({
         continue;
       }
       for (const person of people) {
-        const addresses = addressesFor(mode, person);
-        const targets = addresses.length ? addresses : [""];
-        for (const address of targets) {
+        const { address, landlineOnly } = addressesFor(mode, person, !skipLandlines);
+        {
           let skip: string | undefined;
           if (optedFor(mode, person)) skip = mode === "email" ? "Opted out of email" : mode === "whatsapp" ? "Opted out of WhatsApp" : "Opted out of texts";
+          else if (!address && landlineOnly) skip = "Only landline / home phone numbers";
           else if (!address) skip = mode === "email" ? "No email on file" : "No phone on file";
           else if (mode === "whatsapp" && !whatsappMeLink(address, "ok")) skip = `${address} is not a valid WhatsApp number`;
           else if (mode === "email" && !channelFor(channels, type, house!.state)) skip = "No Gmail channel for this state";
@@ -313,12 +321,15 @@ export function PreplannerMessageDialog({
       }
     }
     return out;
-  }, [channels, data, houses, mode, selectedWa, selectedWaApproved, type, whatsappApi, whatsappApiReady, needsTown, needsWhen, visitWhen]);
+  }, [channels, data, houses, mode, selectedWa, selectedWaApproved, type, whatsappApi, whatsappApiReady, needsTown, needsWhen, visitWhen, skipLandlines]);
 
   const manualWa = mode === "whatsapp" && !whatsappApi;
   const ready = rows.filter((row) => !row.skip);
   const skipped = rows.filter((row) => row.skip);
   const chosen = ready.filter((row) => !excluded[row.rid]);
+  // People, never phone numbers: everyone in the audience except those unticked; the parentheses count what will really go out.
+  const selectedPeople = new Set(rows.filter((row) => !(excluded[row.rid] && !row.skip)).map((row) => row.person.id)).size;
+  const sendNoun = mode === "text" ? (chosen.length === 1 ? "text" : "texts") : mode === "email" ? (chosen.length === 1 ? "email" : "emails") : chosen.length === 1 ? "WhatsApp message" : "WhatsApp messages";
   const [previewIdx, setPreviewIdx] = useState(0);
   const previewList = chosen.length ? chosen : ready;
   const safeIdx = previewList.length ? Math.min(previewIdx, previewList.length - 1) : 0;
@@ -406,6 +417,7 @@ export function PreplannerMessageDialog({
             contentSid: mode === "whatsapp" ? selectedWa?.sid : undefined,
             templateVars: mode === "whatsapp" && selectedWaApproved ? { "2": waExtraFor(row.house, row.entry)["2"], "3": waExtraFor(row.house, row.entry)["3"] } : undefined,
             freeform: mode === "whatsapp" && !selectedWaApproved,
+            allowLandline: mode === "text" && !skipLandlines ? true : undefined,
           };
         });
         let batch: { ok: boolean; error?: string }[];
@@ -567,7 +579,7 @@ export function PreplannerMessageDialog({
           : "Send";
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next && !progress && !pending) onClose(); }}>
       <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-heading text-foreground">{title}</DialogTitle>
@@ -620,7 +632,8 @@ export function PreplannerMessageDialog({
                 </li>
               ))}
             </ul>
-            <Button type="button" className="min-h-11 rounded-full" onClick={onClose}>Done</Button>
+            {progress || pending ? <p className="text-sm text-muted-foreground" role="status">Still sending ({progress?.done ?? 0} of {progress?.total ?? chosen.length}). Keep this open until it says Done.</p> : null}
+            <Button type="button" className="min-h-11 rounded-full" disabled={Boolean(progress) || pending} onClick={onClose}>{progress || pending ? "Sending…" : "Done"}</Button>
           </div>
         ) : (
           <div className="grid gap-3">
@@ -854,9 +867,15 @@ export function PreplannerMessageDialog({
               )}
             </fieldset>
 
+            {mode === "text" ? (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-1 size-4" checked={skipLandlines} onChange={(event) => setSkipLandlines(event.target.checked)} />
+                <span>Don’t send to landlines (on by default). Each person gets one text, to their mobile number; people with only a landline or home line are skipped.</span>
+              </label>
+            ) : null}
             <div className="grid gap-1.5">
               <p className="text-sm font-medium text-foreground">
-                Recipients · {chosen.length} selected{skipped.length ? ` · ${skipped.length} skipped` : ""}
+                {selectedPeople} {selectedPeople === 1 ? "person" : "people"} selected ({chosen.length} {sendNoun} will go out){skipped.length ? ` · ${skipped.length} skipped` : ""}
               </p>
               <div className="flex gap-3 text-xs">
                 <button type="button" className="text-primary underline" onClick={() => setExcluded({})}>Select all</button>
