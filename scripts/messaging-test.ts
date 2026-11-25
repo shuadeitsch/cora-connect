@@ -65,4 +65,5 @@ assert(normalizeNavOrder([]).indexOf("/pre-planner") === normalizeNavOrder([]).i
     assert(!/^(mr|mrs|ms|dr|rabbi)\.?$/i.test(g.split(" ")[0]) || / /.test(g), `greeting for ${name}: ${g}`);
   }
 }
+assert(greetingFirstName("S. & G. Wayne-Workman") === "S. and G. Wayne-Workman", "two initials: " + greetingFirstName("S. & G. Wayne-Workman"));
 console.log("messaging-test ok");

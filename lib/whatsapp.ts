@@ -91,6 +91,11 @@ export function greetingFirstName(name: string): string {
     while (phrase[phrase.length - 1] === "and") phrase.pop();
     return `${phrase.join(" ")} ${titleCase(firstA)}`;
   }
+  const fmt = (group: string[]) => group.map((w) => (w.length === 1 ? `${w.toUpperCase()}.` : titleCase(w))).join(" ");
+  if (!isGoodFirst(firstA) && parts[0].length === 1 && parts.length >= 2) {
+    // Two initials sharing a surname ("S. & G. Wayne-Workman"): greet them both, never just "S.".
+    return parts.map(fmt).join(" and ");
+  }
   if (!isGoodFirst(firstA)) {
     // An initial like "J. Smith": use the whole name rather than "there".
     return parts[0].map((w) => (w.length === 1 ? `${w.toUpperCase()}.` : titleCase(w))).join(" ");

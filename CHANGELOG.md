@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.16
+_Updated Nov 25, 2026, 10:35 AM (New York time)._
+- **Greeting for two initials:** a contact like "S. & G. Wayne-Workman" is now greeted "Hi S. and G. Wayne-Workman" instead of "Hi S.". Applies everywhere the CRM builds a greeting.
+
 ## 1.9.15
 _Updated Nov 25, 2026, 10:34 AM (New York time)._
 - **Mass text ("Message this state") sends one text per contact, to the best number.** It picks a known mobile first, then a mobile VoIP line, then a number with no lookup yet, and never texts a landline or a fixed (home/cable) VoIP line. Contacts with only landline or home lines are listed as skipped. Before, it texted every number on the contact.
