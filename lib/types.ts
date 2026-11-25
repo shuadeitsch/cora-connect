@@ -142,6 +142,8 @@ export interface Person {
   emailOptOut?: boolean;
   smsOptOut?: boolean;
   whatsappOptOut?: boolean;
+  /** Carrier line type per number, keyed by last 10 digits. */
+  phoneLineTypes?: Record<string, string>;
 }
 
 export interface Household {

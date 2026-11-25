@@ -1,12 +1,13 @@
 import {
   alreadyContacted,
+  bestTextNumber,
   phoneDigits,
   planCampaignAudience,
   smsOptOutCommand,
   toE164,
   withinWhatsAppWindow,
 } from "../lib/messaging";
-import { whatsappMeLink, whatsappMeDigits } from "../lib/whatsapp";
+import { greetingFirstName, whatsappMeLink, whatsappMeDigits } from "../lib/whatsapp";
 import { normalizeNavOrder, DEFAULT_NAV_HREFS } from "../lib/nav-order";
 
 function assert(ok: unknown, message: string) {
@@ -44,4 +45,24 @@ assert(withinWhatsAppWindow(new Date().toISOString()), "inside window");
 assert(!withinWhatsAppWindow(new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()), "outside window");
 assert(DEFAULT_NAV_HREFS.indexOf("/pre-planner") === DEFAULT_NAV_HREFS.indexOf("/saved-routes") - 1, "default nav");
 assert(normalizeNavOrder([]).indexOf("/pre-planner") === normalizeNavOrder([]).indexOf("/saved-routes") - 1, "empty order");
+{
+  const base = { id: "p", householdId: "h", name: "Mr. & Mrs. Richard Skelton", householdName: "x" };
+  const p1 = { ...base, phone: "(207) 555-0001", phone2: "207-555-0002", phone3: "2075550003", phoneLineTypes: { "2075550001": "landline", "2075550002": "fixedVoip", "2075550003": "mobile" } };
+  assert(bestTextNumber(p1) === "+12075550003", "best skips landline and fixed VoIP");
+  const p2 = { ...base, phone: "2075550001", phone2: "2075550004", phoneLineTypes: { "2075550001": "landline" } };
+  assert(bestTextNumber(p2) === "+12075550004", "unknown beats landline");
+  const p3 = { ...base, phone: "2075550005", phone2: "2075550006", phoneLineTypes: { "2075550006": "nonFixedVoip" } };
+  assert(bestTextNumber(p3) === "+12075550006", "known mobile VoIP beats unknown");
+  const p4 = { ...base, id: "p4", phone: "2075550001", phoneLineTypes: { "2075550001": "landline" } };
+  assert(bestTextNumber(p4) === null, "landline only: nothing to text");
+  const plan = planCampaignAudience({ people: [p1, p4], families: ["sms"], skipAlready: false, facts: [] });
+  assert(plan.ready.length === 1 && plan.ready[0].address === "+12075550003", "one text per person");
+  assert(plan.skipped.length === 1 && /landline/i.test(plan.skipped[0].detail), "landline-only skipped");
+}
+{
+  for (const name of ["Mr. & Mrs. Richard Skelton", "Dr. & Mrs. Alan Hymanson", "Mrs. Jody B Cyr", "Rabbi & Mrs. William Leffler", "Ms. Judy Bernstein"]) {
+    const g = greetingFirstName(name);
+    assert(!/^(mr|mrs|ms|dr|rabbi)\.?$/i.test(g.split(" ")[0]) || / /.test(g), `greeting for ${name}: ${g}`);
+  }
+}
 console.log("messaging-test ok");

@@ -303,6 +303,10 @@ export async function loadSupabase(actor: User): Promise<Database> {
     emailOptOut: Boolean(row.email_opt_out),
     smsOptOut: Boolean(row.sms_opt_out),
     whatsappOptOut: Boolean(row.whatsapp_opt_out),
+    phoneLineTypes:
+      row.phone_line_types && typeof row.phone_line_types === "object" && !Array.isArray(row.phone_line_types)
+        ? Object.fromEntries(Object.entries(row.phone_line_types as Record<string, unknown>).map(([k, v]) => [k, String(v ?? "")]))
+        : {},
   }));
 
   const visits: Visit[] = visitRows.filter(alive).map((row) => ({

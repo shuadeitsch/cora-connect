@@ -61,7 +61,31 @@ export type ContactablePerson = {
   emailOptOut?: boolean;
   smsOptOut?: boolean;
   whatsappOptOut?: boolean;
+  /** Carrier line type per number, keyed by last 10 digits (mobile, nonFixedVoip, fixedVoip, landline, ...). */
+  phoneLineTypes?: Record<string, string>;
 };
+
+/** Line type saved for this number (from a carrier lookup), or "" when unknown. */
+export function lineTypeOf(person: Pick<ContactablePerson, "phoneLineTypes">, number: string): string {
+  return (person.phoneLineTypes ?? {})[phoneDigits(number)]?.trim() ?? "";
+}
+
+/** Landlines and fixed (cable/home) VoIP lines can't receive texts. */
+export function canReceiveTexts(lineType: string): boolean {
+  const folded = lineType.toLowerCase().replace(/[^a-z]/g, "");
+  return folded !== "landline" && folded !== "fixedvoip";
+}
+
+const TEXT_RANK: Record<string, number> = { mobile: 0, nonfixedvoip: 1 };
+
+/** The one number to text: a known mobile first, then mobile VoIP, then unknown; never a landline or fixed VoIP. */
+export function bestTextNumber(person: ContactablePerson): string | null {
+  const ranked = addressesForFamily(person, "sms")
+    .map((address, index) => ({ address, index, type: lineTypeOf(person, address).toLowerCase().replace(/[^a-z]/g, "") }))
+    .filter((item) => canReceiveTexts(item.type))
+    .sort((a, b) => (TEXT_RANK[a.type] ?? 2) - (TEXT_RANK[b.type] ?? 2) || a.index - b.index);
+  return ranked[0]?.address ?? null;
+}
 
 export function addressForFamily(person: ContactablePerson, family: MessageFamily): string | null {
   if (family === "email") return emailsOf(person)[0] ?? null;
@@ -158,9 +182,15 @@ export function planCampaignAudience(input: {
       const key = `${person.id}:${family}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      const addresses = addressesForFamily(person, family);
+      const all = addressesForFamily(person, family);
+      // Texts go to one number only: the best mobile-capable one.
+      const best = family === "sms" ? bestTextNumber(person) : null;
+      const addresses = family === "sms" ? (best ? [best] : []) : all;
       if (!addresses.length) {
-        skipped.push({ householdId: person.householdId, name: person.householdName, reason: "no-address", detail: `No ${family === "email" ? "email" : "phone"} for ${person.name || "this person"}` });
+        const detail = family === "sms" && all.length
+          ? `Only landline / home phone numbers for ${person.name || "this person"}`
+          : `No ${family === "email" ? "email" : "phone"} for ${person.name || "this person"}`;
+        skipped.push({ householdId: person.householdId, name: person.householdName, reason: "no-address", detail });
         continue;
       }
       if (optedOut(person, family)) {

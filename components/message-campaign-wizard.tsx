@@ -12,6 +12,9 @@ import { sendCampaignMessageAction } from "@/lib/actions";
 import { defaultStatesOverlap, planCampaignAudience, channelFamily, channelTypeLabel, withinWhatsAppWindow, type MessageFamily } from "@/lib/messaging";
 import { fillPlaceholders, templatesOrDefault } from "@/lib/outreach";
 import { defaultPreplannerProjectId } from "@/lib/preplanner";
+import { isSummerHome, isTaggedContact } from "@/lib/contact-tags";
+import { summerSettingFor } from "@/lib/summer-default";
+import { greetingFirstName } from "@/lib/whatsapp";
 import type { AppData, HouseholdView, MessagingChannelType } from "@/lib/types";
 
 type Step = "setup" | "preview" | "confirm" | "sending" | "done";
@@ -48,6 +51,15 @@ export function MessageCampaignWizard({
   const [pending, start] = useTransition();
   const setup = data.mailSetup;
   const project = projectId || defaultPreplannerProjectId(data.projects);
+  const summerSetting = summerSettingFor(data.projectSummerSettings, project, state);
+  const [excludeSummer, setExcludeSummer] = useState(summerSetting ? !summerSetting.includeSummer : false);
+  const [skipIds, setSkipIds] = useState<Set<string>>(new Set());
+  // Never message removed contacts (Not Jewish, Probably doesn't exist, Deceased); summer homes follow the project setting.
+  const summerCount = households.filter((house) => !isTaggedContact(house.tags ?? []) && isSummerHome(house.tags)).length;
+  const audience = useMemo(
+    () => households.filter((house) => !isTaggedContact(house.tags ?? []) && !(excludeSummer && isSummerHome(house.tags))),
+    [households, excludeSummer],
+  );
 
   const readyTypes = useMemo(() => {
     return (["email_resend", "email_gmail", "sms_twilio", "whatsapp_twilio"] as MessagingChannelType[]).filter((type) => {
@@ -59,18 +71,18 @@ export function MessageCampaignWizard({
   }, [channels, data.domainSenders.length, data.gmailAccounts.length, setup]);
 
   const people = useMemo(() => {
-    return households.flatMap((house) =>
+    return audience.flatMap((house) =>
       (house.people ?? []).map((person) => ({
         ...person,
         householdId: house.id,
         householdName: house.name,
       })),
     );
-  }, [households]);
+  }, [audience]);
 
   const families = selectedTypes.map((type) => channelFamily(type)).filter((item, index, list) => list.indexOf(item) === index) as MessageFamily[];
 
-  const plan = useMemo(
+  const fullPlan = useMemo(
     () => planCampaignAudience({
       people,
       families: families.length ? families : ["email"],
@@ -80,6 +92,14 @@ export function MessageCampaignWizard({
     }),
     [people, families, skipAlready, project, data.contactedFacts],
   );
+  // People the sender chose to leave out in the preview stay visible there but are not sent.
+  const plan = useMemo(() => ({
+    ready: fullPlan.ready.filter((item) => !skipIds.has(item.person.id)),
+    skipped: [
+      ...fullPlan.ready.filter((item) => skipIds.has(item.person.id)).map((item) => ({ householdId: item.person.householdId, name: item.person.householdName, reason: "no-address" as const, detail: "Left out by you" })),
+      ...fullPlan.skipped,
+    ],
+  }), [fullPlan, skipIds]);
 
   useEffect(() => {
     if (!open) return;
@@ -94,6 +114,8 @@ export function MessageCampaignWizard({
       whatsapp: tmpl?.sms ?? "",
     });
     setSkipAlready(true);
+    setExcludeSummer(summerSetting ? !summerSetting.includeSummer : false);
+    setSkipIds(new Set());
     setIndex(0);
     setResults([]);
     setError("");
@@ -101,16 +123,17 @@ export function MessageCampaignWizard({
     setWaTemplate("");
   }, [open]);
 
-  const current = plan.ready[index];
+  const current = fullPlan.ready[index];
 
   function toggleType(type: MessagingChannelType) {
     setSelectedTypes((current) => (current.includes(type) ? current.filter((item) => item !== type) : [...current, type]));
   }
 
   function previewText(family: MessageFamily, personName: string, house: HouseholdView | undefined, raw: string, subject?: string) {
-    const [first, ...rest] = (personName || house?.name || "").split(" ");
+    const [, ...rest] = (personName || house?.name || "").split(" ");
     return fillPlaceholders(raw, {
-      firstName: first ?? "",
+      // Same greeting as the rest of the CRM: "Hi Richard", "Hi Mr. and Mrs. Smith", never "Hi Mr.".
+      firstName: greetingFirstName(personName || house?.name || ""),
       lastName: rest.join(" "),
       fullName: personName || house?.name || "",
       state: house?.state ?? "",
@@ -130,7 +153,7 @@ export function MessageCampaignWizard({
             {step === "done" ? "Send results" : step === "sending" ? "Sending…" : step === "confirm" ? "Confirm send" : step === "preview" ? "Preview each message" : "Message this state"}
           </DialogTitle>
         </DialogHeader>
-        {state && state !== "ALL" ? <p className="text-sm text-muted-foreground">Audience: {households.length} contacts in {state}{project ? ", this project" : ""}.</p> : <p className="text-sm text-muted-foreground">Audience: {households.length} contacts.</p>}
+        {state && state !== "ALL" ? <p className="text-sm text-muted-foreground">Audience: {audience.length} contacts in {state}{project ? ", this project" : ""}.</p> : <p className="text-sm text-muted-foreground">Audience: {audience.length} contacts.</p>}
         {error ? <Notice>{error}</Notice> : null}
 
         {step === "setup" ? (
@@ -197,13 +220,19 @@ export function MessageCampaignWizard({
                 </label>
               </>
             ) : null}
+            {summerCount ? (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-1" checked={excludeSummer} onChange={(event) => setExcludeSummer(event.target.checked)} />
+                <span>Exclude summer homes ({summerCount})</span>
+              </label>
+            ) : null}
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="mt-1" checked={skipAlready} onChange={(event) => setSkipAlready(event.target.checked)} />
               <span>Skip people already contacted (this project). On by default.</span>
             </label>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" className="min-h-11 rounded-full" disabled={!selectedTypes.length || !plan.ready.length} onClick={() => { setIndex(0); setStep("preview"); }}>
-                Preview ({plan.ready.length})
+              <Button type="button" className="min-h-11 rounded-full" disabled={!selectedTypes.length || !fullPlan.ready.length} onClick={() => { setIndex(0); setStep("preview"); }}>
+                Preview ({fullPlan.ready.length})
               </Button>
               <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={onClose}>Cancel</Button>
             </div>
@@ -215,10 +244,22 @@ export function MessageCampaignWizard({
             <p className="text-sm text-foreground">{current.person.householdName} · {current.person.name} · {channelTypeLabel(selectedTypes.find((type) => channelFamily(type) === current.family) ?? current.family)}</p>
             {current.family === "email" ? <Input value={previewText("email", current.person.name, households.find((h) => h.id === current.person.householdId), subjects.email ?? "")} readOnly /> : null}
             <Textarea className="min-h-32" readOnly value={previewText(current.family, current.person.name, households.find((h) => h.id === current.person.householdId), bodies[current.family] ?? "")} />
-            <p className="text-xs text-muted-foreground">{index + 1} of {plan.ready.length}</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={skipIds.has(current.person.id)}
+                onChange={(event) => setSkipIds((prev) => {
+                  const next = new Set(prev);
+                  if (event.target.checked) next.add(current.person.id); else next.delete(current.person.id);
+                  return next;
+                })}
+              />
+              <span>Don&apos;t send to this person</span>
+            </label>
+            <p className="text-xs text-muted-foreground">{index + 1} of {fullPlan.ready.length}{skipIds.size ? ` · ${skipIds.size} left out` : ""}</p>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" className="min-h-11 rounded-full" disabled={index === 0} onClick={() => setIndex((n) => Math.max(0, n - 1))}>Back</Button>
-              {index < plan.ready.length - 1 ? (
+              {index < fullPlan.ready.length - 1 ? (
                 <Button type="button" className="min-h-11 rounded-full" onClick={() => setIndex((n) => n + 1)}>Next</Button>
               ) : (
                 <Button type="button" className="min-h-11 rounded-full" onClick={() => setStep("confirm")}>Continue</Button>

@@ -5,7 +5,8 @@ import { loadDatabase } from "@/lib/session";
 import { isSupabaseMode, createClient } from "@/lib/supabase/server";
 import { gmailAccountSecrets, touchGmailAccount } from "@/lib/supabase/write";
 import { sendChannelMessage } from "@/lib/messaging-send";
-import { channelFamily, optedOut, withinWhatsAppWindow, type MessageChannelType, type MessageFamily } from "@/lib/messaging";
+import { canReceiveTexts, channelFamily, lineTypeOf, optedOut, withinWhatsAppWindow, type MessageChannelType, type MessageFamily } from "@/lib/messaging";
+import { isTaggedContact } from "@/lib/contact-tags";
 import { messagingSetupStatus, twilioFromNumber, twilioWhatsappNumber } from "@/lib/messaging-status";
 import { fillTemplateBody, templateVarKeys, townFromCity, visitWhenFromScheduled } from "@/lib/whatsapp-vars";
 import { findWhatsAppTemplate, twilioWhatsappContentSid, whatsappTemplateState } from "@/lib/whatsapp-template";
@@ -189,6 +190,15 @@ export async function sendCampaignMessage(
     if (person && optedOut(person, family)) {
       await log("skipped", "Opted out");
       return { ok: false, error: "This person has opted out of that channel." };
+    }
+    const house = db.households.find((item) => item.id === input.householdId);
+    if (house && isTaggedContact(house.tags ?? [])) {
+      await log("skipped", "Removed contact");
+      return { ok: false, error: "This contact was removed (Not Jewish, Deceased or Probably doesn't exist)." };
+    }
+    if (family === "sms" && person && !canReceiveTexts(lineTypeOf(person, input.to))) {
+      await log("skipped", "Landline or home phone");
+      return { ok: false, error: "That number is a landline or home phone line and can't get texts." };
     }
     if (!isSupabaseMode()) {
       await log("failed", "Messaging needs the live CRM.");

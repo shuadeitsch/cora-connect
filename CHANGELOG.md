@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.15
+_Updated Nov 25, 2026, 10:34 AM (New York time)._
+- **Mass text ("Message this state") sends one text per contact, to the best number.** It picks a known mobile first, then a mobile VoIP line, then a number with no lookup yet, and never texts a landline or a fixed (home/cable) VoIP line. Contacts with only landline or home lines are listed as skipped. Before, it texted every number on the contact.
+- **Right greeting in mass messages.** The wizard now uses the same greeting as the rest of the CRM ("Hi Richard", "Hi Mr. and Mrs. Skelton"), so no one gets "Hi Mr.!".
+- **Cleaner audience.** Removed contacts (Not Jewish, Probably doesn't exist, Deceased) are never included; an "Exclude summer homes (N)" box starts from the project's summer-home setting; and each preview has a "Don't send to this person" box.
+- **Server checks** refuse a text to a removed contact or to a number saved as a landline or home phone line.
+- **Line types saved on contacts** (new `people.phone_line_types`, migration 066), filled in for Maine from the earlier phone lookups (no new lookups were run).
+
 ## 1.9.14
 _Updated Nov 20, 2026, 3:36 PM (New York time)._
 - **New admin-only "Permissions" tab in Settings** (next to Summer home settings). One on/off switch for each thing a Shliach or a Bochur can do. Everything starts on, exactly like today. Switches (Shliach): edit contacts, log visits, create/edit routes, edit the Daily planner, use the Pre-planner, export contacts, remove contacts, share with his bochurim. Switches (Bochur): log visits, create/edit routes, see the Daily planner, edit the Daily planner (still needs his shliach to allow it too), use the Pre-planner, see visit history/notes, see phone/email. Messaging stays admin-only and is shown as read-only info, along with each shliach's own planner/sharing choices. Saved in a new `role_permissions` table (migration 064); turning one off hides it in the app, is refused by the server, and is blocked in the database for planner, routes, visits and the Pre-planner.
