@@ -1,6 +1,7 @@
 "use client";
 
 import { InboxWatcher, UnreadBadge } from "@/components/inbox-unread";
+import { BulkSendTracker } from "@/components/bulk-send-tracker";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -461,6 +462,7 @@ export function Shell({
             </div>
           ) : null}
           <InboxWatcher enabled={Boolean(viewer.canMessage) && !viewer.preview && !viewer.sandbox} initial={viewer.unreadMessageCount ?? 0} />
+          <BulkSendTracker enabled={Boolean(viewer.canMessage) && !viewer.preview && !viewer.sandbox} />
           <main className={cn("min-h-0 flex-1", mapPage ? "overflow-hidden" : "overflow-auto")}>
             {mapPage ? children : (
               // Padding lives on an inner block: some browsers drop a scroll container's own bottom padding.

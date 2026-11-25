@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePractice } from "@/components/practice-provider";
+import { startBulkSend, useBulkJob } from "@/components/bulk-send-tracker";
 import { Notice } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUndoToast } from "@/components/undo-toast";
-import { sendCampaignMessageAction } from "@/lib/actions";
 import { defaultStatesOverlap, planCampaignAudience, channelFamily, channelTypeLabel, withinWhatsAppWindow, type MessageFamily } from "@/lib/messaging";
 import { fillPlaceholders, templatesOrDefault } from "@/lib/outreach";
 import { defaultPreplannerProjectId } from "@/lib/preplanner";
@@ -50,6 +50,13 @@ export function MessageCampaignWizard({
   const [error, setError] = useState("");
   const [results, setResults] = useState<{ name: string; ok: boolean; error?: string }[]>([]);
   const [pending, start] = useTransition();
+  const [jobId, setJobId] = useState<string | null>(null);
+  const job = useBulkJob(jobId);
+  useEffect(() => {
+    if (!job) return;
+    setResults((job.results ?? []).map((item) => ({ name: item.name, ok: item.ok, error: item.error ?? undefined })));
+    if (job.status !== "running") setStep("done");
+  }, [job]);
   const setup = data.mailSetup;
   const project = projectId || defaultPreplannerProjectId(data.projects);
   const summerSetting = summerSettingFor(data.projectSummerSettings, project, state);
@@ -123,6 +130,7 @@ export function MessageCampaignWizard({
     setResults([]);
     setError("");
     setStep("setup");
+    setJobId(null);
     setWaTemplate("");
   }, [open]);
 
@@ -158,11 +166,11 @@ export function MessageCampaignWizard({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next && step !== "sending") onClose(); }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-heading text-foreground">
-            {step === "done" ? "Send results" : step === "sending" ? "Sending…" : step === "confirm" ? "Confirm send" : step === "preview" ? "Preview each message" : "Message this state"}
+            {step === "done" ? "Send results" : step === "sending" ? (job ? `Sending ${job.sent + job.failed} of ${job.total}…` : "Sending…") : step === "confirm" ? "Confirm send" : step === "preview" ? "Preview each message" : "Message this state"}
           </DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">{audienceLine}</p>
@@ -289,6 +297,11 @@ export function MessageCampaignWizard({
         {step === "confirm" || step === "sending" || step === "done" ? (
           <div className="grid gap-3">
             <p className="text-sm text-foreground">Send {plan.ready.length} individual message{plan.ready.length === 1 ? "" : "s"} on {families.join(", ")}.</p>
+            {step === "sending" ? (
+              <p className="text-sm text-muted-foreground" role="status">
+                You can close this window, messages will keep going through.{job ? ` ${job.sent} sent · ${job.failed} failed · ${job.total} total.` : ""}
+              </p>
+            ) : null}
             {plan.skipped.length ? (
               <div className="rounded-2xl bg-muted/50 p-3 text-sm">
                 <p className="font-medium text-foreground">{plan.skipped.length} skipped</p>
@@ -315,14 +328,13 @@ export function MessageCampaignWizard({
                   disabled={pending || !plan.ready.length}
                   onClick={() => start(async () => {
                     setStep("sending");
-                    const next: { name: string; ok: boolean; error?: string }[] = [];
                     if (practice.active) {
                       announce({ ok: true }, "Practice mode — nothing was sent");
                       setResults(plan.ready.map((item) => ({ name: item.person.householdName, ok: true })));
                       setStep("done");
                       return;
                     }
-                    for (const item of plan.ready) {
+                    const items = plan.ready.map((item) => {
                       const type = selectedTypes.find((candidate) => channelFamily(candidate) === item.family) ?? (item.family === "email" ? "email_resend" : item.family === "whatsapp" ? "whatsapp_twilio" : "sms_twilio");
                       const channel = channels.find((row) => row.type === type && defaultStatesOverlap(row.defaultStates, state));
                       const house = households.find((h) => h.id === item.person.householdId);
@@ -330,7 +342,8 @@ export function MessageCampaignWizard({
                       const subject = item.family === "email" ? previewText("email", item.person.name, house, subjects.email ?? "") : undefined;
                       const thread = (data.messageThreads ?? []).find((t) => t.householdId === item.person.householdId && channelFamily(t.channelType) === "whatsapp");
                       const needsTemplate = item.family === "whatsapp" && !withinWhatsAppWindow(thread?.lastInboundAt);
-                      const result = await sendCampaignMessageAction({
+                      return {
+                        name: `${item.person.householdName} (${item.family === "sms" ? "text" : item.family})`,
                         channelId: channel?.id,
                         type,
                         to: item.address,
@@ -341,17 +354,22 @@ export function MessageCampaignWizard({
                         projectId: project,
                         templateName: needsTemplate ? waTemplate || undefined : undefined,
                         allowLandline: item.family === "sms" && !skipLandlines ? true : undefined,
-                      });
-                      next.push({ name: `${item.person.householdName} (${item.family})`, ok: result.ok, error: result.ok ? undefined : result.error });
-                      setResults([...next]);
+                      };
+                    });
+                    // The server sends them one by one, so closing this window doesn't stop the send.
+                    const started = await startBulkSend(`${state && state !== "ALL" ? `${state} · ` : ""}${sendCounts.join(", ")}`, items);
+                    if (!started.ok) {
+                      setError(started.error);
+                      setStep("confirm");
+                      return;
                     }
-                    setStep("done");
+                    setJobId(started.id);
                   })}
                 >
                   Send
                 </Button>
               ) : null}
-              <Button type="button" variant="outline" className="min-h-11 rounded-full" disabled={step === "sending"} onClick={onClose}>{step === "done" ? "Close" : step === "sending" ? "Still sending — keep this open" : "Cancel"}</Button>
+              <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={onClose}>{step === "done" || step === "sending" ? "Close" : "Cancel"}</Button>
             </div>
           </div>
         ) : null}

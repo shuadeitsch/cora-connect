@@ -1,15 +1,16 @@
 "use client";
 
 import { fillTemplateBody, templateVarKeys, townFromCity, visitWhenFromScheduled } from "@/lib/whatsapp-vars";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePractice } from "@/components/practice-provider";
+import { startBulkSend, useBulkJob } from "@/components/bulk-send-tracker";
 import { Notice } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUndoToast } from "@/components/undo-toast";
-import { recordExternalMessageAction, sendCampaignBatchAction } from "@/lib/actions";
+import { recordExternalMessageAction } from "@/lib/actions";
 import { stateLabel } from "@/lib/constants";
 import { addressesForFamily, bestTextNumber, channelFamily, defaultStatesOverlap, withinWhatsAppWindow } from "@/lib/messaging";
 import { isTaggedContact } from "@/lib/contact-tags";
@@ -181,7 +182,19 @@ export function PreplannerMessageDialog({
   const [picked, setPicked] = useState<Record<string, boolean>>({});
   const [pickQuery, setPickQuery] = useState("");
   const [excluded, setExcluded] = useState<Record<string, boolean>>({});
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const job = useBulkJob(jobId);
+  const progress = job && job.status === "running" ? { done: job.sent + job.failed, total: job.total } : jobId && !job ? { done: 0, total: 0 } : null;
+  const announced = useRef<string | null>(null);
+  useEffect(() => {
+    if (!job) return;
+    setResults((job.results ?? []).map((item) => ({ name: item.name, ok: item.ok, error: item.error ?? undefined })));
+    if (job.status !== "running" && announced.current !== job.id) {
+      announced.current = job.id;
+      if (!job.failed) announce({ ok: true }, job.sent === 1 ? "Message sent." : `${job.sent} messages sent.`);
+      else announce({ ok: false, error: `${job.sent} sent, ${job.failed} failed.` }, `${job.sent} sent, ${job.failed} failed.`);
+    }
+  }, [job]); // eslint-disable-line react-hooks/exhaustive-deps -- follow the server job
   const [skipLandlines, setSkipLandlines] = useState(true);
   const stateHouses = useMemo(() => (stateSel ? baseHouses.filter((house) => stateLabel(house.state || "") === stateSel) : baseHouses), [baseHouses, stateSel]);
   const cityOptions = useMemo(() => {
@@ -252,7 +265,7 @@ export function PreplannerMessageDialog({
     setTap(false);
     setSaved(readSavedQueue());
     setExcluded({});
-    setProgress(null);
+    setJobId(null);
     setSkipLandlines(true);
     setCities([]);
     setCityQuery("");
@@ -390,55 +403,40 @@ export function PreplannerMessageDialog({
         return;
       }
       setError("");
-      const sent: { name: string; ok: boolean; error?: string }[] = [];
-      setProgress({ done: 0, total: chosen.length });
+      const items = chosen.map((row) => {
+        const channel = channelFor(channels, type, row.house.state);
+        const names = varsFor(row.person, row.house, mode === "email");
+        const filled = mode === "whatsapp" && selectedWaApproved && selectedWa
+          ? fillWhatsAppContent(selectedWa.body, names.firstName || "friend", waExtraFor(row.house, row.entry))
+          : fillPlaceholders(body, names);
+        return {
+          name: `${row.person.name || row.house.name}${mode !== "email" && row.address ? ` (${row.address})` : ""}`,
+          channelId: channel?.id,
+          type,
+          to: row.address,
+          body: filled,
+          subject: mode === "email" ? fillPlaceholders(subject, names) : undefined,
+          householdId: row.house.id,
+          personId: row.person.id,
+          projectId: row.entry?.projectId ?? undefined,
+          templateId: templateId || undefined,
+          templateName: mode === "whatsapp" ? (selectedWa?.name || selectedWa?.label) : catalog.find((item) => item.id === templateId)?.name,
+          preplannerEntryId: row.entry?.id,
+          contentSid: mode === "whatsapp" ? selectedWa?.sid : undefined,
+          templateVars: mode === "whatsapp" && selectedWaApproved ? { "2": waExtraFor(row.house, row.entry)["2"], "3": waExtraFor(row.house, row.entry)["3"] } : undefined,
+          freeform: mode === "whatsapp" && !selectedWaApproved,
+          allowLandline: mode === "text" && !skipLandlines ? true : undefined,
+        };
+      });
+      // The server sends them one by one; the dialog (and the tracker on every page) just shows progress.
+      const label = `${items.length} ${sendNoun}`;
+      const started = await startBulkSend(label, items);
+      if (!started.ok) {
+        setError(started.error);
+        return;
+      }
       setResults([]);
-      const BATCH = 5;
-      for (let i = 0; i < chosen.length; i += BATCH) {
-        const slice = chosen.slice(i, i + BATCH);
-        const inputs = slice.map((row) => {
-          const channel = channelFor(channels, type, row.house.state);
-          const names = varsFor(row.person, row.house, mode === "email");
-          const filled = mode === "whatsapp" && selectedWaApproved && selectedWa
-            ? fillWhatsAppContent(selectedWa.body, names.firstName || "friend", waExtraFor(row.house, row.entry))
-            : fillPlaceholders(body, names);
-          return {
-            channelId: channel?.id,
-            type,
-            to: row.address,
-            body: filled,
-            subject: mode === "email" ? fillPlaceholders(subject, names) : undefined,
-            householdId: row.house.id,
-            personId: row.person.id,
-            projectId: row.entry?.projectId ?? undefined,
-            templateId: templateId || undefined,
-            templateName: mode === "whatsapp" ? (selectedWa?.name || selectedWa?.label) : catalog.find((item) => item.id === templateId)?.name,
-            preplannerEntryId: row.entry?.id,
-            contentSid: mode === "whatsapp" ? selectedWa?.sid : undefined,
-            templateVars: mode === "whatsapp" && selectedWaApproved ? { "2": waExtraFor(row.house, row.entry)["2"], "3": waExtraFor(row.house, row.entry)["3"] } : undefined,
-            freeform: mode === "whatsapp" && !selectedWaApproved,
-            allowLandline: mode === "text" && !skipLandlines ? true : undefined,
-          };
-        });
-        let batch: { ok: boolean; error?: string }[];
-        try {
-          const res = await sendCampaignBatchAction(inputs);
-          batch = res.ok ? res.results : slice.map(() => ({ ok: false, error: res.error }));
-        } catch {
-          batch = slice.map(() => ({ ok: false, error: "The connection dropped. Check Inbox before retrying." }));
-        }
-        slice.forEach((row, index) => sent.push({ name: `${row.person.name || row.house.name}${mode !== "email" && row.address ? ` (${row.address})` : ""}`, ok: batch[index]?.ok ?? false, error: batch[index]?.error }));
-        setResults([...sent]);
-        setProgress({ done: Math.min(i + BATCH, chosen.length), total: chosen.length });
-      }
-      setProgress(null);
-      setResults(sent);
-      const okCount = sent.filter((item) => item.ok).length;
-      if (okCount === sent.length) {
-        announce({ ok: true }, okCount === 1 ? "Message sent." : `${okCount} messages sent.`);
-      } else {
-        announce({ ok: false, error: `${okCount} sent, ${sent.length - okCount} failed.` }, `${okCount} sent, ${sent.length - okCount} failed.`);
-      }
+      setJobId(started.id);
     });
   }
 
@@ -579,7 +577,7 @@ export function PreplannerMessageDialog({
           : "Send";
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next && !progress && !pending) onClose(); }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-heading text-foreground">{title}</DialogTitle>
@@ -632,8 +630,8 @@ export function PreplannerMessageDialog({
                 </li>
               ))}
             </ul>
-            {progress || pending ? <p className="text-sm text-muted-foreground" role="status">Still sending ({progress?.done ?? 0} of {progress?.total ?? chosen.length}). Keep this open until it says Done.</p> : null}
-            <Button type="button" className="min-h-11 rounded-full" disabled={Boolean(progress) || pending} onClick={onClose}>{progress || pending ? "Sending…" : "Done"}</Button>
+            {progress || pending ? <p className="text-sm text-muted-foreground" role="status">You can close this window, messages will keep going through.{progress?.total ? ` (${progress.done} of ${progress.total} so far)` : ""}</p> : null}
+            <Button type="button" className="min-h-11 rounded-full" onClick={onClose}>{progress || pending ? "Close" : "Done"}</Button>
           </div>
         ) : (
           <div className="grid gap-3">

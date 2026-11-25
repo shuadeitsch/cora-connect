@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.18
+_Updated Nov 25, 2026, 5:04 PM (New York time)._
+- **Bulk sends run on the server.** "Message this state" and Pre-planner "Message contacts" now hand the prepared messages to the server, which sends them one by one. The send window says "You can close this window, messages will keep going through." Closing it, changing pages, or reopening the CRM doesn't stop the send. Each message is claimed once, so nothing is sent twice. New `bulk_send_jobs` table (migration 067).
+- **Send tracker on every page.** A small box in the top-right corner shows a running send live (sent · failed · total, with a progress bar), read from the server. It turns into "Done" when finished, and you can hide it with ✕. If the server stops partway (time limit), any open CRM page picks the send back up where it left off.
+- Replaces 1.9.17's "keep this window open" lock: the Close button now works during a send.
+
 ## 1.9.17
 _Updated Nov 25, 2026, 4:20 PM (New York time)._
 - **Pre-planner "Message contacts" sends one text per person.** Texts go to each person's best mobile number (same rule as "Message this state"): known mobile first, then mobile VoIP, then a number not looked up yet. Before, it texted every number on a contact (so some people got 2–3 copies) and tried landlines. WhatsApp also goes to one number per person.

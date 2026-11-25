@@ -14,7 +14,7 @@ import { viewerPermissions } from "@/lib/model";
 import { newId } from "@/lib/ids";
 import { todayIso } from "@/lib/format";
 import { appendNote, parseNotesLog, parseReachedHows } from "@/lib/preplanner";
-import type { ActionResult, MessageItem, MessagingChannel, MessagingChannelType, User } from "@/lib/types";
+import type { ActionResult, Database, MessageItem, MessagingChannel, MessagingChannelType, User } from "@/lib/types";
 
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
@@ -165,6 +165,8 @@ export async function sendCampaignMessage(
     /** Only when the sender unticked "Don't send to landlines": allow a number saved as a landline / home line. */
     allowLandline?: boolean;
   },
+  /** A bulk-send job passes the contacts it already loaded, so each message doesn't reload the whole CRM. */
+  preloaded?: Database,
 ): Promise<ActionResult> {
   const family = channelFamily(input.type);
   const mode = family === "email" ? "email" : family === "whatsapp" ? "whatsapp" : "sms";
@@ -187,7 +189,7 @@ export async function sendCampaignMessage(
   };
   try {
     assert(perms(actor).canMessage, "You don't have permission to send from the CRM.");
-    const db = await loadDatabase();
+    const db = preloaded ?? await loadDatabase();
     const person = input.personId ? db.people.find((item) => item.id === input.personId) : undefined;
     if (person && optedOut(person, family)) {
       await log("skipped", "Opted out");
