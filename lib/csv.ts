@@ -247,7 +247,7 @@ Allowed values:
 - visit_date: YYYY-MM-DD, or blank.
 - reaction: Very happy, Warm, Neutral, Cold, or Very cold / angry. Neutral means "nisht ahin nisht aher". Leave blank if unknown.
 - tags: Not Jewish, Probably doesn't exist, Deceased, or any of them together. Separate tags with a comma or a semicolon. Matching ignores capitalization. Leave blank if neither applies.
-- state: Maine, Wisconsin, New Hampshire, or Unsorted. A 2-letter code (ME, WI, NH) or the full name is fine. Unsorted is for a contact that is not in one of those three states.
+- state: Maine, New Hampshire, or Unsorted. A 2-letter code (ME, NH) or the full name is fine. Unsorted is for a contact that is not in one of those two states.
 - phone: digits, with or without dashes or parentheses. Example: 207-555-0100.
 - phone2, phone3: optional extra numbers, same format. Leave blank if you only have one.
 - email: a normal email address, or blank.

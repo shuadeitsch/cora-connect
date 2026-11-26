@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.19
+_Updated Nov 26, 2026, 11:39 AM (New York time)._
+- **Wisconsin removed.** Wisconsin is gone from the admin state tabs, the sign-up state choice, the Beta preview, messaging channel default states, the dashboard and breakdown state pickers, and the Chabad house picker in Settings. Sign-up now accepts Maine or New Hampshire. Import instructions list Maine, New Hampshire, or Unsorted.
+- Data: the two Wisconsin test contacts ("mg test" and "cora test") were deleted with their test messages, send log, and Pre-planner entries. No other contacts or users had Wisconsin. Audit history is kept.
+
 ## 1.9.18
 _Updated Nov 25, 2026, 5:04 PM (New York time)._
 - **Bulk sends run on the server.** "Message this state" and Pre-planner "Message contacts" now hand the prepared messages to the server, which sends them one by one. The send window says "You can close this window, messages will keep going through." Closing it, changing pages, or reopening the CRM doesn't stop the send. Each message is claimed once, so nothing is sent twice. New `bulk_send_jobs` table (migration 067).

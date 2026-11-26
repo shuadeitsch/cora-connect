@@ -78,7 +78,7 @@ export async function signUpWithPassword(name: string, email: string, password: 
   if (!/.+@.+\..+/.test(normalized)) return { ok: false, error: "Enter a valid email." };
   const stateCode = (state ?? "").trim().toUpperCase();
   const projectName = (project ?? "").trim();
-  if (stateCode && !["ME", "NH", "WI"].includes(stateCode)) return { ok: false, error: "Pick your state: Maine, New Hampshire, or Wisconsin." };
+  if (stateCode && !["ME", "NH"].includes(stateCode)) return { ok: false, error: "Pick your state: Maine or New Hampshire." };
   if (!stateCode && !projectName) return { ok: false, error: "Shluchim pick a state; bochurim pick which project they are here for." };
   const problem = passwordProblem(password, confirm);
   if (problem) return { ok: false, error: problem };

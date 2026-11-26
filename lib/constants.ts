@@ -50,7 +50,6 @@ export const UNSORTED_STATE = "Unsorted";
 
 export const FOCUS_STATES = [
   { code: "ME", name: "Maine" },
-  { code: "WI", name: "Wisconsin" },
   { code: "NH", name: "New Hampshire" },
   { code: UNSORTED_STATE, name: UNSORTED_STATE },
 ] as const;
@@ -126,7 +125,7 @@ export function sameState(left: string, right: string): boolean {
   return normalizeState(left).toLowerCase() === normalizeState(right).toLowerCase();
 }
 
-/** Blank, the word Unsorted, or a value that is not a US state. Maine, Wisconsin, and New Hampshire stay on their own tabs. */
+/** Blank, the word Unsorted, or a value that is not a US state. Maine and New Hampshire stay on their own tabs. */
 export function isUnsortedState(value: string): boolean {
   const raw = value.trim();
   if (!raw) return true;

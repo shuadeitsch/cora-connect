@@ -93,7 +93,7 @@ const sarah = household({
 const david = household({
   id: "2",
   name: "David Levy",
-  state: "WI",
+  state: "NH",
   people: [person({ name: "David Levy", email: "", phone: "6085550101" })],
 });
 const noContact = household({

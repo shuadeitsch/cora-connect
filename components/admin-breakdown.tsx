@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 const STATES: { code: string; name: string }[] = [
   { code: "ME", name: "Maine" },
   { code: "NH", name: "New Hampshire" },
-  { code: "WI", name: "Wisconsin" },
 ];
 const KEY = "cora.dashboard.admin";
 type Metric = "visits" | "contacts";

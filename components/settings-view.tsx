@@ -155,8 +155,8 @@ export function SettingsView({ data, initialTab, recovery, twilioConnected = fal
   );
 }
 
-const HOUSE_STATES = ["Maine", "New Hampshire", "Wisconsin"];
-const STATE_CODES: Record<string, string> = { ME: "Maine", NH: "New Hampshire", WI: "Wisconsin" };
+const HOUSE_STATES = ["Maine", "New Hampshire"];
+const STATE_CODES: Record<string, string> = { ME: "Maine", NH: "New Hampshire" };
 
 /** Read the stored name into the new one-field form. Unknown old text maps to Cora (admin) or his state. */
 function houseValue(stored: string, admin: boolean, states: string[]) {

@@ -21,7 +21,7 @@ A file with that exact header is imported without column matching. An older file
 - `visit_date`: `YYYY-MM-DD`, or blank.
 - `reaction`: `Very happy`, `Warm`, `Neutral`, `Cold`, or `Very cold / angry`. Capitalization and extra spaces do not matter, and a slash may have spaces or not (`Very cold/angry`). Neutral is “nisht ahin nisht aher”. A column named `Reactions`, `Reaction:`, or `Reaction when visited` is the reaction column. The stored value is `very_happy`, `warm`, `neutral`, `cold`, or `very_cold` on `contact_visits.reaction`.
 - `tags`: `Not Jewish`, `Probably doesn't exist`, or both, separated by a comma or a semicolon. Matching ignores capitalization.
-- `state`: `Maine`, `Wisconsin`, `New Hampshire`, or `Unsorted`. A 2-letter code (`ME`, `WI`, `NH`) or the full name is fine. `Unsorted` is for a contact that is not in one of those three states. A blank state is still imported.
+- `state`: `Maine`, `New Hampshire`, or `Unsorted`. A 2-letter code (`ME`, `NH`) or the full name is fine. `Unsorted` is for a contact that is not in one of those two states. A blank state is still imported.
 - `phone`: digits, with or without dashes or parentheses.
 - `email`: a bad address is a warning and is left blank.
 
